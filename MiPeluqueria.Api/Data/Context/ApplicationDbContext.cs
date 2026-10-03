@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,6 +65,13 @@ namespace MiPeluqueria.Api.Data.Context
         {
             base.OnModelCreating(modelBuilder);
 
+            // --- REGLA DE ARQUITECTURA: Apagar el borrado en cascada físico ---
+            // Evita el error "may cause cycles or multiple cascade paths" en SQL Server
+            foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
+            {
+                relationship.DeleteBehavior = DeleteBehavior.Restrict;
+            }
+
             // Aplica las configuraciones de claves compuestas y cascada de la carpeta Configurations
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
@@ -114,8 +122,12 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<ComisionesConfig>().Property(c => c.PorcentajeVentaProducto).HasPrecision(5, 2);
             modelBuilder.Entity<Liquidacion>().Property(l => l.TotalPagar).HasPrecision(18, 2);
             modelBuilder.Entity<DetalleLiquidacion>().Property(d => d.MontoComisionCalculado).HasPrecision(18, 2);
+            // Agregados para limpiar advertencias
+            modelBuilder.Entity<Liquidacion>().Property(l => l.TotalProductos).HasPrecision(18, 2);
+            modelBuilder.Entity<Liquidacion>().Property(l => l.TotalServicios).HasPrecision(18, 2);
+            modelBuilder.Entity<Pago>().Property(p => p.Importe).HasPrecision(18, 2);
 
-            // Seed Data Inicial (Estándar de la Industria, sin atributos de diagnóstico)
+            // Seed Data Inicial
             modelBuilder.Entity<EstadoTurno>().HasData(
                 new EstadoTurno { Id = 1, Nombre = "Pendiente", CreatedAt = DateTime.UtcNow },
                 new EstadoTurno { Id = 2, Nombre = "Confirmado", CreatedAt = DateTime.UtcNow },

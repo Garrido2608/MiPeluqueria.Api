@@ -2,7 +2,6 @@
 using MiPeluqueria.Api.DTOs.Clientes;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.Models.Clientes;
-using MiPeluqueria.Api.Repositories.Implementations;
 using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 using System;
@@ -30,10 +29,7 @@ namespace MiPeluqueria.Api.Services.Implementations
             var mesActual = DateTime.UtcNow.Month;
             foreach (var c in dtos)
             {
-                if (c.FechaNacimiento.HasValue)
-                {
-                    c.EsCumpleaneroDelMes = (c.FechaNacimiento.Value.Month == mesActual);
-                }
+                c.EsCumpleaneroDelMes = (c.FechaNacimiento.Month == mesActual);
             }
 
             return ApiResponse<List<ClienteResponseDto>>.Exito(dtos, "Clientes obtenidos con éxito");

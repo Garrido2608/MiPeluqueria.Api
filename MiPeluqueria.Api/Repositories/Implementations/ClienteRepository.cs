@@ -16,7 +16,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<List<Cliente>> GetAllAsync() => //acelera la base de datos xq no guarda en memoria "vigilar" los archivos solo los llama 
+        public async Task<List<Cliente>> GetAllAsync() => // acelera la base de datos xq no guarda en memoria "vigilar" los archivos solo los llama 
             await _context.Clientes.AsNoTracking().ToListAsync();
 
         public async Task<Cliente?> GetByIdAsync(int id) =>

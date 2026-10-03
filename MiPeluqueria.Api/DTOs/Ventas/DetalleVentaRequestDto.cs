@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using MiPeluqueria.Api.Models.Ventas;
+using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
 {

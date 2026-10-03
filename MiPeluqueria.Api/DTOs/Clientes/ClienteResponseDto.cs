@@ -1,6 +1,5 @@
 ﻿using System;
 
-
 namespace MiPeluqueria.Api.DTOs.Clientes
 {
     public class ClienteResponseDto

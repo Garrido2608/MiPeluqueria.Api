@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MiPeluqueria.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class Inicial_Completa : Migration
+    public partial class Inicial_Completa_Final : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -273,7 +273,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.CategoriaId,
                         principalTable: "CategoriasServicio",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -300,7 +300,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -327,7 +327,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -340,8 +340,8 @@ namespace MiPeluqueria.Api.Migrations
                     FechaDesde = table.Column<DateTime>(type: "datetime2", nullable: false),
                     FechaHasta = table.Column<DateTime>(type: "datetime2", nullable: false),
                     FechaVencimiento = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    TotalServicios = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    TotalProductos = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    TotalServicios = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    TotalProductos = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     TotalPagar = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     FechaPago = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Estado = table.Column<int>(type: "int", nullable: false),
@@ -359,7 +359,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -377,13 +377,13 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.EspecialidadId,
                         principalTable: "Especialidades",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_PeluqueroEspecialidades_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -415,12 +415,13 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.CategoriaId,
                         principalTable: "CategoriasProducto",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Productos_Proveedores_ProveedorId",
                         column: x => x.ProveedorId,
                         principalTable: "Proveedores",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -448,7 +449,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.SesionCajaId,
                         principalTable: "SesionesCaja",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -479,12 +480,14 @@ namespace MiPeluqueria.Api.Migrations
                         name: "FK_Clientes_TiposCabello_TipoCabelloId",
                         column: x => x.TipoCabelloId,
                         principalTable: "TiposCabello",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Clientes_TiposRostro_TipoRostroId",
                         column: x => x.TipoRostroId,
                         principalTable: "TiposRostro",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -511,12 +514,13 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_ComisionesConfigs_Servicios_ServicioId",
                         column: x => x.ServicioId,
                         principalTable: "Servicios",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -543,7 +547,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.LiquidacionId,
                         principalTable: "Liquidaciones",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -572,7 +576,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ProductoId,
                         principalTable: "Productos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -603,24 +607,25 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Turnos_EstadosTurno_EstadoId",
                         column: x => x.EstadoId,
                         principalTable: "EstadosTurno",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Turnos_MotivosCancelacion_MotivoCancelacionId",
                         column: x => x.MotivoCancelacionId,
                         principalTable: "MotivosCancelacion",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Turnos_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -656,18 +661,20 @@ namespace MiPeluqueria.Api.Migrations
                         name: "FK_Usuarios_Clientes_ClienteId",
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Usuarios_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Usuarios_Roles_RolId",
                         column: x => x.RolId,
                         principalTable: "Roles",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -696,18 +703,19 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_FichasTecnicas_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_FichasTecnicas_Turnos_TurnoId",
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -735,19 +743,20 @@ namespace MiPeluqueria.Api.Migrations
                         name: "FK_HistorialEstadoTurnos_EstadosTurno_EstadoAnteriorId",
                         column: x => x.EstadoAnteriorId,
                         principalTable: "EstadosTurno",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_HistorialEstadoTurnos_EstadosTurno_EstadoNuevoId",
                         column: x => x.EstadoNuevoId,
                         principalTable: "EstadosTurno",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_HistorialEstadoTurnos_Turnos_TurnoId",
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -767,13 +776,13 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ServicioId,
                         principalTable: "Servicios",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_TurnoServicios_Turnos_TurnoId",
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -801,18 +810,20 @@ namespace MiPeluqueria.Api.Migrations
                         name: "FK_Ventas_Clientes_ClienteId",
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Ventas_SesionesCaja_SesionCajaId",
                         column: x => x.SesionCajaId,
                         principalTable: "SesionesCaja",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Ventas_Turnos_TurnoId",
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -841,7 +852,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.UsuarioId,
                         principalTable: "Usuarios",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -882,7 +893,7 @@ namespace MiPeluqueria.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     VentaId = table.Column<int>(type: "int", nullable: false),
                     MedioPagoId = table.Column<int>(type: "int", nullable: false),
-                    Importe = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Importe = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -897,13 +908,13 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.MedioPagoId,
                         principalTable: "MediosPago",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Pagos_Ventas_VentaId",
                         column: x => x.VentaId,
                         principalTable: "Ventas",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.InsertData(
@@ -911,12 +922,12 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9085), null, null, false, "Pendiente", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9087), null, null, false, "Confirmado", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9089), null, null, false, "En Proceso", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9090), null, null, false, "Completado", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9091), null, null, false, "Cancelado", null },
-                    { 6, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9093), null, null, false, "No Asistió", null }
+                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8662), null, null, false, "Pendiente", null },
+                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8664), null, null, false, "Confirmado", null },
+                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8666), null, null, false, "En Proceso", null },
+                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8667), null, null, false, "Completado", null },
+                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8669), null, null, false, "Cancelado", null },
+                    { 6, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8670), null, null, false, "No Asistió", null }
                 });
 
             migrationBuilder.InsertData(
@@ -924,13 +935,13 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9203), null, null, false, "Efectivo", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9205), null, null, false, "Tarjeta de Débito", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9206), null, null, false, "Tarjeta de Crédito", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9208), null, null, false, "Transferencia / Alias", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9209), null, null, false, "Mercado Pago QR", null },
-                    { 6, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9210), null, null, false, "Billetera Virtual (Otra)", null },
-                    { 7, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9212), null, null, false, "Canje / Cortesía", null }
+                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8904), null, null, false, "Efectivo", null },
+                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8906), null, null, false, "Tarjeta de Débito", null },
+                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8908), null, null, false, "Tarjeta de Crédito", null },
+                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8909), null, null, false, "Transferencia / Alias", null },
+                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8911), null, null, false, "Mercado Pago QR", null },
+                    { 6, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8912), null, null, false, "Billetera Virtual (Otra)", null },
+                    { 7, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8914), null, null, false, "Canje / Cortesía", null }
                 });
 
             migrationBuilder.InsertData(
@@ -938,11 +949,11 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9236), null, null, false, "Administrador", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9238), null, null, false, "Recepcionista", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9239), null, null, false, "Peluquero", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9240), null, null, false, "Cliente", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9241), null, null, false, "Cajero", null }
+                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8940), null, null, false, "Administrador", null },
+                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8942), null, null, false, "Recepcionista", null },
+                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8943), null, null, false, "Peluquero", null },
+                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8944), null, null, false, "Cliente", null },
+                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8946), null, null, false, "Cajero", null }
                 });
 
             migrationBuilder.CreateIndex(

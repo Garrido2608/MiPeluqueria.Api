@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MiPeluqueria.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261003042837_Inicial_Completa")]
-    partial class Inicial_Completa
+    [Migration("20261003044351_Inicial_Completa_Final")]
+    partial class Inicial_Completa_Final
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -306,35 +306,35 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9236),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8940),
                             IsDeleted = false,
                             Nombre = "Administrador"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9238),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8942),
                             IsDeleted = false,
                             Nombre = "Recepcionista"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9239),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8943),
                             IsDeleted = false,
                             Nombre = "Peluquero"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9240),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8944),
                             IsDeleted = false,
                             Nombre = "Cliente"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9241),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8946),
                             IsDeleted = false,
                             Nombre = "Cajero"
                         });
@@ -759,42 +759,42 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9085),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8662),
                             IsDeleted = false,
                             Nombre = "Pendiente"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9087),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8664),
                             IsDeleted = false,
                             Nombre = "Confirmado"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9089),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8666),
                             IsDeleted = false,
                             Nombre = "En Proceso"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9090),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8667),
                             IsDeleted = false,
                             Nombre = "Completado"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9091),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8669),
                             IsDeleted = false,
                             Nombre = "Cancelado"
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9093),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8670),
                             IsDeleted = false,
                             Nombre = "No Asistió"
                         });
@@ -1320,9 +1320,11 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalProductos")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalServicios")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1371,49 +1373,49 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9203),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8904),
                             IsDeleted = false,
                             Nombre = "Efectivo"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9205),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8906),
                             IsDeleted = false,
                             Nombre = "Tarjeta de Débito"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9206),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8908),
                             IsDeleted = false,
                             Nombre = "Tarjeta de Crédito"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9208),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8909),
                             IsDeleted = false,
                             Nombre = "Transferencia / Alias"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9209),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8911),
                             IsDeleted = false,
                             Nombre = "Mercado Pago QR"
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9210),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8912),
                             IsDeleted = false,
                             Nombre = "Billetera Virtual (Otra)"
                         },
                         new
                         {
                             Id = 7,
-                            CreatedAt = new DateTime(2026, 10, 3, 4, 28, 37, 20, DateTimeKind.Utc).AddTicks(9212),
+                            CreatedAt = new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8914),
                             IsDeleted = false,
                             Nombre = "Canje / Cortesía"
                         });
@@ -1487,6 +1489,7 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("Importe")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsDeleted")
@@ -1626,11 +1629,13 @@ namespace MiPeluqueria.Api.Migrations
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoCabello", "TipoCabello")
                         .WithMany("Clientes")
-                        .HasForeignKey("TipoCabelloId");
+                        .HasForeignKey("TipoCabelloId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoRostro", "TipoRostro")
                         .WithMany("Clientes")
-                        .HasForeignKey("TipoRostroId");
+                        .HasForeignKey("TipoRostroId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("TipoCabello");
 
@@ -1642,18 +1647,19 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.Cliente", "Cliente")
                         .WithMany("FichasTecnicas")
                         .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("FichasTecnicas")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Turno", "Turno")
                         .WithMany()
-                        .HasForeignKey("TurnoId");
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Cliente");
 
@@ -1667,7 +1673,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Seguridad.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Usuario");
@@ -1677,16 +1683,18 @@ namespace MiPeluqueria.Api.Migrations
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.Cliente", "Cliente")
                         .WithMany()
-                        .HasForeignKey("ClienteId");
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany()
-                        .HasForeignKey("PeluqueroId");
+                        .HasForeignKey("PeluqueroId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Seguridad.Rol", "Rol")
                         .WithMany("Usuarios")
                         .HasForeignKey("RolId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Cliente");
@@ -1701,7 +1709,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Stock.Producto", "Producto")
                         .WithMany("MovimientosStock")
                         .HasForeignKey("ProductoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Producto");
@@ -1712,12 +1720,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Stock.CategoriaProducto", "Categoria")
                         .WithMany("Productos")
                         .HasForeignKey("CategoriaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Stock.Proveedor", "Proveedor")
                         .WithMany("Productos")
-                        .HasForeignKey("ProveedorId");
+                        .HasForeignKey("ProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Categoria");
 
@@ -1729,7 +1738,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("BloqueosHorario")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Peluquero");
@@ -1739,18 +1748,19 @@ namespace MiPeluqueria.Api.Migrations
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.EstadoTurno", "EstadoAnterior")
                         .WithMany()
-                        .HasForeignKey("EstadoAnteriorId");
+                        .HasForeignKey("EstadoAnteriorId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.EstadoTurno", "EstadoNuevo")
                         .WithMany()
                         .HasForeignKey("EstadoNuevoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Turno", "Turno")
                         .WithMany("HistorialEstados")
                         .HasForeignKey("TurnoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("EstadoAnterior");
@@ -1765,7 +1775,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("HorariosLaborales")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Peluquero");
@@ -1776,13 +1786,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Especialidad", "Especialidad")
                         .WithMany("PeluqueroEspecialidades")
                         .HasForeignKey("EspecialidadId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("PeluqueroEspecialidades")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Especialidad");
@@ -1795,7 +1805,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.CategoriaServicio", "Categoria")
                         .WithMany("Servicios")
                         .HasForeignKey("CategoriaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Categoria");
@@ -1806,23 +1816,24 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.Cliente", "Cliente")
                         .WithMany("Turnos")
                         .HasForeignKey("ClienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.EstadoTurno", "Estado")
                         .WithMany("Turnos")
                         .HasForeignKey("EstadoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.MotivoCancelacion", "MotivoCancelacion")
                         .WithMany("TurnosCancelados")
-                        .HasForeignKey("MotivoCancelacionId");
+                        .HasForeignKey("MotivoCancelacionId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("Turnos")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Cliente");
@@ -1839,13 +1850,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Servicio", "Servicio")
                         .WithMany("TurnoServicios")
                         .HasForeignKey("ServicioId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Turno", "Turno")
                         .WithMany("TurnoServicios")
                         .HasForeignKey("TurnoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Servicio");
@@ -1858,12 +1869,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany()
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Servicio", "Servicio")
                         .WithMany()
-                        .HasForeignKey("ServicioId");
+                        .HasForeignKey("ServicioId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Peluquero");
 
@@ -1875,7 +1887,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.Liquidacion", "Liquidacion")
                         .WithMany("DetallesLiquidacion")
                         .HasForeignKey("LiquidacionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Liquidacion");
@@ -1897,7 +1909,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany()
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Peluquero");
@@ -1908,7 +1920,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.SesionCaja", "SesionCaja")
                         .WithMany("MovimientosCaja")
                         .HasForeignKey("SesionCajaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("SesionCaja");
@@ -1919,13 +1931,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.MedioPago", "MedioPago")
                         .WithMany("Pagos")
                         .HasForeignKey("MedioPagoId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.Venta", "Venta")
                         .WithMany("Pagos")
                         .HasForeignKey("VentaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("MedioPago");
@@ -1937,17 +1949,19 @@ namespace MiPeluqueria.Api.Migrations
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.Cliente", "Cliente")
                         .WithMany()
-                        .HasForeignKey("ClienteId");
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.SesionCaja", "SesionCaja")
                         .WithMany("Ventas")
                         .HasForeignKey("SesionCajaId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Turno", "Turno")
                         .WithMany()
-                        .HasForeignKey("TurnoId");
+                        .HasForeignKey("TurnoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Cliente");
 

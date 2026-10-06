@@ -57,6 +57,8 @@ builder.Services.AddCors(options =>
 
 //agregados extra 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IPeluqueroRepository, PeluqueroRepository>();
+builder.Services.AddScoped<IPeluqueroService, PeluqueroService>();
 
 // FluentValidation, con esto no le ponemos request a los dtos, los dejamos simples y hacemos una validacion antes
 builder.Services.AddFluentValidationAutoValidation();

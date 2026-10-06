@@ -13,8 +13,6 @@ using MiPeluqueria.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,14 +52,6 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
-
-//agregados extra 
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// FluentValidation, con esto no le ponemos request a los dtos, los dejamos simples y hacemos una validacion antes
-builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
 
 // 6. Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();

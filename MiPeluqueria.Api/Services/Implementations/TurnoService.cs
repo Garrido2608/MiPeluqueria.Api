@@ -9,26 +9,26 @@ using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Models.Turnos;
 using MiPeluqueria.Api.Repositories.Interfaces;
+using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
-    public interface ITurnoService
-    {
-        Task<ApiResponse<TurnoResponseDto>> ReservarTurnoAsync(CrearTurnoDto dto);
-        Task<ApiResponse<bool>> CambiarEstadoAsync(int turnoId, CambiarEstadoTurnoDto dto, int usuarioId);
-        Task<ApiResponse<List<TurnoResponseDto>>> ObtenerAgendaPeluqueroFechaAsync(int peluqueroId, DateTime fecha);
-    }
-
     public class TurnoService : ITurnoService
     {
         private readonly ITurnoRepository _turnoRepo;
-        private readonly ApplicationDbContext _context; // Para consultas cruzadas de verificación
+        private readonly ApplicationDbContext _context; // Mantenemos el DbContext solo para consultas de lectura rápidas
+        private readonly IUnitOfWork _unitOfWork;       // LA ESTRELLA DE LA FASE 1
         private readonly IMapper _mapper;
 
-        public TurnoService(ITurnoRepository turnoRepo, ApplicationDbContext context, IMapper mapper)
+        public TurnoService(
+            ITurnoRepository turnoRepo,
+            ApplicationDbContext context,
+            IUnitOfWork unitOfWork,
+            IMapper mapper)
         {
             _turnoRepo = turnoRepo;
             _context = context;
+            _unitOfWork = unitOfWork;
             _mapper = mapper;
         }
 
@@ -81,14 +81,14 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (solapado)
                 return ApiResponse<TurnoResponseDto>.Falla("El profesional ya tiene un turno reservado en ese intervalo.");
 
-            // 6. Construir y persistir la entidad con sus TurnoServicios (precio histórico congelado)
+            // 6. Construir Entidad (Congelando el precio histórico en TurnoServicios)
             var nuevoTurno = new Turno
             {
                 ClienteId = dto.ClienteId,
                 PeluqueroId = dto.PeluqueroId,
                 FechaHoraInicio = dto.FechaHoraInicio,
                 FechaHoraFin = fechaFinCalculada,
-                EstadoId = (int)EstadoTurnoEnum.Pendiente,
+                EstadoId = 1, // 1 = Pendiente
                 MontoTotalEstimado = montoTotal,
                 Observaciones = dto.Observaciones
             };
@@ -103,17 +103,21 @@ namespace MiPeluqueria.Api.Services.Implementations
                 });
             }
 
+            // Dejamos el turno preparado en la memoria RAM
             await _turnoRepo.AddAsync(nuevoTurno);
 
-            // 7. Auditoría inicial de estado
+            // 7. Dejamos el historial de auditoría preparado en la memoria RAM
             await _turnoRepo.AddHistorialEstadoAsync(new HistorialEstadoTurno
             {
                 TurnoId = nuevoTurno.Id,
                 EstadoAnteriorId = null,
-                EstadoNuevoId = (int)EstadoTurnoEnum.Pendiente,
+                EstadoNuevoId = 1, // 1 = Pendiente
                 FechaCambio = DateTime.UtcNow,
                 Observaciones = "Creación de la reserva."
             });
+
+            // EL CORAZÓN DE LA FASE 1: Guardamos todo junto en SQL Server
+            await _unitOfWork.SaveChangesAsync();
 
             // 8. Cargar detalles para respuesta DTO
             var turnoCompleto = await _turnoRepo.GetByIdConDetallesAsync(nuevoTurno.Id);
@@ -129,15 +133,15 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (turno == null)
                 return ApiResponse<bool>.Falla("El turno no existe.");
 
-            if (dto.NuevoEstadoId == (int)EstadoTurnoEnum.Cancelado && dto.MotivoCancelacionId == null)
+            if (dto.NuevoEstadoId == 5 && dto.MotivoCancelacionId == null) // 5 = Cancelado
                 return ApiResponse<bool>.Falla("Es obligatorio especificar el motivo de cancelación.");
 
             int estadoAnterior = turno.EstadoId;
             turno.EstadoId = dto.NuevoEstadoId;
             turno.MotivoCancelacionId = dto.MotivoCancelacionId;
 
+            // Preparamos cambios en RAM
             await _turnoRepo.UpdateAsync(turno);
-
             await _turnoRepo.AddHistorialEstadoAsync(new HistorialEstadoTurno
             {
                 TurnoId = turno.Id,
@@ -147,6 +151,9 @@ namespace MiPeluqueria.Api.Services.Implementations
                 UsuarioId = usuarioId,
                 Observaciones = dto.Observaciones
             });
+
+            // Guardamos todo junto
+            await _unitOfWork.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Estado de turno actualizado con trazabilidad.");
         }

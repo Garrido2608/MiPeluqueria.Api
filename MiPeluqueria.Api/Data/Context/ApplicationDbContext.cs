@@ -155,6 +155,14 @@ namespace MiPeluqueria.Api.Data.Context
                 new Rol { Id = 5, Nombre = "Cajero", CreatedAt = DateTime.UtcNow }
             );
 
+            modelBuilder.Entity<CategoriaServicio>().HasData(
+                  new CategoriaServicio { Id = 1, Nombre = "Peluquería", CreatedAt = DateTime.UtcNow },
+              new CategoriaServicio { Id = 2, Nombre = "Barbería", CreatedAt = DateTime.UtcNow },
+             new CategoriaServicio { Id = 3, Nombre = "Colorimetría", CreatedAt = DateTime.UtcNow },
+             new CategoriaServicio { Id = 4, Nombre = "Tratamientos Capilares", CreatedAt = DateTime.UtcNow }
+             );
+
+
             // Seed Data: Primer Usuario Administrador
             // La contraseña es "Tesis2026*" encriptada con BCrypt
             modelBuilder.Entity<Usuario>().HasData(

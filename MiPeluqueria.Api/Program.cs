@@ -10,6 +10,9 @@ using MiPeluqueria.Api.Repositories.Implementations;
 using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Implementations;
 using MiPeluqueria.Api.Services.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // 3. Inyección de Dependencias (IoC Scoped) - MATRIZ COMPLETA
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
 builder.Services.AddScoped<ITurnoService, TurnoService>();
@@ -52,6 +57,23 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
+
 var app = builder.Build();
 
 // 7. Pipeline de middlewares
@@ -65,6 +87,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("CorsFrontend");
+app.UseAuthentication(); 
+app.UseAuthorization();
 app.UseAuthorization();
 app.MapControllers();
 

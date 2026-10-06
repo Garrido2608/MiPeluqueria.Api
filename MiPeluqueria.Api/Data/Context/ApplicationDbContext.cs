@@ -154,6 +154,24 @@ namespace MiPeluqueria.Api.Data.Context
                 new Rol { Id = 4, Nombre = "Cliente", CreatedAt = DateTime.UtcNow },
                 new Rol { Id = 5, Nombre = "Cajero", CreatedAt = DateTime.UtcNow }
             );
+
+            // Seed Data: Primer Usuario Administrador
+            // La contraseña es "Tesis2026*" encriptada con BCrypt
+            modelBuilder.Entity<Usuario>().HasData(
+                new Usuario
+                {
+                    Id = 1,
+                    RolId = 1, // 1 = Administrador
+                    Username = "admin",
+                    PasswordHash = "$2a$11$0nN01jB5P169DXZgN/.hCeeNInhV/9tYkH.fK5v4a9jR1LqFkI5C6", // BCrypt de "Tesis2026*"
+                    Email = "admin@tesis.com",
+                    EmailVerificado = true,
+                    AceptaTerminos = true,
+                    Activo = true,
+                    CreatedAt = DateTime.UtcNow,
+                    IsDeleted = false
+                }
+            );
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

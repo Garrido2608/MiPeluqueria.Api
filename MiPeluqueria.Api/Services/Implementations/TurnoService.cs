@@ -16,8 +16,8 @@ namespace MiPeluqueria.Api.Services.Implementations
     public class TurnoService : ITurnoService
     {
         private readonly ITurnoRepository _turnoRepo;
-        private readonly ApplicationDbContext _context; // Mantenemos el DbContext solo para consultas de lectura rápidas
-        private readonly IUnitOfWork _unitOfWork;       // LA ESTRELLA DE LA FASE 1
+        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
 
         public TurnoService(
@@ -34,7 +34,6 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<TurnoResponseDto>> ReservarTurnoAsync(CrearTurnoDto dto)
         {
-            // 1. Validar existencia del profesional
             var peluquero = await _context.Peluqueros
                 .Include(p => p.HorariosLaborales)
                 .Include(p => p.BloqueosHorario)
@@ -43,7 +42,6 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (peluquero == null)
                 return ApiResponse<TurnoResponseDto>.Falla("El profesional seleccionado no existe o está inactivo.");
 
-            // 2. Recuperar los servicios solicitados y acumular duración y precio histórico
             var servicios = await _context.Servicios
                 .Where(s => dto.ServiciosIds.Contains(s.Id) && s.Activo)
                 .ToListAsync();
@@ -55,7 +53,6 @@ namespace MiPeluqueria.Api.Services.Implementations
             decimal montoTotal = servicios.Sum(s => s.Precio);
             DateTime fechaFinCalculada = dto.FechaHoraInicio.AddMinutes(duracionTotalMinutos);
 
-            // 3. Validar si el profesional trabaja ese día de la semana y en ese rango horario
             var diaSemana = dto.FechaHoraInicio.DayOfWeek;
             var horaInicio = dto.FechaHoraInicio.TimeOfDay;
             var horaFin = fechaFinCalculada.TimeOfDay;
@@ -68,20 +65,17 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (!horarioValido)
                 return ApiResponse<TurnoResponseDto>.Falla("El horario seleccionado está fuera de la jornada laboral del profesional.");
 
-            // 4. Validar que no coincida con Bloqueos de Horario (Vacaciones, médico, francos)
             bool tieneBloqueo = peluquero.BloqueosHorario.Any(b =>
                 dto.FechaHoraInicio < b.FechaFin && fechaFinCalculada > b.FechaInicio);
 
             if (tieneBloqueo)
-                return ApiResponse<TurnoResponseDto>.Falla("El profesional no se encuentra disponible en esa franja horaria (bloqueo por ausencia programada).");
+                return ApiResponse<TurnoResponseDto>.Falla("El profesional no se encuentra disponible en esa franja horaria (bloqueo activo).");
 
-            // 5. Validar que no se solape con otro turno ya reservado
             bool solapado = await _turnoRepo.ExisteSolapamientoAsync(dto.PeluqueroId, dto.FechaHoraInicio, fechaFinCalculada);
 
             if (solapado)
                 return ApiResponse<TurnoResponseDto>.Falla("El profesional ya tiene un turno reservado en ese intervalo.");
 
-            // 6. Construir Entidad (Congelando el precio histórico en TurnoServicios)
             var nuevoTurno = new Turno
             {
                 ClienteId = dto.ClienteId,
@@ -103,23 +97,22 @@ namespace MiPeluqueria.Api.Services.Implementations
                 });
             }
 
-            // Dejamos el turno preparado en la memoria RAM
+            // Preparar Turno en memoria
             await _turnoRepo.AddAsync(nuevoTurno);
 
-            // 7. Dejamos el historial de auditoría preparado en la memoria RAM
+            // Preparar Historial en memoria (Usando la propiedad de navegación 'Turno', no el 'Id')
             await _turnoRepo.AddHistorialEstadoAsync(new HistorialEstadoTurno
             {
-                TurnoId = nuevoTurno.Id,
+                Turno = nuevoTurno,
                 EstadoAnteriorId = null,
                 EstadoNuevoId = 1, // 1 = Pendiente
                 FechaCambio = DateTime.UtcNow,
                 Observaciones = "Creación de la reserva."
             });
 
-            // EL CORAZÓN DE LA FASE 1: Guardamos todo junto en SQL Server
+            // GATILLO TRANSACCIONAL - Todo se guarda junto aquí
             await _unitOfWork.SaveChangesAsync();
 
-            // 8. Cargar detalles para respuesta DTO
             var turnoCompleto = await _turnoRepo.GetByIdConDetallesAsync(nuevoTurno.Id);
             var responseDto = _mapper.Map<TurnoResponseDto>(turnoCompleto);
             responseDto.Servicios = servicios.Select(s => s.Nombre).ToList();
@@ -140,11 +133,11 @@ namespace MiPeluqueria.Api.Services.Implementations
             turno.EstadoId = dto.NuevoEstadoId;
             turno.MotivoCancelacionId = dto.MotivoCancelacionId;
 
-            // Preparamos cambios en RAM
-            await _turnoRepo.UpdateAsync(turno);
+            // Preparamos cambios en memoria
+            _turnoRepo.Update(turno);
             await _turnoRepo.AddHistorialEstadoAsync(new HistorialEstadoTurno
             {
-                TurnoId = turno.Id,
+                TurnoId = turno.Id, // Aquí sí podemos usar el ID porque el turno ya existía
                 EstadoAnteriorId = estadoAnterior,
                 EstadoNuevoId = dto.NuevoEstadoId,
                 FechaCambio = DateTime.UtcNow,
@@ -152,7 +145,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 Observaciones = dto.Observaciones
             });
 
-            // Guardamos todo junto
+            // Guardado atómico
             await _unitOfWork.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Estado de turno actualizado con trazabilidad.");

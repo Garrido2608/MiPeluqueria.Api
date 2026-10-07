@@ -10,8 +10,8 @@ namespace MiPeluqueria.Api.Repositories.Interfaces
         Task<List<Turno>> GetTurnosPeluqueroEnFechaAsync(int peluqueroId, DateTime fecha);
         Task<bool> ExisteSolapamientoAsync(int peluqueroId, DateTime inicio, DateTime fin, int? turnoIdExcluir = null);
         Task<Turno?> GetByIdConDetallesAsync(int id);
-        Task<Turno> AddAsync(Turno turno);
-        Task UpdateAsync(Turno turno);
+        Task AddAsync(Turno turno);
+        void Update(Turno turno);
         Task AddHistorialEstadoAsync(HistorialEstadoTurno historial);
     }
 }

@@ -65,17 +65,16 @@ namespace MiPeluqueria.Api.Data.Context
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- REGLA DE ARQUITECTURA: Apagar el borrado en cascada físico ---
-            // Evita el error "may cause cycles or multiple cascade paths" en SQL Server
+            // 1. Apagar el borrado en cascada físico por defecto para evitar ciclos en SQL Server
             foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
             {
                 relationship.DeleteBehavior = DeleteBehavior.Restrict;
             }
 
-            // Aplica las configuraciones de claves compuestas y cascada de la carpeta Configurations
+            // 2. Aplicar configuraciones modulares (PeluqueroEspecialidad, TurnoServicio, DetalleVenta, Pago)
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
-            // Global Query Filters para Soft Delete automático
+            // 3. Global Query Filters para Soft Delete automático en las 21 entidades auditables
             modelBuilder.Entity<Cliente>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<TipoCabello>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<TipoRostro>().HasQueryFilter(e => !e.IsDeleted);
@@ -107,7 +106,7 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<Usuario>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<HistorialSesion>().HasQueryFilter(e => !e.IsDeleted);
 
-            // Precisiones decimales críticas blindadas
+            // 4. Precisiones decimales financieras blindadas
             modelBuilder.Entity<Turno>().Property(t => t.MontoTotalEstimado).HasPrecision(18, 2);
             modelBuilder.Entity<Servicio>().Property(s => s.Precio).HasPrecision(18, 2);
             modelBuilder.Entity<Producto>().Property(p => p.PrecioCosto).HasPrecision(18, 2);
@@ -121,54 +120,112 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<ComisionesConfig>().Property(c => c.PorcentajeServicio).HasPrecision(5, 2);
             modelBuilder.Entity<ComisionesConfig>().Property(c => c.PorcentajeVentaProducto).HasPrecision(5, 2);
             modelBuilder.Entity<Liquidacion>().Property(l => l.TotalPagar).HasPrecision(18, 2);
-            modelBuilder.Entity<DetalleLiquidacion>().Property(d => d.MontoComisionCalculado).HasPrecision(18, 2);
-            // Agregados para limpiar advertencias
             modelBuilder.Entity<Liquidacion>().Property(l => l.TotalProductos).HasPrecision(18, 2);
             modelBuilder.Entity<Liquidacion>().Property(l => l.TotalServicios).HasPrecision(18, 2);
+            modelBuilder.Entity<DetalleLiquidacion>().Property(d => d.MontoComisionCalculado).HasPrecision(18, 2);
             modelBuilder.Entity<Pago>().Property(p => p.Importe).HasPrecision(18, 2);
 
-            // Seed Data Inicial
+            // 5. Índices de Rendimiento (Ingeniería de Datos para Producción)
+            modelBuilder.Entity<Turno>()
+                .HasIndex(t => new { t.PeluqueroId, t.FechaHoraInicio, t.FechaHoraFin, t.EstadoId })
+                .HasDatabaseName("IX_Turnos_Agenda_Solapamiento");
+
+            modelBuilder.Entity<Cliente>()
+                .HasIndex(c => c.Email)
+                .HasDatabaseName("IX_Clientes_Email");
+
+            modelBuilder.Entity<Producto>()
+                .HasIndex(p => p.CodigoBarras)
+                .HasDatabaseName("IX_Productos_CodigoBarras");
+
+            modelBuilder.Entity<DetalleVenta>()
+                .HasIndex(d => new { d.PeluqueroId, d.TipoItem })
+                .HasDatabaseName("IX_DetallesVenta_Liquidaciones");
+
+            // 6. Seed Data Maestro Completo (Fecha estática para evitar diffs innecesarios en migraciones)
+            var seedDate = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+
             modelBuilder.Entity<EstadoTurno>().HasData(
-                new EstadoTurno { Id = 1, Nombre = "Pendiente", CreatedAt = DateTime.UtcNow },
-                new EstadoTurno { Id = 2, Nombre = "Confirmado", CreatedAt = DateTime.UtcNow },
-                new EstadoTurno { Id = 3, Nombre = "En Proceso", CreatedAt = DateTime.UtcNow },
-                new EstadoTurno { Id = 4, Nombre = "Completado", CreatedAt = DateTime.UtcNow },
-                new EstadoTurno { Id = 5, Nombre = "Cancelado", CreatedAt = DateTime.UtcNow },
-                new EstadoTurno { Id = 6, Nombre = "No Asistió", CreatedAt = DateTime.UtcNow }
+                new EstadoTurno { Id = 1, Nombre = "Pendiente", CreatedAt = seedDate },
+                new EstadoTurno { Id = 2, Nombre = "Confirmado", CreatedAt = seedDate },
+                new EstadoTurno { Id = 3, Nombre = "En Proceso", CreatedAt = seedDate },
+                new EstadoTurno { Id = 4, Nombre = "Completado", CreatedAt = seedDate },
+                new EstadoTurno { Id = 5, Nombre = "Cancelado", CreatedAt = seedDate },
+                new EstadoTurno { Id = 6, Nombre = "No Asistió", CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<MotivoCancelacion>().HasData(
+                new MotivoCancelacion { Id = 1, Descripcion = "Cancelación con aviso previo del cliente", CreatedAt = seedDate },
+                new MotivoCancelacion { Id = 2, Descripcion = "Ausencia o indisposición del profesional", CreatedAt = seedDate },
+                new MotivoCancelacion { Id = 3, Descripcion = "Reprogramación solicitada por recepción", CreatedAt = seedDate },
+                new MotivoCancelacion { Id = 4, Descripcion = "Fuerza mayor / Feriado / Corte de suministro", CreatedAt = seedDate }
             );
 
             modelBuilder.Entity<MedioPago>().HasData(
-                new MedioPago { Id = 1, Nombre = "Efectivo", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 2, Nombre = "Tarjeta de Débito", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 3, Nombre = "Tarjeta de Crédito", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 4, Nombre = "Transferencia / Alias", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 5, Nombre = "Mercado Pago QR", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 6, Nombre = "Billetera Virtual (Otra)", CreatedAt = DateTime.UtcNow },
-                new MedioPago { Id = 7, Nombre = "Canje / Cortesía", CreatedAt = DateTime.UtcNow }
+                new MedioPago { Id = 1, Nombre = "Efectivo", CreatedAt = seedDate },
+                new MedioPago { Id = 2, Nombre = "Tarjeta de Débito", CreatedAt = seedDate },
+                new MedioPago { Id = 3, Nombre = "Tarjeta de Crédito", CreatedAt = seedDate },
+                new MedioPago { Id = 4, Nombre = "Transferencia / Alias", CreatedAt = seedDate },
+                new MedioPago { Id = 5, Nombre = "Mercado Pago QR", CreatedAt = seedDate },
+                new MedioPago { Id = 6, Nombre = "Billetera Virtual (Otra)", CreatedAt = seedDate },
+                new MedioPago { Id = 7, Nombre = "Canje / Cortesía", CreatedAt = seedDate }
             );
 
             modelBuilder.Entity<Rol>().HasData(
-                new Rol { Id = 1, Nombre = "Administrador", CreatedAt = DateTime.UtcNow },
-                new Rol { Id = 2, Nombre = "Recepcionista", CreatedAt = DateTime.UtcNow },
-                new Rol { Id = 3, Nombre = "Peluquero", CreatedAt = DateTime.UtcNow },
-                new Rol { Id = 4, Nombre = "Cliente", CreatedAt = DateTime.UtcNow },
-                new Rol { Id = 5, Nombre = "Cajero", CreatedAt = DateTime.UtcNow }
+                new Rol { Id = 1, Nombre = "Administrador", CreatedAt = seedDate },
+                new Rol { Id = 2, Nombre = "Recepcionista", CreatedAt = seedDate },
+                new Rol { Id = 3, Nombre = "Peluquero", CreatedAt = seedDate },
+                new Rol { Id = 4, Nombre = "Cliente", CreatedAt = seedDate },
+                new Rol { Id = 5, Nombre = "Cajero", CreatedAt = seedDate }
             );
 
-            // Seed Data: Primer Usuario Administrador
-            // La contraseña es "Tesis2026*" encriptada con BCrypt
+            modelBuilder.Entity<CategoriaServicio>().HasData(
+                new CategoriaServicio { Id = 1, Nombre = "Peluquería", CreatedAt = seedDate },
+                new CategoriaServicio { Id = 2, Nombre = "Barbería", CreatedAt = seedDate },
+                new CategoriaServicio { Id = 3, Nombre = "Colorimetría", CreatedAt = seedDate },
+                new CategoriaServicio { Id = 4, Nombre = "Tratamientos Capilares", CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<Especialidad>().HasData(
+                new Especialidad { Id = 1, Nombre = "Corte Clásico y Tijera", CreatedAt = seedDate },
+                new Especialidad { Id = 2, Nombre = "Fade, Navaja y Perfilado de Barba", CreatedAt = seedDate },
+                new Especialidad { Id = 3, Nombre = "Colorimetría, Balayage y Decoloración", CreatedAt = seedDate },
+                new Especialidad { Id = 4, Nombre = "Nutrición, Keratina y Recuperación Capilar", CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<CategoriaProducto>().HasData(
+                new CategoriaProducto { Id = 1, Nombre = "Ceras y Pomadas de Modelado", CreatedAt = seedDate },
+                new CategoriaProducto { Id = 2, Nombre = "Shampoos y Acondicionadores Profesionales", CreatedAt = seedDate },
+                new CategoriaProducto { Id = 3, Nombre = "Aceites y Bálsamos para Barba", CreatedAt = seedDate },
+                new CategoriaProducto { Id = 4, Nombre = "Insumos Técnicos de Salón (Tinturas y Oxidantes)", CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<TipoCabello>().HasData(
+                new TipoCabello { Id = 1, Nombre = "Lacio Fino", Descripcion = "Baja densidad, requiere volumen ligero", CreatedAt = seedDate },
+                new TipoCabello { Id = 2, Nombre = "Ondulado Medio", Descripcion = "Textura versátil con tendencia a frizz moderado", CreatedAt = seedDate },
+                new TipoCabello { Id = 3, Nombre = "Rizado / Con Rulos", Descripcion = "Alta necesidad de hidratación y definición", CreatedAt = seedDate },
+                new TipoCabello { Id = 4, Nombre = "Grueso / Afro", Descripcion = "Estructura densa ideal para fades de alto contraste", CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<TipoRostro>().HasData(
+                new TipoRostro { Id = 1, Nombre = "Ovalado", Descripcion = "Proporciones equilibradas, admite todo tipo de cortes", CreatedAt = seedDate },
+                new TipoRostro { Id = 2, Nombre = "Cuadrado", Descripcion = "Mandíbula marcada, favorece degradados laterales", CreatedAt = seedDate },
+                new TipoRostro { Id = 3, Nombre = "Redondo", Descripcion = "Favorece volumen superior y laterales cortos", CreatedAt = seedDate },
+                new TipoRostro { Id = 4, Nombre = "Alargado / Diamante", Descripcion = "Favorece estructura equilibrada en laterales", CreatedAt = seedDate }
+            );
+
             modelBuilder.Entity<Usuario>().HasData(
                 new Usuario
                 {
                     Id = 1,
-                    RolId = 1, // 1 = Administrador
+                    RolId = 1,
                     Username = "admin",
-                    PasswordHash = "$2a$11$0nN01jB5P169DXZgN/.hCeeNInhV/9tYkH.fK5v4a9jR1LqFkI5C6", // BCrypt de "Tesis2026*"
+                    PasswordHash = "$2a$11$0nN01jB5P169DXZgN/.hCeeNInhV/9tYkH.fK5v4a9jR1LqFkI5C6", // "Tesis2026*"
                     Email = "admin@tesis.com",
                     EmailVerificado = true,
                     AceptaTerminos = true,
                     Activo = true,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = seedDate,
                     IsDeleted = false
                 }
             );

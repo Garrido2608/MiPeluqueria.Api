@@ -26,22 +26,23 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             return await _context.Turnos
                 .AsNoTracking()
                 .Include(t => t.Cliente)
+                .Include(t => t.Peluquero)
                 .Include(t => t.Estado)
                 .Include(t => t.TurnoServicios).ThenInclude(ts => ts.Servicio)
                 .Where(t => t.PeluqueroId == peluqueroId
-                         && t.FechaHoraInicio >= inicioDia
-                         && t.FechaHoraInicio < finDia
-                         && t.EstadoId != (int)EstadoTurnoEnum.Cancelado)
+                            && t.FechaHoraInicio >= inicioDia
+                            && t.FechaHoraInicio < finDia
+                            && t.EstadoId != (int)EstadoTurnoEnum.Cancelado)
                 .OrderBy(t => t.FechaHoraInicio)
                 .ToListAsync();
         }
 
         public async Task<bool> ExisteSolapamientoAsync(int peluqueroId, DateTime inicio, DateTime fin, int? turnoIdExcluir = null)
         {
-            // Fórmula universal de solapamiento de intervalos de tiempo
             return await _context.Turnos
                 .AnyAsync(t => t.PeluqueroId == peluqueroId
                             && t.EstadoId != (int)EstadoTurnoEnum.Cancelado
+                            && t.EstadoId != (int)EstadoTurnoEnum.NoAsistio
                             && (turnoIdExcluir == null || t.Id != turnoIdExcluir)
                             && t.FechaHoraInicio < fin
                             && t.FechaHoraFin > inicio);
@@ -60,21 +61,19 @@ namespace MiPeluqueria.Api.Repositories.Implementations
 
         public async Task<Turno> AddAsync(Turno turno)
         {
-            _context.Turnos.Add(turno);
-            await _context.SaveChangesAsync();
-            return turno;
+            await _context.Turnos.AddAsync(turno);
+            return turno; // Sin SaveChangesAsync: lo confirma IUnitOfWork en TurnoService
         }
 
-        public async Task UpdateAsync(Turno turno)
+        public Task UpdateAsync(Turno turno)
         {
             _context.Turnos.Update(turno);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask;
         }
 
         public async Task AddHistorialEstadoAsync(HistorialEstadoTurno historial)
         {
-            _context.HistorialEstadoTurnos.Add(historial);
-            await _context.SaveChangesAsync();
+            await _context.HistorialEstadoTurnos.AddAsync(historial);
         }
     }
 }

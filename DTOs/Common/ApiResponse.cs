@@ -16,5 +16,4 @@ namespace MiPeluqueria.Api.DTOs.Common
             new ApiResponse<T> { Success = false, Message = mensaje, Errors = errores };
     }
 }
-
 //para q todo se devuelva en json y respuestas para usar en las otras ent.

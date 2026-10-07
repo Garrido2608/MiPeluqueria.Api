@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Seguridad;
 using MiPeluqueria.Api.Services.Interfaces;
-using System.Threading.Tasks;
 
 namespace MiPeluqueria.Api.Controllers
 {
@@ -19,14 +19,15 @@ namespace MiPeluqueria.Api.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
-            var res = await _authService.LoginAsync(dto);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var userAgent = Request.Headers["User-Agent"].ToString();
+
+            var res = await _authService.LoginAsync(dto, ip, userAgent);
             if (!res.Success)
             {
-                // Código HTTP 401
                 return Unauthorized(res);
             }
 
-            // Código HTTP 200 con el Token
             return Ok(res);
         }
     }

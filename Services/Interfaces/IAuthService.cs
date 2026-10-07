@@ -6,6 +6,6 @@ namespace MiPeluqueria.Api.Services.Interfaces
 {
     public interface IAuthService
     {
-        Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto dto);
+        Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto dto, string? ipAddress = null, string? userAgent = null);
     }
 }

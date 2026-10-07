@@ -81,6 +81,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email")
+                        .HasDatabaseName("IX_Clientes_Email");
+
                     b.HasIndex("TipoCabelloId");
 
                     b.HasIndex("TipoRostroId");
@@ -177,6 +180,40 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("TiposCabello");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Baja densidad, requiere volumen ligero",
+                            IsDeleted = false,
+                            Nombre = "Lacio Fino"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Textura versátil con tendencia a frizz moderado",
+                            IsDeleted = false,
+                            Nombre = "Ondulado Medio"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Alta necesidad de hidratación y definición",
+                            IsDeleted = false,
+                            Nombre = "Rizado / Con Rulos"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Estructura densa ideal para fades de alto contraste",
+                            IsDeleted = false,
+                            Nombre = "Grueso / Afro"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Clientes.TipoRostro", b =>
@@ -214,6 +251,40 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("TiposRostro");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Proporciones equilibradas, admite todo tipo de cortes",
+                            IsDeleted = false,
+                            Nombre = "Ovalado"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Mandíbula marcada, favorece degradados laterales",
+                            IsDeleted = false,
+                            Nombre = "Cuadrado"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Favorece volumen superior y laterales cortos",
+                            IsDeleted = false,
+                            Nombre = "Redondo"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Favorece estructura equilibrada en laterales",
+                            IsDeleted = false,
+                            Nombre = "Alargado / Diamante"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Seguridad.HistorialSesion", b =>
@@ -303,35 +374,35 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8075),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Administrador"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8077),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Recepcionista"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8079),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Peluquero"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8080),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cliente"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8081),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cajero"
                         });
@@ -424,7 +495,7 @@ namespace MiPeluqueria.Api.Migrations
                             Id = 1,
                             AceptaTerminos = true,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8111),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@tesis.com",
                             EmailVerificado = true,
                             IntentosFallidos = 0,
@@ -466,6 +537,36 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CategoriasProducto");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Ceras y Pomadas de Modelado"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Shampoos y Acondicionadores Profesionales"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Aceites y Bálsamos para Barba"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Insumos Técnicos de Salón (Tinturas y Oxidantes)"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Stock.MovimientoStock", b =>
@@ -575,6 +676,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaId");
+
+                    b.HasIndex("CodigoBarras")
+                        .HasDatabaseName("IX_Productos_CodigoBarras");
 
                     b.HasIndex("ProveedorId");
 
@@ -701,6 +805,36 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("CategoriasServicio");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Peluquería"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Barbería"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Colorimetría"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Tratamientos Capilares"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Especialidad", b =>
@@ -734,6 +868,36 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Especialidades");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Corte Clásico y Tijera"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Fade, Navaja y Perfilado de Barba"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Colorimetría, Balayage y Decoloración"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Nutrición, Keratina y Recuperación Capilar"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.EstadoTurno", b =>
@@ -772,42 +936,42 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7907),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Pendiente"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7909),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Confirmado"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7911),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "En Proceso"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7912),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Completado"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7914),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cancelado"
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(7915),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "No Asistió"
                         });
@@ -939,6 +1103,36 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("MotivosCancelacion");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cancelación con aviso previo del cliente",
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Ausencia o indisposición del profesional",
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Reprogramación solicitada por recepción",
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Fuerza mayor / Feriado / Corte de suministro",
+                            IsDeleted = false
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Peluquero", b =>
@@ -1120,7 +1314,8 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasIndex("MotivoCancelacionId");
 
-                    b.HasIndex("PeluqueroId");
+                    b.HasIndex("PeluqueroId", "FechaHoraInicio", "FechaHoraFin", "EstadoId")
+                        .HasDatabaseName("IX_Turnos_Agenda_Solapamiento");
 
                     b.ToTable("Turnos");
                 });
@@ -1274,7 +1469,6 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("TipoItem")
-                        .HasMaxLength(20)
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1286,6 +1480,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("VentaId");
+
+                    b.HasIndex("PeluqueroId", "TipoItem")
+                        .HasDatabaseName("IX_DetallesVenta_Liquidaciones");
 
                     b.ToTable("DetallesVenta", (string)null);
                 });
@@ -1386,49 +1583,49 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8038),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Efectivo"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8039),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Tarjeta de Débito"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8041),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Tarjeta de Crédito"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8042),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Transferencia / Alias"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8044),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Mercado Pago QR"
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8045),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Billetera Virtual (Otra)"
                         },
                         new
                         {
                             Id = 7,
-                            CreatedAt = new DateTime(2026, 10, 3, 5, 15, 6, 820, DateTimeKind.Utc).AddTicks(8048),
+                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Canje / Cortesía"
                         });
@@ -1523,7 +1720,7 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasIndex("VentaId");
 
-                    b.ToTable("Pagos");
+                    b.ToTable("Pagos", (string)null);
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Ventas.SesionCaja", b =>
@@ -1950,7 +2147,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Ventas.Venta", "Venta")
                         .WithMany("Pagos")
                         .HasForeignKey("VentaId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("MedioPago");

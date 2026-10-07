@@ -17,28 +17,32 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         }
 
         public async Task<List<Producto>> GetAllAsync() =>
-            await _context.Productos.AsNoTracking().Include(p => p.Categoria).ToListAsync();
+            await _context.Productos
+                .AsNoTracking()
+                .Include(p => p.Categoria)
+                .Include(p => p.Proveedor)
+                .ToListAsync();
 
         public async Task<Producto?> GetByIdAsync(int id) =>
-            await _context.Productos.FirstOrDefaultAsync(p => p.Id == id);
+            await _context.Productos
+                .Include(p => p.Categoria)
+                .FirstOrDefaultAsync(p => p.Id == id);
 
         public async Task<Producto> AddAsync(Producto producto)
         {
-            _context.Productos.Add(producto);
-            await _context.SaveChangesAsync();
-            return producto;
+            await _context.Productos.AddAsync(producto);
+            return producto; // Sin SaveChangesAsync: lo confirma IUnitOfWork
         }
 
-        public async Task UpdateAsync(Producto producto)
+        public Task UpdateAsync(Producto producto)
         {
             _context.Productos.Update(producto);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask;
         }
 
         public async Task RegistrarMovimientoAsync(MovimientoStock movimiento)
         {
-            _context.MovimientosStock.Add(movimiento);
-            await _context.SaveChangesAsync();
+            await _context.MovimientosStock.AddAsync(movimiento);
         }
     }
 }

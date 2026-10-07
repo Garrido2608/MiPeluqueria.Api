@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.Linq;
+using AutoMapper;
 using MiPeluqueria.Api.DTOs.Clientes;
 using MiPeluqueria.Api.DTOs.Stock;
 using MiPeluqueria.Api.DTOs.Turnos;
@@ -14,41 +15,39 @@ namespace MiPeluqueria.Api.Mappings
     {
         public MappingProfile()
         {
-            // --- Módulo Clientes ---
+            // 1. Módulo Clientes
             CreateMap<Cliente, ClienteResponseDto>()
                 .ForMember(d => d.NombreCompleto, opt => opt.MapFrom(s => $"{s.Nombre} {s.Apellido}".Trim()))
                 .ForMember(d => d.TipoCabelloNombre, opt => opt.MapFrom(s => s.TipoCabello != null ? s.TipoCabello.Nombre : null))
-                .ForMember(d => d.TipoRostroNombre, opt => opt.MapFrom(s => s.TipoRostro != null ? s.TipoRostro.Nombre : null));
+                .ForMember(d => d.TipoRostroNombre, opt => opt.MapFrom(s => s.TipoRostro != null ? s.TipoRostro.Nombre : null))
+                .ForMember(d => d.EsCumpleaneroDelMes, opt => opt.MapFrom(s => s.FechaNacimiento.Month == System.DateTime.UtcNow.Month));
             CreateMap<ClienteRequestDto, Cliente>();
 
-            // --- Módulo Turnos y Agenda ---
+            // 2. Módulo Turnos y Agenda
             CreateMap<Turno, TurnoResponseDto>()
-                .ForMember(d => d.ClienteNombre, opt => opt.MapFrom(s => s.Cliente != null ? $"{s.Cliente.Nombre} {s.Cliente.Apellido}" : string.Empty))
-                .ForMember(d => d.PeluqueroNombre, opt => opt.MapFrom(s => s.Peluquero != null ? $"{s.Peluquero.Nombre} {s.Peluquero.Apellido}" : string.Empty))
-                .ForMember(d => d.EstadoNombre, opt => opt.MapFrom(s => s.Estado != null ? s.Estado.Nombre : string.Empty));
+                .ForMember(d => d.ClienteNombre, opt => opt.MapFrom(s => s.Cliente != null ? $"{s.Cliente.Nombre} {s.Cliente.Apellido}".Trim() : string.Empty))
+                .ForMember(d => d.PeluqueroNombre, opt => opt.MapFrom(s => s.Peluquero != null ? $"{s.Peluquero.Nombre} {s.Peluquero.Apellido}".Trim() : string.Empty))
+                .ForMember(d => d.EstadoNombre, opt => opt.MapFrom(s => s.Estado != null ? s.Estado.Nombre : string.Empty))
+                .ForMember(d => d.Servicios, opt => opt.MapFrom(s => s.TurnoServicios != null ? s.TurnoServicios.Where(ts => ts.Servicio != null).Select(ts => ts.Servicio!.Nombre).ToList() : new System.Collections.Generic.List<string>()));
             CreateMap<CrearTurnoDto, Turno>();
+            CreateMap<BloqueoHorarioDto, BloqueoHorario>();
 
-            // --- Módulo Servicios y Staff ---
+            // 3. Módulo Servicios y Staff Profesional
             CreateMap<Servicio, ServicioDto>()
                 .ForMember(d => d.CategoriaNombre, opt => opt.MapFrom(s => s.Categoria != null ? s.Categoria.Nombre : string.Empty));
             CreateMap<CrearServicioDto, Servicio>();
-
-            
-
-            // Si tenés el PeluqueroDto, se mapea directo
             CreateMap<CrearPeluqueroDto, Peluquero>();
-            CreateMap<Peluquero, PeluqueroDto>();
+            CreateMap<Peluquero, PeluqueroDto>()
+                .ForMember(d => d.Especialidades, opt => opt.MapFrom(s => s.PeluqueroEspecialidades != null ? s.PeluqueroEspecialidades.Where(pe => pe.Especialidad != null).Select(pe => pe.Especialidad!.Nombre).ToList() : new System.Collections.Generic.List<string>()));
 
-            // --- Módulo Stock e Insumos ---
-            // AutoMapper convierte inteligentemente nuestro TipoMovimientoStockEnum al Enum interno automáticamente
+            // 4. Módulo Stock e Insumos
             CreateMap<Producto, ProductoDto>()
                 .ForMember(d => d.CategoriaNombre, opt => opt.MapFrom(s => s.Categoria != null ? s.Categoria.Nombre : string.Empty));
-            CreateMap<CrearProductoDto, Producto>();
+            CreateMap<CrearProductoDto, Producto>()
+                .ForMember(d => d.StockActual, opt => opt.MapFrom(s => s.StockInicial));
             CreateMap<MovimientoStockDto, MovimientoStock>();
 
-            // --- Módulo Ventas y Caja ---
-            // Mapeamos los Request separados a sus respectivas entidades. 
-            // AutoMapper convierte TipoItemVentaEnum sin que tengamos que programar conversiones manuales.
+            // 5. Módulo Ventas y Caja
             CreateMap<DetalleVentaRequestDto, DetalleVenta>();
             CreateMap<PagoRequestDto, Pago>();
         }

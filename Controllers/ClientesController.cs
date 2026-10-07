@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Clientes;
-using MiPeluqueria.Api.Services.Implementations;
 using MiPeluqueria.Api.Services.Interfaces;
-using System.Threading.Tasks;
 
 namespace MiPeluqueria.Api.Controllers
 {
@@ -18,8 +17,14 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() =>
-            Ok(await _clienteService.ObtenerTodosAsync());
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null)
+        {
+            var res = await _clienteService.ObtenerTodosAsync(pageNumber, pageSize, search);
+            return Ok(res);
+        }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
@@ -34,8 +39,6 @@ namespace MiPeluqueria.Api.Controllers
         {
             var res = await _clienteService.CrearClienteAsync(dto);
             if (!res.Success) return BadRequest(res);
-
-            // Devuelve un 201 Created y la ruta para consultar al cliente nuevo
             return CreatedAtAction(nameof(GetById), new { id = res.Data!.Id }, res);
         }
 

@@ -25,21 +25,19 @@ namespace MiPeluqueria.Api.Repositories.Implementations
 
         public async Task<SesionCaja> AbrirCajaAsync(SesionCaja sesion)
         {
-            _context.SesionesCaja.Add(sesion);
-            await _context.SaveChangesAsync();
-            return sesion;
+            await _context.SesionesCaja.AddAsync(sesion);
+            return sesion; // Sin SaveChangesAsync: lo confirma IUnitOfWork en CajaVentaService
         }
 
-        public async Task CerrarCajaAsync(SesionCaja sesion)
+        public Task CerrarCajaAsync(SesionCaja sesion)
         {
             _context.SesionesCaja.Update(sesion);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask; // Sin SaveChangesAsync: lo confirma IUnitOfWork
         }
 
         public async Task RegistrarMovimientoCajaAsync(MovimientoCaja movimiento)
         {
-            _context.MovimientosCaja.Add(movimiento);
-            await _context.SaveChangesAsync();
+            await _context.MovimientosCaja.AddAsync(movimiento); // Sin SaveChangesAsync
         }
     }
 
@@ -54,9 +52,8 @@ namespace MiPeluqueria.Api.Repositories.Implementations
 
         public async Task<Venta> RegistrarVentaAsync(Venta venta)
         {
-            _context.Ventas.Add(venta);
-            await _context.SaveChangesAsync();
-            return venta;
+            await _context.Ventas.AddAsync(venta);
+            return venta; // Sin SaveChangesAsync: se confirma en CommitTransactionAsync()
         }
 
         public async Task<Venta?> GetVentaByIdAsync(int id)

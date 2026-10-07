@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
@@ -16,23 +17,31 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             _context = context;
         }
 
-        public async Task<List<Cliente>> GetAllAsync() => // acelera la base de datos xq no guarda en memoria "vigilar" los archivos solo los llama 
-            await _context.Clientes.AsNoTracking().ToListAsync();
+        public IQueryable<Cliente> GetAllQueryable() =>
+            _context.Clientes
+                .AsNoTracking()
+                .Include(c => c.TipoCabello)
+                .Include(c => c.TipoRostro);
+
+        public async Task<List<Cliente>> GetAllAsync() =>
+            await GetAllQueryable().ToListAsync();
 
         public async Task<Cliente?> GetByIdAsync(int id) =>
-            await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id);
+            await _context.Clientes
+                .Include(c => c.TipoCabello)
+                .Include(c => c.TipoRostro)
+                .FirstOrDefaultAsync(c => c.Id == id);
 
         public async Task<Cliente> AddAsync(Cliente cliente)
         {
-            _context.Clientes.Add(cliente);
-            await _context.SaveChangesAsync();
-            return cliente;
+            await _context.Clientes.AddAsync(cliente);
+            return cliente; // Sin SaveChangesAsync: lo confirma IUnitOfWork
         }
 
-        public async Task UpdateAsync(Cliente cliente)
+        public Task UpdateAsync(Cliente cliente)
         {
             _context.Clientes.Update(cliente);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask; // Sin SaveChangesAsync
         }
 
         public async Task DeleteAsync(int id)
@@ -40,9 +49,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             var cliente = await _context.Clientes.FindAsync(id);
             if (cliente != null)
             {
-                // Interceptado por SaveChangesAsync como Soft Delete
-                _context.Clientes.Remove(cliente);
-                await _context.SaveChangesAsync();
+                _context.Clientes.Remove(cliente); // Interceptado como Soft Delete en SaveChangesAsync
             }
         }
 

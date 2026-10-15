@@ -35,7 +35,6 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (dto.FechaHasta < dto.FechaDesde)
                 return ApiResponse<LiquidacionResponseDto>.Falla("La fecha de cierre del período no puede ser anterior a la fecha de inicio.");
 
-            // 1. Obtener configuraciones de comisión del profesional (general y específicas por servicio)
             var configs = await _context.ComisionesConfigs
                 .AsNoTracking()
                 .Where(c => c.PeluqueroId == dto.PeluqueroId)
@@ -45,8 +44,6 @@ namespace MiPeluqueria.Api.Services.Implementations
             decimal pctServicioDefault = configGeneral?.PorcentajeServicio ?? 50.0m;
             decimal pctProductoDefault = configGeneral?.PorcentajeVentaProducto ?? 10.0m;
 
-            // 2. Buscar todos los renglones de venta ejecutados por este profesional en el período
-            // que NO hayan sido liquidados previamente en DetallesLiquidacion
             var itemsPendientes = await _context.DetallesVenta
                 .Include(d => d.Venta)
                 .Where(d => d.PeluqueroId == dto.PeluqueroId
@@ -101,7 +98,7 @@ namespace MiPeluqueria.Api.Services.Implementations
 
             liquidacion.TotalServicios = comisionAcumuladaServicios;
             liquidacion.TotalProductos = comisionAcumuladaProductos;
-            liquidacion.TotalPagar = comisionAcumuladaServicios + comisionAcumuladaProductos;
+            liquidacion.TotalPagar = comisionAcumuladaServicios + comisionAcumuladaProductos + dto.Bonificaciones - dto.Descuentos;
 
             await _context.Liquidaciones.AddAsync(liquidacion);
             await _unitOfWork.SaveChangesAsync();
@@ -122,9 +119,12 @@ namespace MiPeluqueria.Api.Services.Implementations
             }, "Liquidación calculada y renglones bloqueados exitosamente.");
         }
 
-        public async Task<ApiResponse<bool>> RegistrarPagoLiquidacionAsync(int liquidacionId)
+        public async Task<ApiResponse<bool>> RegistrarPagoLiquidacionAsync(int liquidacionId, int? sesionCajaId = null)
         {
-            var liq = await _context.Liquidaciones.FindAsync(liquidacionId);
+            var liq = await _context.Liquidaciones
+                .Include(l => l.Peluquero)
+                .FirstOrDefaultAsync(l => l.Id == liquidacionId);
+
             if (liq == null)
                 return ApiResponse<bool>.Falla("La liquidación indicada no existe.");
 
@@ -134,6 +134,22 @@ namespace MiPeluqueria.Api.Services.Implementations
             liq.Estado = EstadoLiquidacionEnum.Pagado;
             liq.FechaPago = DateTime.UtcNow;
 
+            if (sesionCajaId.HasValue && sesionCajaId.Value > 0)
+            {
+                var sesion = await _context.SesionesCaja.FirstOrDefaultAsync(s => s.Id == sesionCajaId.Value && s.EstadoAbierta);
+                if (sesion != null)
+                {
+                    await _context.MovimientosCaja.AddAsync(new MovimientoCaja
+                    {
+                        SesionCajaId = sesion.Id,
+                        Tipo = "EgresoLiquidacion",
+                        Monto = liq.TotalPagar,
+                        Concepto = $"Pago de Liquidación #{liq.Id} - Profesional: {liq.Peluquero?.Nombre} {liq.Peluquero?.Apellido}".Trim(),
+                        Fecha = DateTime.UtcNow
+                    });
+                }
+            }
+
             _context.Liquidaciones.Update(liq);
             await _unitOfWork.SaveChangesAsync();
 
@@ -142,11 +158,27 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<List<LiquidacionResponseDto>>> ObtenerPorPeluqueroAsync(int peluqueroId)
         {
-            var lista = await _context.Liquidaciones
+            return await ObtenerTodasAsync(peluqueroId, null, null);
+        }
+
+        public async Task<ApiResponse<List<LiquidacionResponseDto>>> ObtenerTodasAsync(int? peluqueroId = null, DateTime? desde = null, DateTime? hasta = null)
+        {
+            var query = _context.Liquidaciones
                 .AsNoTracking()
                 .Include(l => l.Peluquero)
                 .Include(l => l.DetallesLiquidacion)
-                .Where(l => l.PeluqueroId == peluqueroId)
+                .AsQueryable();
+
+            if (peluqueroId.HasValue)
+                query = query.Where(l => l.PeluqueroId == peluqueroId.Value);
+
+            if (desde.HasValue)
+                query = query.Where(l => l.FechaDesde >= desde.Value);
+
+            if (hasta.HasValue)
+                query = query.Where(l => l.FechaHasta <= hasta.Value);
+
+            var lista = await query
                 .OrderByDescending(l => l.FechaHasta)
                 .Select(l => new LiquidacionResponseDto
                 {
@@ -156,6 +188,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                     FechaDesde = l.FechaDesde,
                     FechaHasta = l.FechaHasta,
                     FechaVencimiento = l.FechaVencimiento,
+                    FechaPago = l.FechaPago,
                     TotalServicios = l.TotalServicios,
                     TotalProductos = l.TotalProductos,
                     TotalPagar = l.TotalPagar,
@@ -165,6 +198,65 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .ToListAsync();
 
             return ApiResponse<List<LiquidacionResponseDto>>.Exito(lista, "Historial de liquidaciones obtenido.");
+        }
+
+        public async Task<ApiResponse<LiquidacionResponseDto>> ObtenerPorIdAsync(int id)
+        {
+            var l = await _context.Liquidaciones
+                .AsNoTracking()
+                .Include(liq => liq.Peluquero)
+                .Include(liq => liq.DetallesLiquidacion)
+                .FirstOrDefaultAsync(liq => liq.Id == id);
+
+            if (l == null)
+                return ApiResponse<LiquidacionResponseDto>.Falla("La liquidación solicitada no existe.");
+
+            var detallesVentaIds = l.DetallesLiquidacion
+                .Where(dl => dl.DetalleVentaId != null)
+                .Select(dl => dl.DetalleVentaId!.Value)
+                .ToList();
+
+            var detallesVentaDict = await _context.DetallesVenta
+                .Include(dv => dv.Venta)
+                .AsNoTracking()
+                .Where(dv => detallesVentaIds.Contains(dv.Id))
+                .ToDictionaryAsync(dv => dv.Id);
+
+            var dto = new LiquidacionResponseDto
+            {
+                Id = l.Id,
+                PeluqueroId = l.PeluqueroId,
+                PeluqueroNombre = l.Peluquero != null ? $"{l.Peluquero.Nombre} {l.Peluquero.Apellido}".Trim() : string.Empty,
+                FechaDesde = l.FechaDesde,
+                FechaHasta = l.FechaHasta,
+                FechaVencimiento = l.FechaVencimiento,
+                FechaPago = l.FechaPago,
+                TotalServicios = l.TotalServicios,
+                TotalProductos = l.TotalProductos,
+                TotalPagar = l.TotalPagar,
+                CantidadItemsLiquidados = l.DetallesLiquidacion.Count,
+                Estado = l.Estado.ToString(),
+                Detalles = l.DetallesLiquidacion.Select(dl =>
+                {
+                    DetalleVenta? dv = null;
+                    if (dl.DetalleVentaId.HasValue)
+                        detallesVentaDict.TryGetValue(dl.DetalleVentaId.Value, out dv);
+
+                    return new DetalleLiquidacionItemDto
+                    {
+                        Id = dl.Id,
+                        DetalleVentaId = dl.DetalleVentaId ?? 0,
+                        TurnoId = dl.TurnoId,
+                        TipoItem = dv != null ? dv.TipoItem.ToString() : string.Empty,
+                        ItemId = dv?.ItemId ?? 0,
+                        SubtotalVenta = dv?.Subtotal ?? 0m,
+                        MontoComisionCalculado = dl.MontoComisionCalculado,
+                        FechaVenta = dv?.Venta?.Fecha
+                    };
+                }).ToList()
+            };
+
+            return ApiResponse<LiquidacionResponseDto>.Exito(dto);
         }
     }
 }

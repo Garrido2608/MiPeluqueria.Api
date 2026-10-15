@@ -17,6 +17,8 @@ using MiPeluqueria.Api.Repositories.Implementations;
 using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Implementations;
 using MiPeluqueria.Api.Services.Interfaces;
+using MiPeluqueria.Api.Integrations.Email;
+using MiPeluqueria.Api.Integrations.Notifications;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +68,42 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Módulo Seguridad y Autenticación
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Módulo Clientes y Fichas Técnicas
+builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<IFichaTecnicaService, FichaTecnicaService>();
+
+// Módulo Staff, Catálogo Comercial y Catálogos Maestros
+builder.Services.AddScoped<IPeluqueroRepository, PeluqueroRepository>();
+builder.Services.AddScoped<IPeluqueroService, PeluqueroService>();
+builder.Services.AddScoped<IServicioRepository, ServicioRepository>();
+builder.Services.AddScoped<IServicioService, ServicioService>();
+builder.Services.AddScoped<ICatalogoService, CatalogoService>();
+
+// Módulo Turnos y Bloqueos de Agenda
+builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
+builder.Services.AddScoped<ITurnoService, TurnoService>();
+builder.Services.AddScoped<IBloqueoHorarioService, BloqueoHorarioService>();
+
+// Módulo Stock, Proveedores, Caja Diaria y Ventas
+builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
+builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IProveedorRepository, ProveedorRepository>();
+builder.Services.AddScoped<IProveedorService, ProveedorService>();
+builder.Services.AddScoped<ISesionCajaRepository, SesionCajaRepository>();
+builder.Services.AddScoped<IVentaRepository, VentaRepository>();
+builder.Services.AddScoped<ICajaVentaService, CajaVentaService>();
+
+// Módulo Comisiones, Liquidaciones y Dashboard KPIs
+builder.Services.AddScoped<IComisionConfigService, ComisionConfigService>();
+builder.Services.AddScoped<ILiquidacionService, LiquidacionService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+// Módulo Seguridad, Autenticación e Integraciones Externas (Email / WhatsApp)
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IWhatsAppService, WhatsAppNotificationService>();
 
 // 4. AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));

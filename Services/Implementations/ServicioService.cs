@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Models.Turnos;
@@ -11,74 +13,73 @@ namespace MiPeluqueria.Api.Services.Implementations
 {
     public class ServicioService : IServicioService
     {
-        private readonly IServicioRepository _servicioRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
 
-        public ServicioService(
-            IServicioRepository servicioRepo,
-            IUnitOfWork unitOfWork,
-            IMapper mapper)
+        public ServicioService(IUnitOfWork unitOfWork, ApplicationDbContext context, IMapper mapper)
         {
-            _servicioRepo = servicioRepo;
             _unitOfWork = unitOfWork;
+            _context = context;
             _mapper = mapper;
         }
 
-        public async Task<ApiResponse<List<ServicioDto>>> GetAllAsync()
+        public async Task<ApiResponse<IEnumerable<ServicioDto>>> GetAllAsync()
         {
-            var servicios = await _servicioRepo.GetAllAsync();
-            var dtos = _mapper.Map<List<ServicioDto>>(servicios);
-            return ApiResponse<List<ServicioDto>>.Exito(dtos, "Catálogo de servicios obtenido.");
+            var servicios = await _context.Servicios
+                .AsNoTracking()
+                .ToListAsync();
+
+            var dtos = _mapper.Map<IEnumerable<ServicioDto>>(servicios);
+            return ApiResponse<IEnumerable<ServicioDto>>.Exito(dtos);
         }
 
         public async Task<ApiResponse<ServicioDto>> GetByIdAsync(int id)
         {
-            var servicio = await _servicioRepo.GetByIdAsync(id);
+            var servicio = await _context.Servicios.FirstOrDefaultAsync(s => s.Id == id);
             if (servicio == null)
-                return ApiResponse<ServicioDto>.Falla($"No se encontró el servicio con ID {id}.");
+                return ApiResponse<ServicioDto>.Falla("El servicio solicitado no existe.");
 
-            var dto = _mapper.Map<ServicioDto>(servicio);
-            return ApiResponse<ServicioDto>.Exito(dto);
+            return ApiResponse<ServicioDto>.Exito(_mapper.Map<ServicioDto>(servicio));
         }
 
         public async Task<ApiResponse<ServicioDto>> CreateAsync(CrearServicioDto dto)
         {
             var servicio = _mapper.Map<Servicio>(dto);
-            await _servicioRepo.AddAsync(servicio);
+            servicio.Activo = true;
+
+            await _context.Servicios.AddAsync(servicio);
             await _unitOfWork.SaveChangesAsync();
 
-            var creado = await _servicioRepo.GetByIdAsync(servicio.Id);
-            var responseDto = _mapper.Map<ServicioDto>(creado ?? servicio);
-
-            return ApiResponse<ServicioDto>.Exito(responseDto, "Servicio creado exitosamente en el catálogo.");
+            return ApiResponse<ServicioDto>.Exito(_mapper.Map<ServicioDto>(servicio), "Servicio creado exitosamente.");
         }
 
         public async Task<ApiResponse<ServicioDto>> UpdateAsync(int id, CrearServicioDto dto)
         {
-            var existente = await _servicioRepo.GetByIdAsync(id);
-            if (existente == null)
-                return ApiResponse<ServicioDto>.Falla($"No se encontró el servicio con ID {id}.");
+            var servicio = await _context.Servicios.FirstOrDefaultAsync(s => s.Id == id);
+            if (servicio == null)
+                return ApiResponse<ServicioDto>.Falla("El servicio solicitado no existe.");
 
-            _mapper.Map(dto, existente);
-
-            await _servicioRepo.UpdateAsync(existente);
+            _mapper.Map(dto, servicio);
+            _context.Servicios.Update(servicio);
             await _unitOfWork.SaveChangesAsync();
 
-            var actualizado = await _servicioRepo.GetByIdAsync(id);
-            return ApiResponse<ServicioDto>.Exito(_mapper.Map<ServicioDto>(actualizado!), "Servicio actualizado correctamente.");
+            return ApiResponse<ServicioDto>.Exito(_mapper.Map<ServicioDto>(servicio), "Servicio actualizado correctamente.");
         }
 
         public async Task<ApiResponse<bool>> DeleteAsync(int id)
         {
-            var existente = await _servicioRepo.GetByIdAsync(id);
-            if (existente == null)
-                return ApiResponse<bool>.Falla($"No se encontró el servicio con ID {id}.");
+            var servicio = await _context.Servicios.FirstOrDefaultAsync(s => s.Id == id);
+            if (servicio == null)
+                return ApiResponse<bool>.Falla("El servicio solicitado no existe.");
 
-            await _servicioRepo.DeleteAsync(id);
+            servicio.IsDeleted = true;
+            servicio.Activo = false;
+
+            _context.Servicios.Update(servicio);
             await _unitOfWork.SaveChangesAsync();
 
-            return ApiResponse<bool>.Exito(true, "Servicio dado de baja lógicamente.");
+            return ApiResponse<bool>.Exito(true, "Servicio dado de baja correctamente.");
         }
     }
 }

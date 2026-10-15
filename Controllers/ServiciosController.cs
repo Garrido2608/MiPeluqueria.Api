@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Services.Interfaces;
@@ -19,40 +20,39 @@ namespace MiPeluqueria.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var response = await _servicioService.GetAllAsync();
-            return Ok(response);
+            var res = await _servicioService.GetAllAsync();
+            return Ok(res);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var response = await _servicioService.GetByIdAsync(id);
-            if (!response.Success) return NotFound(response);
-            return Ok(response);
+            var res = await _servicioService.GetByIdAsync(id);
+            return res.Success ? Ok(res) : NotFound(res);
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Create([FromBody] CrearServicioDto dto)
         {
-            var response = await _servicioService.CreateAsync(dto);
-            if (!response.Success) return BadRequest(response);
-            return CreatedAtAction(nameof(GetById), new { id = response.Data!.Id }, response);
+            var res = await _servicioService.CreateAsync(dto);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> Update(int id, [FromBody] CrearServicioDto dto)
         {
-            var response = await _servicioService.UpdateAsync(id, dto);
-            if (!response.Success) return BadRequest(response);
-            return Ok(response);
+            var res = await _servicioService.UpdateAsync(id, dto);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
-            var response = await _servicioService.DeleteAsync(id);
-            if (!response.Success) return NotFound(response);
-            return Ok(response);
+            var res = await _servicioService.DeleteAsync(id);
+            return res.Success ? Ok(res) : NotFound(res);
         }
     }
 }

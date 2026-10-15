@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Services.Interfaces;
@@ -18,34 +20,63 @@ namespace MiPeluqueria.Api.Controllers
             _turnoService = turnoService;
         }
 
-        [HttpGet("agenda/{peluqueroId}")]
-        public async Task<IActionResult> GetAgenda(int peluqueroId, [FromQuery] DateTime fecha)
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] DateTime? fecha = null, [FromQuery] int? peluqueroId = null)
         {
-            var res = await _turnoService.ObtenerAgendaPeluqueroFechaAsync(peluqueroId, fecha);
+            var res = await _turnoService.GetAllAsync(fecha, peluqueroId);
+            return Ok(res);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var res = await _turnoService.GetByIdAsync(id);
+            return res.Success ? Ok(res) : NotFound(res);
+        }
+
+        [HttpGet("disponibilidad")]
+        public async Task<IActionResult> GetDisponibilidad(
+            [FromQuery] int peluqueroId,
+            [FromQuery] DateTime fecha,
+            [FromQuery] List<int>? serviciosIds = null)
+        {
+            var res = await _turnoService.ObtenerHorariosDisponiblesAsync(peluqueroId, fecha, serviciosIds);
+            return res.Success ? Ok(res) : BadRequest(res);
+        }
+
+        [HttpGet("cliente/{clienteId}")]
+        public async Task<IActionResult> GetPorCliente(int clienteId)
+        {
+            var res = await _turnoService.ObtenerTurnosPorClienteAsync(clienteId);
+            return Ok(res);
+        }
+
+        [HttpGet("{id}/historial")]
+        public async Task<IActionResult> GetHistorialEstados(int id)
+        {
+            var res = await _turnoService.ObtenerHistorialEstadoTurnoAsync(id);
             return Ok(res);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Reservar([FromBody] CrearTurnoDto dto)
+        [Authorize]
+        public async Task<IActionResult> Create([FromBody] CrearTurnoDto dto)
         {
-            var res = await _turnoService.ReservarTurnoAsync(dto);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _turnoService.CreateAsync(dto, GetCurrentUserId());
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
         [HttpPatch("{id}/estado")]
+        [Authorize]
         public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoTurnoDto dto)
         {
-            int usuarioId = ObtenerUsuarioIdDesdeToken();
-            var res = await _turnoService.CambiarEstadoAsync(id, dto, usuarioId);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _turnoService.CambiarEstadoAsync(id, dto, GetCurrentUserId());
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
-        private int ObtenerUsuarioIdDesdeToken()
+        private int GetCurrentUserId()
         {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                        ?? User.FindFirst("sub")?.Value;
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             return int.TryParse(claim, out int id) ? id : 1;
         }
     }

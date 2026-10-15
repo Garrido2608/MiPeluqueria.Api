@@ -15,155 +15,371 @@ namespace MiPeluqueria.Api.Services.Implementations
 {
     public class TurnoService : ITurnoService
     {
-        private readonly ITurnoRepository _turnoRepo;
-        private readonly ApplicationDbContext _context;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
 
-        public TurnoService(
-            ITurnoRepository turnoRepo,
-            ApplicationDbContext context,
-            IUnitOfWork unitOfWork,
-            IMapper mapper)
+        public TurnoService(IUnitOfWork unitOfWork, ApplicationDbContext context, IMapper mapper)
         {
-            _turnoRepo = turnoRepo;
-            _context = context;
             _unitOfWork = unitOfWork;
+            _context = context;
             _mapper = mapper;
         }
 
-        public async Task<ApiResponse<TurnoResponseDto>> ReservarTurnoAsync(CrearTurnoDto dto)
+        public async Task<ApiResponse<IEnumerable<TurnoResponseDto>>> GetAllAsync(DateTime? fecha = null, int? peluqueroId = null)
         {
-            // 1. Validar existencia del cliente
-            bool clienteExiste = await _context.Clientes.AnyAsync(c => c.Id == dto.ClienteId && c.Activo);
-            if (!clienteExiste)
-                return ApiResponse<TurnoResponseDto>.Falla("El cliente indicado no existe o se encuentra inactivo.");
+            var query = _context.Turnos
+                .Include(t => t.Cliente)
+                .Include(t => t.Peluquero)
+                .Include(t => t.Estado)
+                .Include(t => t.TurnoServicios)
+                .ThenInclude(ts => ts.Servicio)
+                .AsNoTracking()
+                .AsQueryable();
 
-            // 2. Validar existencia del profesional y cargar horarios + bloqueos
-            var peluquero = await _context.Peluqueros
-                .Include(p => p.HorariosLaborales)
-                .Include(p => p.BloqueosHorario)
-                .FirstOrDefaultAsync(p => p.Id == dto.PeluqueroId && p.Activo);
-
-            if (peluquero == null)
-                return ApiResponse<TurnoResponseDto>.Falla("El profesional seleccionado no existe o está inactivo.");
-
-            // 3. Recuperar servicios solicitados y calcular duración y monto total
-            var serviciosIdsDistintos = dto.ServiciosIds.Distinct().ToList();
-            var servicios = await _context.Servicios
-                .Where(s => serviciosIdsDistintos.Contains(s.Id) && s.Activo)
-                .ToListAsync();
-
-            if (servicios.Count != serviciosIdsDistintos.Count)
-                return ApiResponse<TurnoResponseDto>.Falla("Uno o más servicios seleccionados no existen o están inactivos.");
-
-            int duracionTotalMinutos = servicios.Sum(s => s.DuracionMinutos);
-            decimal montoTotal = servicios.Sum(s => s.Precio);
-            DateTime fechaFinCalculada = dto.FechaHoraInicio.AddMinutes(duracionTotalMinutos);
-
-            // 4. Validar jornada laboral del profesional (si tiene horarios configurados)
-            if (peluquero.HorariosLaborales.Any())
+            if (fecha.HasValue)
             {
-                var diaSemana = dto.FechaHoraInicio.DayOfWeek;
-                var horaInicio = dto.FechaHoraInicio.TimeOfDay;
-                var horaFin = fechaFinCalculada.TimeOfDay;
-
-                bool horarioValido = peluquero.HorariosLaborales.Any(h =>
-                    h.DiaSemana == diaSemana &&
-                    horaInicio >= h.HoraInicio &&
-                    horaFin <= h.HoraFin);
-
-                if (!horarioValido)
-                    return ApiResponse<TurnoResponseDto>.Falla("El horario solicitado se encuentra fuera de la jornada laboral del profesional.");
+                var inicioDia = fecha.Value.Date;
+                var finDia = inicioDia.AddDays(1).AddTicks(-1);
+                query = query.Where(t => t.FechaHoraInicio >= inicioDia && t.FechaHoraInicio <= finDia);
             }
 
-            // 5. Validar que no colisione con un BloqueoHorario (vacaciones, médico, franco)
-            bool tieneBloqueo = peluquero.BloqueosHorario.Any(b =>
-                dto.FechaHoraInicio < b.FechaFin && fechaFinCalculada > b.FechaInicio);
+            if (peluqueroId.HasValue)
+                query = query.Where(t => t.PeluqueroId == peluqueroId.Value);
 
-            if (tieneBloqueo)
-                return ApiResponse<TurnoResponseDto>.Falla("El profesional registra un bloqueo por ausencia programada en esa franja horaria.");
+            var turnos = await query.OrderBy(t => t.FechaHoraInicio).ToListAsync();
+            var dtos = _mapper.Map<IEnumerable<TurnoResponseDto>>(turnos);
 
-            // 6. Validar que no se solape con otro turno activo del mismo profesional
-            bool solapado = await _turnoRepo.ExisteSolapamientoAsync(dto.PeluqueroId, dto.FechaHoraInicio, fechaFinCalculada);
+            return ApiResponse<IEnumerable<TurnoResponseDto>>.Exito(dtos);
+        }
 
-            if (solapado)
-                return ApiResponse<TurnoResponseDto>.Falla("El profesional ya posee un turno asignado que se superpone con ese horario.");
+        public async Task<ApiResponse<TurnoResponseDto>> GetByIdAsync(int id)
+        {
+            var turno = await _context.Turnos
+                .Include(t => t.Cliente)
+                .Include(t => t.Peluquero)
+                .Include(t => t.Estado)
+                .Include(t => t.TurnoServicios)
+                .ThenInclude(ts => ts.Servicio)
+                .FirstOrDefaultAsync(t => t.Id == id);
 
-            // 7. Construir grafo completo de la entidad Turno + TurnoServicios + HistorialEstadoTurno
-            var nuevoTurno = new Turno
+            if (turno == null)
+                return ApiResponse<TurnoResponseDto>.Falla("El turno solicitado no existe.");
+
+            return ApiResponse<TurnoResponseDto>.Exito(_mapper.Map<TurnoResponseDto>(turno));
+        }
+
+        public async Task<ApiResponse<TurnoResponseDto>> CreateAsync(CrearTurnoDto dto, int usuarioId = 1)
+        {
+            var cliente = await _context.Clientes.FindAsync(dto.ClienteId);
+            if (cliente == null)
+                return ApiResponse<TurnoResponseDto>.Falla("El cliente especificado no existe.");
+
+            var peluquero = await _context.Peluqueros.FindAsync(dto.PeluqueroId);
+            if (peluquero == null)
+                return ApiResponse<TurnoResponseDto>.Falla("El peluquero especificado no existe.");
+
+            var serviciosIds = GetServiciosIdsFromDto(dto);
+            int duracionTotal = 30;
+
+            if (serviciosIds.Any())
+            {
+                var servicios = await _context.Servicios
+                    .Where(s => serviciosIds.Contains(s.Id) && s.Activo)
+                    .ToListAsync();
+
+                if (!servicios.Any())
+                    return ApiResponse<TurnoResponseDto>.Falla("Los servicios seleccionados no existen o están inactivos.");
+
+                duracionTotal = servicios.Sum(s => GetDuracionMinutos(s));
+            }
+
+            var fechaInicio = dto.FechaHoraInicio;
+            var fechaFin = fechaInicio.AddMinutes(duracionTotal);
+
+            bool existeSolapamiento = await _context.Turnos.AnyAsync(t =>
+                t.PeluqueroId == dto.PeluqueroId &&
+                t.EstadoId != (int)EstadoTurnoEnum.Cancelado &&
+                fechaInicio < t.FechaHoraFin &&
+                fechaFin > t.FechaHoraInicio);
+
+            if (existeSolapamiento)
+                return ApiResponse<TurnoResponseDto>.Falla("El peluquero ya posee otro turno asignado en ese rango horario.");
+
+            var turno = new Turno
             {
                 ClienteId = dto.ClienteId,
                 PeluqueroId = dto.PeluqueroId,
-                FechaHoraInicio = dto.FechaHoraInicio,
-                FechaHoraFin = fechaFinCalculada,
-                EstadoId = (int)EstadoTurnoEnum.Pendiente,
-                MontoTotalEstimado = montoTotal,
-                Observaciones = dto.Observaciones
+                FechaHoraInicio = fechaInicio,
+                FechaHoraFin = fechaFin,
+                EstadoId = (int)EstadoTurnoEnum.Pendiente
             };
 
-            foreach (var s in servicios)
+            var obsProp = dto.GetType().GetProperty("Observaciones") ?? dto.GetType().GetProperty("Notas");
+            if (obsProp != null)
             {
-                nuevoTurno.TurnoServicios.Add(new TurnoServicio
-                {
-                    ServicioId = s.Id,
-                    PrecioHistorico = s.Precio,
-                    DuracionMinutosHistorica = s.DuracionMinutos
-                });
+                var obsVal = obsProp.GetValue(dto)?.ToString();
+                SetOptionalProp(turno, "Observaciones", obsVal);
+                SetOptionalProp(turno, "Notas", obsVal);
             }
 
-            // Usamos la colección de navegación para que EF Core asigne el TurnoId automáticamente al hacer el INSERT
-            nuevoTurno.HistorialEstados.Add(new HistorialEstadoTurno
-            {
-                EstadoAnteriorId = null,
-                EstadoNuevoId = (int)EstadoTurnoEnum.Pendiente,
-                FechaCambio = DateTime.UtcNow,
-                Observaciones = "Creación inicial de la reserva de turno."
-            });
-
-            await _turnoRepo.AddAsync(nuevoTurno);
+            await _context.Turnos.AddAsync(turno);
             await _unitOfWork.SaveChangesAsync();
 
-            var turnoCompleto = await _turnoRepo.GetByIdConDetallesAsync(nuevoTurno.Id);
-            var responseDto = _mapper.Map<TurnoResponseDto>(turnoCompleto);
+            if (serviciosIds.Any())
+            {
+                var servicios = await _context.Servicios
+                    .Where(s => serviciosIds.Contains(s.Id))
+                    .ToListAsync();
 
-            return ApiResponse<TurnoResponseDto>.Exito(responseDto, "Turno reservado exitosamente.");
+                foreach (var serv in servicios)
+                {
+                    var ts = new TurnoServicio
+                    {
+                        TurnoId = turno.Id,
+                        ServicioId = serv.Id
+                    };
+                    SetOptionalProp(ts, "PrecioAcordado", serv.Precio);
+                    SetOptionalProp(ts, "Precio", serv.Precio);
+                    await _context.TurnoServicios.AddAsync(ts);
+                }
+            }
+
+            await _context.HistorialEstadoTurnos.AddAsync(new HistorialEstadoTurno
+            {
+                TurnoId = turno.Id,
+                EstadoAnteriorId = (int)EstadoTurnoEnum.Pendiente,
+                EstadoNuevoId = (int)EstadoTurnoEnum.Pendiente,
+                FechaCambio = DateTime.UtcNow,
+                UsuarioId = usuarioId,
+                Observaciones = "Alta inicial de reserva de turno."
+            });
+
+            await _unitOfWork.SaveChangesAsync();
+            return await GetByIdAsync(turno.Id);
         }
 
-        public async Task<ApiResponse<bool>> CambiarEstadoAsync(int turnoId, CambiarEstadoTurnoDto dto, int usuarioId)
+        public async Task<ApiResponse<bool>> CambiarEstadoAsync(int id, CambiarEstadoTurnoDto dto, int usuarioId = 1)
         {
-            var turno = await _turnoRepo.GetByIdConDetallesAsync(turnoId);
+            var turno = await _context.Turnos.FirstOrDefaultAsync(t => t.Id == id);
             if (turno == null)
                 return ApiResponse<bool>.Falla("El turno solicitado no existe.");
 
-            if (dto.NuevoEstadoId == (int)EstadoTurnoEnum.Cancelado && dto.MotivoCancelacionId == null)
-                return ApiResponse<bool>.Falla("Es obligatorio especificar el motivo de cancelación.");
-
             int estadoAnterior = turno.EstadoId;
-            turno.EstadoId = dto.NuevoEstadoId;
-            turno.MotivoCancelacionId = dto.MotivoCancelacionId;
+            int nuevoEstado = Convert.ToInt32(GetOptionalProp(dto, new[] { "NuevoEstadoId", "EstadoId", "Estado" }) ?? (int)EstadoTurnoEnum.Confirmado);
 
-            await _turnoRepo.UpdateAsync(turno);
-            await _turnoRepo.AddHistorialEstadoAsync(new HistorialEstadoTurno
+            turno.EstadoId = nuevoEstado;
+
+            var motivoId = GetOptionalProp(dto, new[] { "MotivoCancelacionId" }) as int?;
+            if (motivoId.HasValue)
+                SetOptionalProp(turno, "MotivoCancelacionId", motivoId.Value);
+
+            var obs = GetOptionalProp(dto, new[] { "Observaciones", "Motivo" })?.ToString();
+
+            await _context.HistorialEstadoTurnos.AddAsync(new HistorialEstadoTurno
             {
                 TurnoId = turno.Id,
                 EstadoAnteriorId = estadoAnterior,
-                EstadoNuevoId = dto.NuevoEstadoId,
+                EstadoNuevoId = nuevoEstado,
                 FechaCambio = DateTime.UtcNow,
                 UsuarioId = usuarioId,
-                Observaciones = dto.Observaciones ?? "Actualización manual de estado."
+                Observaciones = string.IsNullOrWhiteSpace(obs) ? "Cambio de estado del turno." : obs
             });
 
+            _context.Turnos.Update(turno);
             await _unitOfWork.SaveChangesAsync();
 
-            return ApiResponse<bool>.Exito(true, "Estado del turno actualizado con trazabilidad de auditoría.");
+            return ApiResponse<bool>.Exito(true, "Estado del turno actualizado correctamente.");
         }
 
-        public async Task<ApiResponse<List<TurnoResponseDto>>> ObtenerAgendaPeluqueroFechaAsync(int peluqueroId, DateTime fecha)
+        public async Task<ApiResponse<IEnumerable<string>>> ObtenerHorariosDisponiblesAsync(int peluqueroId, DateTime fecha, List<int>? serviciosIds = null)
         {
-            var turnos = await _turnoRepo.GetTurnosPeluqueroEnFechaAsync(peluqueroId, fecha);
-            var dtos = _mapper.Map<List<TurnoResponseDto>>(turnos);
-            return ApiResponse<List<TurnoResponseDto>>.Exito(dtos, "Agenda diaria obtenida correctamente.");
+            var peluquero = await _context.Peluqueros.FindAsync(peluqueroId);
+            if (peluquero == null)
+                return ApiResponse<IEnumerable<string>>.Falla("El peluquero especificado no existe.");
+
+            int duracionTotalMinutos = 30;
+            if (serviciosIds != null && serviciosIds.Any())
+            {
+                var servicios = await _context.Servicios
+                    .Where(s => serviciosIds.Contains(s.Id))
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                if (servicios.Any())
+                    duracionTotalMinutos = servicios.Sum(s => GetDuracionMinutos(s));
+            }
+
+            int diaSemana = (int)fecha.DayOfWeek;
+            var horariosPeluquero = await _context.HorariosLaborales
+                .Where(h => h.PeluqueroId == peluqueroId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var horarioDia = horariosPeluquero.FirstOrDefault(h =>
+                Convert.ToInt32(GetOptionalProp(h, new[] { "DiaSemana", "Dia" }) ?? -1) == diaSemana);
+
+            TimeSpan horaApertura = new TimeSpan(9, 0, 0);
+            TimeSpan horaCierre = new TimeSpan(20, 0, 0);
+            TimeSpan? descansoInicio = null;
+            TimeSpan? descansoFin = null;
+
+            if (horarioDia != null)
+            {
+                bool activo = (bool?)(GetOptionalProp(horarioDia, new[] { "Activo", "EsLaborable" })) ?? true;
+                if (!activo)
+                    return ApiResponse<IEnumerable<string>>.Exito(Enumerable.Empty<string>(), "El profesional no atiende en el día seleccionado.");
+
+                horaApertura = GetTimeSpanProp(horarioDia, new[] { "HoraInicio", "HoraDesde", "HoraApertura" }) ?? horaApertura;
+                horaCierre = GetTimeSpanProp(horarioDia, new[] { "HoraFin", "HoraHasta", "HoraCierre" }) ?? horaCierre;
+                descansoInicio = GetTimeSpanProp(horarioDia, new[] { "HoraInicioDescanso", "DescansoInicio" });
+                descansoFin = GetTimeSpanProp(horarioDia, new[] { "HoraFinDescanso", "DescansoFin" });
+            }
+
+            var inicioDia = fecha.Date;
+            var finDia = inicioDia.AddDays(1).AddTicks(-1);
+
+            var turnosOcupados = await _context.Turnos
+                .Where(t => t.PeluqueroId == peluqueroId
+                         && t.FechaHoraInicio >= inicioDia
+                         && t.FechaHoraInicio <= finDia
+                         && t.EstadoId != (int)EstadoTurnoEnum.Cancelado)
+                .Select(t => new { t.FechaHoraInicio, t.FechaHoraFin })
+                .AsNoTracking()
+                .ToListAsync();
+
+            var bloqueosPeluquero = await _context.BloqueosHorario
+                .Where(b => b.PeluqueroId == peluqueroId)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var slotsDisponibles = new List<string>();
+            var cursor = fecha.Date.Add(horaApertura);
+            var limiteJornada = fecha.Date.Add(horaCierre);
+
+            while (cursor.AddMinutes(duracionTotalMinutos) <= limiteJornada)
+            {
+                var slotInicio = cursor;
+                var slotFin = cursor.AddMinutes(duracionTotalMinutos);
+
+                bool enDescanso = false;
+                if (descansoInicio.HasValue && descansoFin.HasValue)
+                {
+                    var dInicio = fecha.Date.Add(descansoInicio.Value);
+                    var dFin = fecha.Date.Add(descansoFin.Value);
+                    if (slotInicio < dFin && slotFin > dInicio)
+                        enDescanso = true;
+                }
+
+                bool solapaTurno = turnosOcupados.Any(t => slotInicio < t.FechaHoraFin && slotFin > t.FechaHoraInicio);
+
+                bool solapaBloqueo = bloqueosPeluquero.Any(b =>
+                {
+                    var bInicio = GetDateTimeProp(b, new[] { "FechaHoraInicio", "FechaInicio", "Desde" });
+                    var bFin = GetDateTimeProp(b, new[] { "FechaHoraFin", "FechaFin", "Hasta" });
+                    return bInicio.HasValue && bFin.HasValue && slotInicio < bFin.Value && slotFin > bInicio.Value;
+                });
+
+                if (!enDescanso && !solapaTurno && !solapaBloqueo)
+                {
+                    slotsDisponibles.Add(slotInicio.ToString("HH:mm"));
+                }
+
+                cursor = cursor.AddMinutes(30);
+            }
+
+            return ApiResponse<IEnumerable<string>>.Exito(slotsDisponibles);
+        }
+
+        public async Task<ApiResponse<IEnumerable<TurnoResponseDto>>> ObtenerTurnosPorClienteAsync(int clienteId)
+        {
+            var turnos = await _context.Turnos
+                .Include(t => t.Cliente)
+                .Include(t => t.Peluquero)
+                .Include(t => t.Estado)
+                .Include(t => t.TurnoServicios)
+                .ThenInclude(ts => ts.Servicio)
+                .Where(t => t.ClienteId == clienteId)
+                .OrderByDescending(t => t.FechaHoraInicio)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var dtos = _mapper.Map<IEnumerable<TurnoResponseDto>>(turnos);
+            return ApiResponse<IEnumerable<TurnoResponseDto>>.Exito(dtos);
+        }
+
+        public async Task<ApiResponse<IEnumerable<object>>> ObtenerHistorialEstadoTurnoAsync(int turnoId)
+        {
+            var historial = await _context.HistorialEstadoTurnos
+                .Where(h => h.TurnoId == turnoId)
+                .OrderBy(h => h.FechaCambio)
+                .AsNoTracking()
+                .Select(h => (object)new
+                {
+                    h.Id,
+                    h.TurnoId,
+                    h.EstadoAnteriorId,
+                    EstadoAnterior = ((EstadoTurnoEnum)h.EstadoAnteriorId).ToString(),
+                    h.EstadoNuevoId,
+                    EstadoNuevo = ((EstadoTurnoEnum)h.EstadoNuevoId).ToString(),
+                    h.FechaCambio,
+                    h.UsuarioId,
+                    h.Observaciones
+                })
+                .ToListAsync();
+
+            return ApiResponse<IEnumerable<object>>.Exito(historial);
+        }
+
+        private static List<int> GetServiciosIdsFromDto(CrearTurnoDto dto)
+        {
+            var prop = dto.GetType().GetProperty("ServiciosIds") ?? dto.GetType().GetProperty("Servicios");
+            if (prop != null && prop.GetValue(dto) is IEnumerable<int> ids)
+                return ids.ToList();
+            return new List<int>();
+        }
+
+        private static int GetDuracionMinutos(Servicio s)
+        {
+            var val = GetOptionalProp(s, new[] { "DuracionMinutos", "Duracion", "TiempoEstimadoMinutos" });
+            return val != null ? Convert.ToInt32(val) : 30;
+        }
+
+        private static object? GetOptionalProp(object target, string[] names)
+        {
+            var type = target.GetType();
+            foreach (var name in names)
+            {
+                var prop = type.GetProperty(name);
+                if (prop != null && prop.CanRead)
+                    return prop.GetValue(target);
+            }
+            return null;
+        }
+
+        private static TimeSpan? GetTimeSpanProp(object target, string[] names)
+        {
+            var val = GetOptionalProp(target, names);
+            if (val is TimeSpan ts) return ts;
+            if (val is TimeOnly to) return to.ToTimeSpan();
+            return null;
+        }
+
+        private static DateTime? GetDateTimeProp(object target, string[] names)
+        {
+            var val = GetOptionalProp(target, names);
+            if (val is DateTime dt) return dt;
+            return null;
+        }
+
+        private static void SetOptionalProp(object target, string name, object? value)
+        {
+            if (value == null) return;
+            var prop = target.GetType().GetProperty(name);
+            if (prop != null && prop.CanWrite)
+            {
+                try { prop.SetValue(target, value); } catch { }
+            }
         }
     }
 }

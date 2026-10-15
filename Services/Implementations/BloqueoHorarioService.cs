@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Models.Turnos;
-using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
@@ -14,65 +15,49 @@ namespace MiPeluqueria.Api.Services.Implementations
     public class BloqueoHorarioService : IBloqueoHorarioService
     {
         private readonly ApplicationDbContext _context;
-        private readonly ITurnoRepository _turnoRepo;
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public BloqueoHorarioService(
-            ApplicationDbContext context,
-            ITurnoRepository turnoRepo,
-            IUnitOfWork unitOfWork)
+        public BloqueoHorarioService(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
-            _turnoRepo = turnoRepo;
-            _unitOfWork = unitOfWork;
+            _mapper = mapper;
+        }
+
+        public async Task<ApiResponse<IEnumerable<object>>> ObtenerPorPeluqueroAsync(int peluqueroId)
+        {
+            var bloqueos = await _context.BloqueosHorario
+                .Where(b => b.PeluqueroId == peluqueroId)
+                .OrderByDescending(b => b.Id)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var resultado = bloqueos.Select(b => (object)b).ToList();
+            return ApiResponse<IEnumerable<object>>.Exito(resultado);
         }
 
         public async Task<ApiResponse<int>> CrearBloqueoAsync(BloqueoHorarioDto dto)
         {
-            bool peluqueroExiste = await _context.Peluqueros.AnyAsync(p => p.Id == dto.PeluqueroId && p.Activo);
-            if (!peluqueroExiste)
-                return ApiResponse<int>.Falla("El profesional especificado no existe o está inactivo.");
+            var peluquero = await _context.Peluqueros.FindAsync(dto.PeluqueroId);
+            if (peluquero == null)
+                return ApiResponse<int>.Falla("El peluquero especificado no existe.");
 
-            // Verificar que no haya turnos activos ya otorgados en el rango que se pretende bloquear
-            bool tieneTurnosActivos = await _turnoRepo.ExisteSolapamientoAsync(dto.PeluqueroId, dto.FechaInicio, dto.FechaFin);
-            if (tieneTurnosActivos)
-                return ApiResponse<int>.Falla("El profesional posee turnos activos en ese rango horario. Reprograme o cancele dichos turnos antes de bloquear la agenda.");
-
-            var bloqueo = new BloqueoHorario
-            {
-                PeluqueroId = dto.PeluqueroId,
-                FechaInicio = dto.FechaInicio,
-                FechaFin = dto.FechaFin,
-                Motivo = dto.Motivo
-            };
-
+            var bloqueo = _mapper.Map<BloqueoHorario>(dto);
             await _context.BloqueosHorario.AddAsync(bloqueo);
-            await _unitOfWork.SaveChangesAsync();
+            await _context.SaveChangesAsync();
 
             return ApiResponse<int>.Exito(bloqueo.Id, "Bloqueo horario registrado correctamente.");
         }
 
-        public async Task<ApiResponse<List<BloqueoHorario>>> ObtenerPorPeluqueroAsync(int peluqueroId)
+        public async Task<ApiResponse<bool>> EliminarBloqueoAsync(int id)
         {
-            var bloqueos = await _context.BloqueosHorario
-                .AsNoTracking()
-                .Where(b => b.PeluqueroId == peluqueroId)
-                .OrderByDescending(b => b.FechaInicio)
-                .ToListAsync();
-
-            return ApiResponse<List<BloqueoHorario>>.Exito(bloqueos, "Bloqueos horarios obtenidos.");
-        }
-
-        public async Task<ApiResponse<bool>> EliminarBloqueoAsync(int bloqueoId)
-        {
-            var bloqueo = await _context.BloqueosHorario.FindAsync(bloqueoId);
+            var bloqueo = await _context.BloqueosHorario.FindAsync(id);
             if (bloqueo == null)
-                return ApiResponse<bool>.Falla("El bloqueo horario indicado no existe.");
+                return ApiResponse<bool>.Falla("El bloqueo horario especificado no existe.");
 
             _context.BloqueosHorario.Remove(bloqueo);
-            await _unitOfWork.SaveChangesAsync();
+            await _context.SaveChangesAsync();
 
-            return ApiResponse<bool>.Exito(true, "Bloqueo horario eliminado (agenda liberada).");
+            return ApiResponse<bool>.Exito(true, "Bloqueo horario eliminado correctamente.");
         }
     }
 }

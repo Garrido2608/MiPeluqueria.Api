@@ -7,7 +7,7 @@ namespace MiPeluqueria.Api.Services.Interfaces
 {
     public interface IServicioService
     {
-        Task<ApiResponse<List<ServicioDto>>> GetAllAsync();
+        Task<ApiResponse<IEnumerable<ServicioDto>>> GetAllAsync();
         Task<ApiResponse<ServicioDto>> GetByIdAsync(int id);
         Task<ApiResponse<ServicioDto>> CreateAsync(CrearServicioDto dto);
         Task<ApiResponse<ServicioDto>> UpdateAsync(int id, CrearServicioDto dto);

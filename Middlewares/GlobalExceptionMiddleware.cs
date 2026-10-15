@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using MiPeluqueria.Api.DTOs.Common;
+using MiPeluqueria.Api.Exceptions;
 
 namespace MiPeluqueria.Api.Middlewares
 {
@@ -14,16 +9,11 @@ namespace MiPeluqueria.Api.Middlewares
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<GlobalExceptionMiddleware> _logger;
-        private readonly IHostEnvironment _env;
 
-        public GlobalExceptionMiddleware(
-            RequestDelegate next,
-            ILogger<GlobalExceptionMiddleware> logger,
-            IHostEnvironment env)
+        public GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
         {
             _next = next;
             _logger = logger;
-            _env = env;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -34,20 +24,41 @@ namespace MiPeluqueria.Api.Middlewares
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Excepción no controlada capturada en {Path}: {Message}", context.Request.Path, ex.Message);
-
-                context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-
-                var errores = _env.IsDevelopment()
-                    ? new List<string> { ex.Message, ex.InnerException?.Message ?? string.Empty }
-                    : new List<string> { "Comuníquese con el administrador del sistema." };
-
-                var response = ApiResponse<object>.Falla("Error interno del servidor al procesar la solicitud.", errores);
-
-                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-                await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+                _logger.LogError(ex, "Excepción capturada por GlobalExceptionMiddleware: {Message}", ex.Message);
+                await HandleExceptionAsync(context, ex);
             }
+        }
+
+        private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+        {
+            context.Response.ContentType = "application/json";
+
+            var statusCode = exception switch
+            {
+                NotFoundException or KeyNotFoundException => (int)HttpStatusCode.NotFound,
+                UnauthorizedAppException or UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+                BusinessRuleException or InvalidOperationException or ArgumentException => (int)HttpStatusCode.BadRequest,
+                _ => (int)HttpStatusCode.InternalServerError
+            };
+
+            context.Response.StatusCode = statusCode;
+
+            var message = statusCode == (int)HttpStatusCode.InternalServerError
+                ? "Ocurrió un error interno en el servidor. Por favor, intente nuevamente."
+                : exception.Message;
+
+            var response = ApiResponse<object>.Fail(
+                message,
+                new List<string> { exception.Message }
+            );
+
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var json = JsonSerializer.Serialize(response, options);
+            return context.Response.WriteAsync(json);
         }
     }
 }

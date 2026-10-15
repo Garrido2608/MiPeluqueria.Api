@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Ventas;
 using MiPeluqueria.Api.Services.Implementations;
+using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {

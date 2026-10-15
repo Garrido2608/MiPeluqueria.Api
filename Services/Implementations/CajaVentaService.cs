@@ -9,16 +9,12 @@ using MiPeluqueria.Api.Models.Stock;
 using MiPeluqueria.Api.Models.Turnos;
 using MiPeluqueria.Api.Models.Ventas;
 using MiPeluqueria.Api.Repositories.Interfaces;
+using MiPeluqueria.Api.Services.Interfaces;
+
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
-    public interface ICajaVentaService
-    {
-        Task<ApiResponse<int>> AbrirCajaAsync(AperturaCajaDto dto);
-        Task<ApiResponse<decimal>> CerrarCajaAsync(CierreCajaDto dto);
-        Task<ApiResponse<int>> RegistrarVentaAsync(CrearVentaDto dto, int usuarioId);
-        Task<ApiResponse<bool>> RegistrarEgresoCajaAsync(int sesionCajaId, decimal monto, string concepto, string tipo);
-    }
+ 
 
     public class CajaVentaService : ICajaVentaService
     {
@@ -175,7 +171,7 @@ namespace MiPeluqueria.Api.Services.Implementations
             }
         }
 
-        public async Task<ApiResponse<bool>> RegistrarEgresoCajaAsync(int sesionCajaId, decimal monto, string concepto, string tipo)
+        public async Task<ApiResponse<bool>> RegistrarEgresoCajaAsync(int sesionCajaId, decimal monto, string concepto, string tipo = "EgresoMenor")
         {
             var caja = await _cajaRepo.GetCajaAbiertaActualAsync();
             if (caja == null || caja.Id != sesionCajaId)

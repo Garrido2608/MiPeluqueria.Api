@@ -5,40 +5,13 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
+using MiPeluqueria.Api.DTOs.Ventas;
 using MiPeluqueria.Api.Models.Ventas;
 using MiPeluqueria.Api.Repositories.Interfaces;
+using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
-    public class GenerarLiquidacionDto
-    {
-        public int PeluqueroId { get; set; }
-        public DateTime FechaDesde { get; set; }
-        public DateTime FechaHasta { get; set; }
-    }
-
-    public class LiquidacionResponseDto
-    {
-        public int Id { get; set; }
-        public int PeluqueroId { get; set; }
-        public string PeluqueroNombre { get; set; } = string.Empty;
-        public DateTime FechaDesde { get; set; }
-        public DateTime FechaHasta { get; set; }
-        public DateTime? FechaVencimiento { get; set; }
-        public decimal TotalServicios { get; set; }
-        public decimal TotalProductos { get; set; }
-        public decimal TotalPagar { get; set; }
-        public int CantidadItemsLiquidados { get; set; }
-        public string Estado { get; set; } = string.Empty;
-    }
-
-    public interface ILiquidacionService
-    {
-        Task<ApiResponse<LiquidacionResponseDto>> LiquidarPeriodoAsync(GenerarLiquidacionDto dto);
-        Task<ApiResponse<bool>> RegistrarPagoLiquidacionAsync(int liquidacionId);
-        Task<ApiResponse<List<LiquidacionResponseDto>>> ObtenerPorPeluqueroAsync(int peluqueroId);
-    }
-
     public class LiquidacionService : ILiquidacionService
     {
         private readonly ApplicationDbContext _context;

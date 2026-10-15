@@ -1,13 +1,13 @@
 ﻿using System.Security.Claims;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Stock;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class ProductosController : ControllerBase
     {
         private readonly IProductoService _productoService;
@@ -18,42 +18,71 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() =>
-            Ok(await _productoService.GetAllAsync());
+        public async Task<IActionResult> GetAll([FromQuery] bool soloBajoStock = false)
+        {
+            var result = await _productoService.GetAllAsync(soloBajoStock);
+            return Ok(result);
+        }
 
         [HttpGet("stock-critico")]
-        public async Task<IActionResult> GetStockCritico() =>
-            Ok(await _productoService.GetStockCriticoAsync());
+        public async Task<IActionResult> GetStockCritico()
+        {
+            var result = await _productoService.GetStockCriticoAsync();
+            return Ok(result);
+        }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var res = await _productoService.GetByIdAsync(id);
-            if (!res.Success) return NotFound(res);
-            return Ok(res);
+            var result = await _productoService.GetByIdAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> Create([FromBody] CrearProductoDto dto)
         {
-            int usuarioId = ObtenerUsuarioId();
-            var res = await _productoService.CreateAsync(dto, usuarioId);
-            if (!res.Success) return BadRequest(res);
-            return CreatedAtAction(nameof(GetById), new { id = res.Data!.Id }, res);
+            var userId = GetCurrentUserId();
+            var result = await _productoService.CreateAsync(dto, userId);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        [HttpPost("movimiento")]
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Update(int id, [FromBody] CrearProductoDto dto)
+        {
+            var result = await _productoService.UpdateAsync(id, dto);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var result = await _productoService.DeleteAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        [HttpPost("movimiento-stock")]
+        [Authorize]
         public async Task<IActionResult> RegistrarMovimiento([FromBody] MovimientoStockDto dto)
         {
-            int usuarioId = ObtenerUsuarioId();
-            var res = await _productoService.RegistrarMovimientoAsync(dto, usuarioId);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var userId = GetCurrentUserId();
+            var result = await _productoService.RegistrarMovimientoStockAsync(dto, userId);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
-        private int ObtenerUsuarioId()
+        [HttpGet("{id}/kardex")]
+        [Authorize]
+        public async Task<IActionResult> GetKardex(int id)
         {
-            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+            var result = await _productoService.ObtenerKardexProductoAsync(id);
+            return result.Success ? Ok(result) : NotFound(result);
+        }
+
+        private int GetCurrentUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             return int.TryParse(claim, out int id) ? id : 1;
         }
     }

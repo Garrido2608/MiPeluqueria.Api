@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore.Storage;
+﻿using Microsoft.EntityFrameworkCore.Storage;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.Repositories.Interfaces;
 
@@ -11,9 +9,29 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         private readonly ApplicationDbContext _context;
         private IDbContextTransaction? _transaction;
 
-        public UnitOfWork(ApplicationDbContext context)
+        public IClienteRepository Clientes { get; }
+        public IPeluqueroRepository Peluqueros { get; }
+        public IServicioRepository Servicios { get; }
+        public ITurnoRepository Turnos { get; }
+        public IProductoRepository Productos { get; }
+        public IProveedorRepository Proveedores { get; }
+
+        public UnitOfWork(
+            ApplicationDbContext context,
+            IClienteRepository clienteRepository,
+            IPeluqueroRepository peluqueroRepository,
+            IServicioRepository servicioRepository,
+            ITurnoRepository turnoRepository,
+            IProductoRepository productoRepository,
+            IProveedorRepository proveedorRepository)
         {
             _context = context;
+            Clientes = clienteRepository;
+            Peluqueros = peluqueroRepository;
+            Servicios = servicioRepository;
+            Turnos = turnoRepository;
+            Productos = productoRepository;
+            Proveedores = proveedorRepository;
         }
 
         public async Task<int> SaveChangesAsync()
@@ -21,36 +39,23 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             return await _context.SaveChangesAsync();
         }
 
+        public async Task<int> CommitAsync()
+        {
+            return await _context.SaveChangesAsync();
+        }
+
         public async Task BeginTransactionAsync()
         {
-            if (_transaction == null)
-            {
-                _transaction = await _context.Database.BeginTransactionAsync();
-            }
+            _transaction = await _context.Database.BeginTransactionAsync();
         }
 
         public async Task CommitTransactionAsync()
         {
-            try
+            if (_transaction != null)
             {
-                await _context.SaveChangesAsync();
-                if (_transaction != null)
-                {
-                    await _transaction.CommitAsync();
-                }
-            }
-            catch
-            {
-                await RollbackTransactionAsync();
-                throw;
-            }
-            finally
-            {
-                if (_transaction != null)
-                {
-                    await _transaction.DisposeAsync();
-                    _transaction = null;
-                }
+                await _transaction.CommitAsync();
+                await _transaction.DisposeAsync();
+                _transaction = null;
             }
         }
 
@@ -68,6 +73,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         {
             _transaction?.Dispose();
             _context.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

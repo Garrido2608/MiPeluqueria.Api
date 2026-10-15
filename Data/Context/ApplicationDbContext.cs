@@ -106,6 +106,15 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<Usuario>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<HistorialSesion>().HasQueryFilter(e => !e.IsDeleted);
 
+            modelBuilder.Entity<Usuario>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Cliente>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Peluquero>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Servicio>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Turno>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Producto>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Proveedor>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Especialidad>().HasQueryFilter(e => !e.IsDeleted);
+
             // 4. Precisiones decimales financieras blindadas
             modelBuilder.Entity<Turno>().Property(t => t.MontoTotalEstimado).HasPrecision(18, 2);
             modelBuilder.Entity<Servicio>().Property(s => s.Precio).HasPrecision(18, 2);
@@ -125,7 +134,9 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<DetalleLiquidacion>().Property(d => d.MontoComisionCalculado).HasPrecision(18, 2);
             modelBuilder.Entity<Pago>().Property(p => p.Importe).HasPrecision(18, 2);
 
+
             // 5. Índices de Rendimiento (Ingeniería de Datos para Producción)
+
             modelBuilder.Entity<Turno>()
                 .HasIndex(t => new { t.PeluqueroId, t.FechaHoraInicio, t.FechaHoraFin, t.EstadoId })
                 .HasDatabaseName("IX_Turnos_Agenda_Solapamiento");
@@ -141,6 +152,14 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<DetalleVenta>()
                 .HasIndex(d => new { d.PeluqueroId, d.TipoItem })
                 .HasDatabaseName("IX_DetallesVenta_Liquidaciones");
+
+           
+            // Solución a Warnings EF Core 10622 (Tablas intermedias N:M)
+            modelBuilder.Entity<PeluqueroEspecialidad>()
+                .HasQueryFilter(pe => !pe.Peluquero.IsDeleted);
+
+            modelBuilder.Entity<TurnoServicio>()
+                .HasQueryFilter(ts => !ts.Turno.IsDeleted && !ts.Servicio.IsDeleted);
 
             // 6. Seed Data Maestro Completo (Fecha estática para evitar diffs innecesarios en migraciones)
             var seedDate = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);

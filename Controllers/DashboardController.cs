@@ -1,6 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using MiPeluqueria.Api.Services.Implementations;
+using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
@@ -16,9 +17,9 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpGet("kpis")]
-        public async Task<IActionResult> GetKpis()
+        public async Task<IActionResult> GetKpis([FromQuery] DateTime? fechaDesde = null, [FromQuery] DateTime? fechaHasta = null)
         {
-            var res = await _dashboardService.ObtenerMetricasMesActualAsync();
+            var res = await _dashboardService.ObtenerKpisAsync(fechaDesde, fechaHasta);
             return Ok(res);
         }
     }

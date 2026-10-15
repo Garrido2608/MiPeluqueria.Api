@@ -22,8 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Data\Migrations\" />
-    <Folder Include="Exceptions\" />
     <Folder Include="Integrations\" />
   </ItemGroup>
 

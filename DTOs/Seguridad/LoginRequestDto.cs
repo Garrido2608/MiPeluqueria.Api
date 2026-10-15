@@ -1,13 +1,27 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace MiPeluqueria.Api.DTOs.Seguridad
+﻿namespace MiPeluqueria.Api.DTOs.Seguridad
 {
     public class LoginRequestDto
     {
-        [Required(ErrorMessage = "El nombre de usuario o email es obligatorio.")]
-        public string UsernameOrEmail { get; set; } = string.Empty;
+        private string _identificador = string.Empty;
 
-        [Required(ErrorMessage = "La contraseña es obligatoria.")]
+        public string UsernameOrEmail
+        {
+            get => _identificador;
+            set => _identificador = value ?? string.Empty;
+        }
+
+        public string Username
+        {
+            get => _identificador;
+            set => _identificador = value ?? string.Empty;
+        }
+
+        public string Email
+        {
+            get => _identificador;
+            set => _identificador = value ?? string.Empty;
+        }
+
         public string Password { get; set; } = string.Empty;
     }
 }

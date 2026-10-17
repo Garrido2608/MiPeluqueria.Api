@@ -11,17 +11,17 @@ namespace MiPeluqueria.Api.Controllers
     [ApiController]
     public class CajaController : ControllerBase
     {
-        private readonly ICajaVentaService _cajaVentaService;
+        private readonly ICajaService _cajaService;
 
-        public CajaController(ICajaVentaService cajaVentaService)
+        public CajaController(ICajaService cajaService)
         {
-            _cajaVentaService = cajaVentaService;
+            _cajaService = cajaService;
         }
 
         [HttpGet("estado-actual")]
         public async Task<IActionResult> GetEstadoActual()
         {
-            var res = await _cajaVentaService.ObtenerEstadoCajaActualAsync();
+            var res = await _cajaService.ObtenerEstadoCajaActualAsync();
             return Ok(res);
         }
 
@@ -29,7 +29,7 @@ namespace MiPeluqueria.Api.Controllers
         [Authorize]
         public async Task<IActionResult> GetHistorial([FromQuery] DateTime? fechaDesde = null, [FromQuery] DateTime? fechaHasta = null)
         {
-            var res = await _cajaVentaService.ObtenerHistorialCajasAsync(fechaDesde, fechaHasta);
+            var res = await _cajaService.ObtenerHistorialCajasAsync(fechaDesde, fechaHasta);
             return Ok(res);
         }
 
@@ -37,7 +37,7 @@ namespace MiPeluqueria.Api.Controllers
         [Authorize]
         public async Task<IActionResult> Abrir([FromBody] AperturaCajaDto dto)
         {
-            var res = await _cajaVentaService.AbrirCajaAsync(dto);
+            var res = await _cajaService.AbrirCajaAsync(dto);
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }
@@ -46,7 +46,7 @@ namespace MiPeluqueria.Api.Controllers
         [Authorize]
         public async Task<IActionResult> RegistrarEgreso([FromBody] RegistrarMovimientoCajaDto dto)
         {
-            var res = await _cajaVentaService.RegistrarEgresoCajaAsync(dto.SesionCajaId, dto.Monto, dto.Concepto, dto.Tipo ?? "EgresoMenor");
+            var res = await _cajaService.RegistrarEgresoCajaAsync(dto.SesionCajaId, dto.Monto, dto.Concepto, dto.Tipo ?? "EgresoMenor");
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }
@@ -55,7 +55,7 @@ namespace MiPeluqueria.Api.Controllers
         [Authorize]
         public async Task<IActionResult> RegistrarIngreso([FromBody] RegistrarMovimientoCajaDto dto)
         {
-            var res = await _cajaVentaService.RegistrarIngresoCajaAsync(dto.SesionCajaId, dto.Monto, dto.Concepto, dto.Tipo ?? "IngresoManual");
+            var res = await _cajaService.RegistrarIngresoCajaAsync(dto.SesionCajaId, dto.Monto, dto.Concepto, dto.Tipo ?? "IngresoManual");
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }
@@ -64,7 +64,7 @@ namespace MiPeluqueria.Api.Controllers
         [Authorize]
         public async Task<IActionResult> Cerrar([FromBody] CierreCajaDto dto)
         {
-            var res = await _cajaVentaService.CerrarCajaAsync(dto);
+            var res = await _cajaService.CerrarCajaAsync(dto);
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }

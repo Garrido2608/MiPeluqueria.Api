@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MiPeluqueria.Api.DTOs.Seguridad;
 using MiPeluqueria.Api.Services.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
+    [EnableRateLimiting("StrictAuthOtpPolicy")] // <-- Blinda login, registro y OTPs a 5 req/min por IP
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;

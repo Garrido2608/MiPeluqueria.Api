@@ -61,6 +61,9 @@ namespace MiPeluqueria.Api.Data.Context
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<HistorialSesion> HistorialSesiones { get; set; }
 
+        //Modulo Common
+       public DbSet<ConfiguracionSalon> ConfiguracionSalon { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

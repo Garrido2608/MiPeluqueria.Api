@@ -11,24 +11,24 @@ namespace MiPeluqueria.Api.Controllers
     [ApiController]
     public class VentasController : ControllerBase
     {
-        private readonly ICajaVentaService _cajaVentaService;
+        private readonly IVentaService _ventaService;
 
-        public VentasController(ICajaVentaService cajaVentaService)
+        public VentasController(IVentaService ventaService)
         {
-            _cajaVentaService = cajaVentaService;
+            _ventaService = ventaService;
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var res = await _cajaVentaService.ObtenerVentaPorIdAsync(id);
+            var res = await _ventaService.ObtenerVentaPorIdAsync(id);
             return res.Success ? Ok(res) : NotFound(res);
         }
 
         [HttpGet("sesion/{sesionCajaId}")]
         public async Task<IActionResult> GetPorSesion(int sesionCajaId)
         {
-            var res = await _cajaVentaService.ObtenerVentasPorSesionAsync(sesionCajaId);
+            var res = await _ventaService.ObtenerVentasPorSesionAsync(sesionCajaId);
             return Ok(res);
         }
 
@@ -37,7 +37,7 @@ namespace MiPeluqueria.Api.Controllers
         public async Task<IActionResult> Registrar([FromBody] CrearVentaDto dto)
         {
             int usuarioId = GetCurrentUserId();
-            var res = await _cajaVentaService.RegistrarVentaAsync(dto, usuarioId);
+            var res = await _ventaService.RegistrarVentaAsync(dto, usuarioId);
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }
@@ -48,7 +48,7 @@ namespace MiPeluqueria.Api.Controllers
         {
             int usuarioId = GetCurrentUserId();
             string motivo = dto?.Motivo ?? "Anulación de venta en mostrador.";
-            var res = await _cajaVentaService.AnularVentaAsync(id, motivo, usuarioId);
+            var res = await _ventaService.AnularVentaAsync(id, motivo, usuarioId);
             if (!res.Success) return BadRequest(res);
             return Ok(res);
         }

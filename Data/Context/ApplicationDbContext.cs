@@ -70,8 +70,15 @@ namespace MiPeluqueria.Api.Data.Context
         public DbSet<MiPeluqueria.Api.Models.Stock.HistorialPrecioProducto> HistorialPreciosProducto { get; set; }
         public DbSet<MiPeluqueria.Api.Models.Turnos.HistorialPrecioServicio> HistorialPreciosServicio { get; set; }
 
-       
-       
+        // Fase 2 - Compras, Recetas y SaaS
+        public DbSet<OrdenCompra> OrdenesCompra { get; set; }
+        public DbSet<DetalleOrdenCompra> DetallesOrdenCompra { get; set; }
+        public DbSet<ServicioInsumoReceta> ServiciosInsumosRecetas { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.SaaS.Tenant> Tenants { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.SaaS.Sucursal> Sucursales { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.SaaS.PlanSuscripcion> PlanesSuscripcion { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.SaaS.SuscripcionTenant> SuscripcionesTenant { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

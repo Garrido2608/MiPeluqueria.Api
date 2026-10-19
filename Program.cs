@@ -1,6 +1,3 @@
-using System;
-using System.Text;
-using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,12 +13,16 @@ using Microsoft.OpenApi.Models;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.Integrations.Email;
 using MiPeluqueria.Api.Integrations.Notifications;
+using MiPeluqueria.Api.Integrations.Payments;
 using MiPeluqueria.Api.Mappings;
 using MiPeluqueria.Api.Middlewares;
 using MiPeluqueria.Api.Repositories.Implementations;
 using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Implementations;
 using MiPeluqueria.Api.Services.Interfaces;
+using System;
+using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,6 +96,8 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<IConfiguracionSalonService, ConfiguracionSalonService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppNotificationService>();
+
+
 
 // 4. AutoMapper
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -204,6 +207,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Fase 2 - Repositorios, Servicios e Integraciones
+builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+builder.Services.AddScoped<IOrdenCompraService, OrdenCompraService>();
+builder.Services.AddScoped<IRecetaServicioService, RecetaServicioService>();
+builder.Services.AddScoped<IPaymentGatewayService, PaymentGatewayService>();
+builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+
 var app = builder.Build();
 
 // 10. Pipeline de Middlewares
@@ -220,6 +230,7 @@ app.UseCors("CorsFrontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<MiPeluqueria.Api.Middlewares.TenantResolutionMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

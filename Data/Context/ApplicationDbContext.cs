@@ -64,6 +64,15 @@ namespace MiPeluqueria.Api.Data.Context
         //Modulo Common
        public DbSet<ConfiguracionSalon> ConfiguracionSalon { get; set; }
 
+        // Nuevos DbSets del Punto 3:
+        public DbSet<MiPeluqueria.Api.Models.Seguridad.RefreshToken> RefreshTokens { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.Common.AuditLog> AuditLogs { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.Stock.HistorialPrecioProducto> HistorialPreciosProducto { get; set; }
+        public DbSet<MiPeluqueria.Api.Models.Turnos.HistorialPrecioServicio> HistorialPreciosServicio { get; set; }
+
+       
+       
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -137,6 +146,7 @@ namespace MiPeluqueria.Api.Data.Context
             modelBuilder.Entity<DetalleLiquidacion>().Property(d => d.MontoComisionCalculado).HasPrecision(18, 2);
             modelBuilder.Entity<Pago>().Property(p => p.Importe).HasPrecision(18, 2);
 
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
             // 5. Índices de Rendimiento (Ingeniería de Datos para Producción)
 

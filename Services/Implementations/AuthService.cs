@@ -3,34 +3,37 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Seguridad;
 using MiPeluqueria.Api.Integrations.Email;
 using MiPeluqueria.Api.Models.Seguridad;
+using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
     public class AuthService : IAuthService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _uow;
         private readonly IConfiguration _config;
         private readonly IEmailService _emailService;
+        private readonly ITenantProvider _tenantProvider;
 
         public AuthService(
-            ApplicationDbContext context,
+            IUnitOfWork uow,
             IConfiguration config,
-            IEmailService emailService)
+            IEmailService emailService,
+            ITenantProvider tenantProvider)
         {
-            _context = context;
+            _uow = uow;
             _config = config;
             _emailService = emailService;
+            _tenantProvider = tenantProvider;
         }
 
         public async Task<ApiResponse<AuthResponseDto>> LoginAsync(
@@ -39,15 +42,13 @@ namespace MiPeluqueria.Api.Services.Implementations
             string dispositivo = "WebClient")
         {
             var identificador = dto.UsernameOrEmail.Trim();
-
-            var usuario = await _context.Usuarios
-                .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.Username == identificador || u.Email == identificador);
+            var usuario = await _uow.Usuarios.GetByUsernameOrEmailAsync(identificador);
 
             if (usuario == null)
-            {
                 return ApiResponse<AuthResponseDto>.Falla("Usuario o contraseña incorrectos.");
-            }
+
+            if (!usuario.Activo)
+                return ApiResponse<AuthResponseDto>.Falla("La cuenta de usuario se encuentra desactivada.");
 
             if (usuario.BloqueadoHasta.HasValue && usuario.BloqueadoHasta.Value > DateTime.UtcNow)
             {
@@ -64,7 +65,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                     usuario.BloqueadoHasta = DateTime.UtcNow.AddMinutes(15);
                 }
 
-                _context.Usuarios.Update(usuario);
+                _uow.Usuarios.Update(usuario);
                 await RegistrarIntentoSesionAsync(usuario.Id, ip, dispositivo, false, MotivoFalloSesionEnum.CredencialesIncorrectas);
 
                 return ApiResponse<AuthResponseDto>.Falla("Usuario o contraseña incorrectos.");
@@ -73,45 +74,66 @@ namespace MiPeluqueria.Api.Services.Implementations
             // Login Exitoso: restablecer contador de fallos y registrar sesión
             usuario.IntentosFallidos = 0;
             usuario.BloqueadoHasta = null;
-            _context.Usuarios.Update(usuario);
+            _uow.Usuarios.Update(usuario);
 
             await RegistrarIntentoSesionAsync(usuario.Id, ip, dispositivo, true, MotivoFalloSesionEnum.Ninguno);
+
+            int tenantId = _tenantProvider.CurrentTenantId > 0 ? _tenantProvider.CurrentTenantId : 1;
+            int sucursalId = _tenantProvider.CurrentSucursalId ?? 1;
 
             var jwtKey = _config["Jwt:Key"] ?? "ClaveSecretaSuperSeguraMiPeluqueriaSaaS2026!";
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var rolNombre = usuario.Rol?.Nombre ?? "Cliente";
+            var expiracionJwt = DateTime.UtcNow.AddHours(8);
 
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, usuario.Email ?? string.Empty),
-                new Claim("Username", usuario.Username ?? string.Empty),
-                new Claim(ClaimTypes.Role, rolNombre)
+                new Claim(JwtRegisteredClaimNames.Email, usuario.Email),
+                new Claim("Username", usuario.Username),
+                new Claim(ClaimTypes.Role, rolNombre),
+                new Claim("TenantId", tenantId.ToString()),
+                new Claim("SucursalId", sucursalId.ToString())
             };
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(8),
+                expires: expiracionJwt,
                 signingCredentials: creds
             );
 
             var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
+            // Generar y persistir RefreshToken en base de datos
+            var refreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+            var refreshTokenEntity = new RefreshToken
+            {
+                UsuarioId = usuario.Id,
+                Token = refreshTokenString,
+                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                CreatedByIp = ip,
+                CreatedByUserId = usuario.Id
+            };
+
+            await _uow.Usuarios.AddRefreshTokenAsync(refreshTokenEntity);
+            await _uow.SaveChangesAsync();
+
             var response = new AuthResponseDto
             {
                 UsuarioId = usuario.Id,
-                Username = usuario.Username ?? string.Empty,
-                Email = usuario.Email ?? string.Empty
+                Username = usuario.Username,
+                Email = usuario.Email,
+                Rol = rolNombre,
+                Token = tokenString,
+                RefreshToken = refreshTokenString,
+                Expiracion = expiracionJwt,
+                TenantId = tenantId,
+                SucursalId = sucursalId
             };
-
-            SetOptionalProp(response, "Token", tokenString);
-            SetOptionalProp(response, "Rol", rolNombre);
-            SetOptionalProp(response, "RolNombre", rolNombre);
-            SetOptionalProp(response, "Expiracion", DateTime.UtcNow.AddHours(8));
 
             return ApiResponse<AuthResponseDto>.Exito(response, "Inicio de sesión exitoso.");
         }
@@ -121,9 +143,7 @@ namespace MiPeluqueria.Api.Services.Implementations
             var emailNorm = dto.Email.Trim().ToLower();
             var userNorm = dto.Username.Trim();
 
-            bool existe = await _context.Usuarios
-                .AnyAsync(u => u.Email.ToLower() == emailNorm || u.Username.ToLower() == userNorm.ToLower());
-
+            bool existe = await _uow.Usuarios.ExistsUsernameOrEmailAsync(userNorm, emailNorm);
             if (existe)
                 return ApiResponse<UsuarioResponseDto>.Falla("El nombre de usuario o correo electrónico ya se encuentra registrado.");
 
@@ -134,28 +154,24 @@ namespace MiPeluqueria.Api.Services.Implementations
                 Username = userNorm,
                 Email = emailNorm,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                RolId = dto.RolId > 0 ? dto.RolId : 5,
-                IntentosFallidos = 0
+                RolId = dto.RolId > 0 ? dto.RolId : 4,
+                IntentosFallidos = 0,
+                EmailVerificado = false,
+                CodigoVerificacion = codigoOtp,
+                FechaExpiracionCodigo = DateTime.UtcNow.AddMinutes(15),
+                AceptaTerminos = dto.AceptaTerminos,
+                FechaAceptacionTerminos = DateTime.UtcNow,
+                Activo = true,
+                ClienteId = dto.ClienteId,
+                PeluqueroId = dto.PeluqueroId
             };
 
-            SetOptionalProp(nuevoUsuario, "EmailVerificado", false);
-            SetOptionalProp(nuevoUsuario, "CodigoVerificacion", codigoOtp);
-            SetOptionalProp(nuevoUsuario, "FechaExpiracionCodigo", DateTime.UtcNow.AddMinutes(15));
-            SetOptionalProp(nuevoUsuario, "AceptaTerminos", dto.AceptaTerminos);
-            SetOptionalProp(nuevoUsuario, "FechaAceptacionTerminos", DateTime.UtcNow);
-            SetOptionalProp(nuevoUsuario, "Activo", true);
-            if (dto.ClienteId.HasValue) SetOptionalProp(nuevoUsuario, "ClienteId", dto.ClienteId.Value);
-            if (dto.PeluqueroId.HasValue) SetOptionalProp(nuevoUsuario, "PeluqueroId", dto.PeluqueroId.Value);
-
-            await _context.Usuarios.AddAsync(nuevoUsuario);
-            await _context.SaveChangesAsync();
+            await _uow.Usuarios.AddAsync(nuevoUsuario);
+            await _uow.SaveChangesAsync();
 
             await _emailService.EnviarCodigoOtpAsync(nuevoUsuario.Email, nuevoUsuario.Username, codigoOtp, "Verificación de Cuenta");
 
-            var creado = await _context.Usuarios
-                .Include(u => u.Rol)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == nuevoUsuario.Id);
+            var creado = await _uow.Usuarios.GetByIdWithRolAsync(nuevoUsuario.Id);
 
             return ApiResponse<UsuarioResponseDto>.Exito(
                 MapToUsuarioDto(creado ?? nuevoUsuario),
@@ -164,34 +180,29 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<bool>> VerificarEmailAsync(VerificarEmailDto dto)
         {
-            var emailNorm = dto.Email.Trim().ToLower();
-            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
-
+            var usuario = await _uow.Usuarios.GetByEmailAsync(dto.Email);
             if (usuario == null)
                 return ApiResponse<bool>.Falla("No existe un usuario registrado con ese correo electrónico.");
 
-            var codigoGuardado = GetOptionalProp(usuario, new[] { "CodigoVerificacion", "CodigoOtp" })?.ToString();
-            var expiracion = GetOptionalProp(usuario, new[] { "FechaExpiracionCodigo", "ExpiracionCodigo" }) as DateTime?;
-
-            if (string.IsNullOrWhiteSpace(codigoGuardado) || codigoGuardado != dto.CodigoVerificacion.Trim())
+            if (string.IsNullOrWhiteSpace(usuario.CodigoVerificacion) || usuario.CodigoVerificacion != dto.CodigoVerificacion.Trim())
                 return ApiResponse<bool>.Falla("El código de verificación ingresado es inválido.");
 
-            if (expiracion.HasValue && expiracion.Value < DateTime.UtcNow)
+            if (usuario.FechaExpiracionCodigo.HasValue && usuario.FechaExpiracionCodigo.Value < DateTime.UtcNow)
                 return ApiResponse<bool>.Falla("El código de verificación ha expirado.");
 
-            SetOptionalProp(usuario, "EmailVerificado", true);
-            SetOptionalProp(usuario, "CodigoVerificacion", null);
-            SetOptionalProp(usuario, "FechaExpiracionCodigo", null);
+            usuario.EmailVerificado = true;
+            usuario.CodigoVerificacion = null;
+            usuario.FechaExpiracionCodigo = null;
 
-            _context.Usuarios.Update(usuario);
-            await _context.SaveChangesAsync();
+            _uow.Usuarios.Update(usuario);
+            await _uow.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Correo electrónico verificado exitosamente.");
         }
 
         public async Task<ApiResponse<bool>> CambiarPasswordAsync(int usuarioId, CambiarPasswordDto dto)
         {
-            var usuario = await _context.Usuarios.FindAsync(usuarioId);
+            var usuario = await _uow.Usuarios.GetByIdWithRolAsync(usuarioId);
             if (usuario == null)
                 return ApiResponse<bool>.Falla("El usuario no existe.");
 
@@ -199,26 +210,25 @@ namespace MiPeluqueria.Api.Services.Implementations
                 return ApiResponse<bool>.Falla("La contraseña actual ingresada es incorrecta.");
 
             usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
-            _context.Usuarios.Update(usuario);
-            await _context.SaveChangesAsync();
+            _uow.Usuarios.Update(usuario);
+            await _uow.Usuarios.RevocarRefreshTokensUsuarioAsync(usuario.Id, "Cambio de contraseña por el usuario");
+            await _uow.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Contraseña actualizada exitosamente.");
         }
 
         public async Task<ApiResponse<bool>> SolicitarRecuperacionPasswordAsync(OlvidePasswordDto dto)
         {
-            var emailNorm = dto.Email.Trim().ToLower();
-            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
-
+            var usuario = await _uow.Usuarios.GetByEmailAsync(dto.Email);
             if (usuario == null)
                 return ApiResponse<bool>.Exito(true, "Si el correo existe en nuestro sistema, recibirá un código de recuperación en instantes.");
 
             string codigoOtp = Random.Shared.Next(100000, 999999).ToString();
-            SetOptionalProp(usuario, "CodigoVerificacion", codigoOtp);
-            SetOptionalProp(usuario, "FechaExpiracionCodigo", DateTime.UtcNow.AddMinutes(15));
+            usuario.CodigoVerificacion = codigoOtp;
+            usuario.FechaExpiracionCodigo = DateTime.UtcNow.AddMinutes(15);
 
-            _context.Usuarios.Update(usuario);
-            await _context.SaveChangesAsync();
+            _uow.Usuarios.Update(usuario);
+            await _uow.SaveChangesAsync();
 
             await _emailService.EnviarCodigoOtpAsync(usuario.Email, usuario.Username, codigoOtp, "Recuperación de Contraseña");
 
@@ -227,50 +237,38 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<bool>> RestablecerPasswordConOtpAsync(RestablecerPasswordDto dto)
         {
-            var emailNorm = dto.Email.Trim().ToLower();
-            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
-
+            var usuario = await _uow.Usuarios.GetByEmailAsync(dto.Email);
             if (usuario == null)
                 return ApiResponse<bool>.Falla("Datos de recuperación inválidos.");
 
-            var codigoGuardado = GetOptionalProp(usuario, new[] { "CodigoVerificacion", "CodigoOtp" })?.ToString();
-            var expiracion = GetOptionalProp(usuario, new[] { "FechaExpiracionCodigo", "ExpiracionCodigo" }) as DateTime?;
-
-            if (string.IsNullOrWhiteSpace(codigoGuardado) || codigoGuardado != dto.CodigoOtp.Trim())
+            if (string.IsNullOrWhiteSpace(usuario.CodigoVerificacion) || usuario.CodigoVerificacion != dto.CodigoOtp.Trim())
                 return ApiResponse<bool>.Falla("El código OTP ingresado no es válido.");
 
-            if (expiracion.HasValue && expiracion.Value < DateTime.UtcNow)
+            if (usuario.FechaExpiracionCodigo.HasValue && usuario.FechaExpiracionCodigo.Value < DateTime.UtcNow)
                 return ApiResponse<bool>.Falla("El código OTP ha expirado. Solicite uno nuevo.");
 
             usuario.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NuevaPassword);
             usuario.IntentosFallidos = 0;
             usuario.BloqueadoHasta = null;
-            SetOptionalProp(usuario, "CodigoVerificacion", null);
-            SetOptionalProp(usuario, "FechaExpiracionCodigo", null);
+            usuario.CodigoVerificacion = null;
+            usuario.FechaExpiracionCodigo = null;
 
-            _context.Usuarios.Update(usuario);
-            await _context.SaveChangesAsync();
+            _uow.Usuarios.Update(usuario);
+            await _uow.Usuarios.RevocarRefreshTokensUsuarioAsync(usuario.Id, "Restablecimiento de contraseña vía OTP");
+            await _uow.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Su contraseña ha sido restablecida exitosamente. Ya puede iniciar sesión.");
         }
 
         public async Task<ApiResponse<IEnumerable<UsuarioResponseDto>>> ObtenerUsuariosAsync()
         {
-            var usuarios = await _context.Usuarios
-                .Include(u => u.Rol)
-                .OrderBy(u => u.Id)
-                .AsNoTracking()
-                .ToListAsync();
-
+            var usuarios = await _uow.Usuarios.GetAllWithRolesAsync();
             return ApiResponse<IEnumerable<UsuarioResponseDto>>.Exito(usuarios.Select(MapToUsuarioDto));
         }
 
         public async Task<ApiResponse<UsuarioResponseDto>> ActualizarEstadoUsuarioAsync(int id, ActualizarEstadoUsuarioDto dto)
         {
-            var usuario = await _context.Usuarios
-                .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.Id == id);
-
+            var usuario = await _uow.Usuarios.GetByIdWithRolAsync(id);
             if (usuario == null)
                 return ApiResponse<UsuarioResponseDto>.Falla("El usuario solicitado no existe.");
 
@@ -278,7 +276,13 @@ namespace MiPeluqueria.Api.Services.Implementations
                 usuario.RolId = dto.RolId.Value;
 
             if (dto.Activo.HasValue)
-                SetOptionalProp(usuario, "Activo", dto.Activo.Value);
+            {
+                usuario.Activo = dto.Activo.Value;
+                if (!dto.Activo.Value)
+                {
+                    await _uow.Usuarios.RevocarRefreshTokensUsuarioAsync(usuario.Id, "Usuario desactivado por administración");
+                }
+            }
 
             if (dto.DesbloquearCuenta)
             {
@@ -286,42 +290,27 @@ namespace MiPeluqueria.Api.Services.Implementations
                 usuario.BloqueadoHasta = null;
             }
 
-            _context.Usuarios.Update(usuario);
-            await _context.SaveChangesAsync();
+            _uow.Usuarios.Update(usuario);
+            await _uow.SaveChangesAsync();
 
-            var actualizado = await _context.Usuarios
-                .Include(u => u.Rol)
-                .AsNoTracking()
-                .FirstAsync(u => u.Id == id);
-
-            return ApiResponse<UsuarioResponseDto>.Exito(MapToUsuarioDto(actualizado), "Usuario actualizado correctamente.");
+            var actualizado = await _uow.Usuarios.GetByIdWithRolAsync(id);
+            return ApiResponse<UsuarioResponseDto>.Exito(MapToUsuarioDto(actualizado ?? usuario), "Usuario actualizado correctamente.");
         }
 
         public async Task<ApiResponse<IEnumerable<HistorialSesionResponseDto>>> ObtenerHistorialSesionesAsync(int? usuarioId = null, int top = 100)
         {
-            var query = _context.HistorialSesiones
-                .Include(h => h.Usuario)
-                .AsNoTracking()
-                .AsQueryable();
-
-            if (usuarioId.HasValue)
-                query = query.Where(h => h.UsuarioId == usuarioId.Value);
-
-            var registros = await query
-                .OrderByDescending(h => h.Id)
-                .Take(top > 0 ? top : 100)
-                .ToListAsync();
+            var registros = await _uow.Usuarios.GetHistorialSesionesAsync(usuarioId, top);
 
             var dtos = registros.Select(h => new HistorialSesionResponseDto
             {
                 Id = h.Id,
                 UsuarioId = h.UsuarioId,
                 Username = h.Usuario?.Username ?? $"Usuario #{h.UsuarioId}",
-                FechaHora = (GetOptionalProp(h, new[] { "FechaHora", "Fecha", "FechaIntento" }) as DateTime?) ?? DateTime.UtcNow,
-                IpOrigen = GetOptionalProp(h, new[] { "IpOrigen", "DireccionIp", "Ip" })?.ToString(),
-                Dispositivo = GetOptionalProp(h, new[] { "Dispositivo", "UserAgent", "Navegador" })?.ToString(),
-                Exitoso = (GetOptionalProp(h, new[] { "Exitoso", "FueExitoso", "Exito" }) as bool?) ?? false,
-                MotivoFallo = GetOptionalProp(h, new[] { "MotivoFallo", "Motivo" })?.ToString()
+                FechaHora = h.FechaIntento,
+                IpOrigen = h.DireccionIP,
+                Dispositivo = h.Dispositivo,
+                Exitoso = h.Exitoso,
+                MotivoFallo = h.MotivoFallo?.ToString()
             }).ToList();
 
             return ApiResponse<IEnumerable<HistorialSesionResponseDto>>.Exito(dtos);
@@ -336,21 +325,16 @@ namespace MiPeluqueria.Api.Services.Implementations
         {
             var sesion = new HistorialSesion
             {
-                UsuarioId = usuarioId
+                UsuarioId = usuarioId,
+                DireccionIP = ip,
+                Dispositivo = dispositivo,
+                Exitoso = exitoso,
+                MotivoFallo = motivo,
+                FechaIntento = DateTime.UtcNow
             };
 
-            SetOptionalProp(sesion, "FechaHora", DateTime.UtcNow);
-            SetOptionalProp(sesion, "Fecha", DateTime.UtcNow);
-            SetOptionalProp(sesion, "IpOrigen", ip);
-            SetOptionalProp(sesion, "Ip", ip);
-            SetOptionalProp(sesion, "Dispositivo", dispositivo);
-            SetOptionalProp(sesion, "UserAgent", dispositivo);
-            SetOptionalProp(sesion, "Exitoso", exitoso);
-            SetOptionalProp(sesion, "FueExitoso", exitoso);
-            SetOptionalProp(sesion, "MotivoFallo", motivo);
-
-            await _context.HistorialSesiones.AddAsync(sesion);
-            await _context.SaveChangesAsync();
+            await _uow.Usuarios.RegistrarHistorialSesionAsync(sesion);
+            await _uow.SaveChangesAsync();
         }
 
         private static UsuarioResponseDto MapToUsuarioDto(Usuario u)
@@ -358,38 +342,17 @@ namespace MiPeluqueria.Api.Services.Implementations
             return new UsuarioResponseDto
             {
                 Id = u.Id,
-                Username = u.Username ?? string.Empty,
-                Email = u.Email ?? string.Empty,
+                Username = u.Username,
+                Email = u.Email,
                 RolId = u.RolId,
                 RolNombre = u.Rol?.Nombre ?? string.Empty,
-                EmailVerificado = (GetOptionalProp(u, new[] { "EmailVerificado" }) as bool?) ?? false,
-                Activo = (GetOptionalProp(u, new[] { "Activo" }) as bool?) ?? !u.IsDeleted,
+                EmailVerificado = u.EmailVerificado,
+                Activo = u.Activo && !u.IsDeleted,
                 IntentosFallidos = u.IntentosFallidos,
                 BloqueadoHasta = u.BloqueadoHasta,
-                ClienteId = GetOptionalProp(u, new[] { "ClienteId" }) as int?,
-                PeluqueroId = GetOptionalProp(u, new[] { "PeluqueroId" }) as int?
+                ClienteId = u.ClienteId,
+                PeluqueroId = u.PeluqueroId
             };
-        }
-
-        private static object? GetOptionalProp(object target, string[] names)
-        {
-            var type = target.GetType();
-            foreach (var name in names)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanRead)
-                    return prop.GetValue(target);
-            }
-            return null;
-        }
-
-        private static void SetOptionalProp(object target, string name, object? value)
-        {
-            var prop = target.GetType().GetProperty(name);
-            if (prop != null && prop.CanWrite)
-            {
-                try { prop.SetValue(target, value); } catch { }
-            }
         }
     }
 }

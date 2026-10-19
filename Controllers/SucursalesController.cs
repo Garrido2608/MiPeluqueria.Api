@@ -75,3 +75,4 @@ namespace MiPeluqueria.Api.Controllers
             return Ok(ApiResponse<int>.Exito(nueva.Id, "Sucursal creada exitosamente."));
         }
     }
+}

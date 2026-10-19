@@ -1,4 +1,7 @@
-﻿using MiPeluqueria.Api.Models.Seguridad;
+﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using MiPeluqueria.Api.Models.Seguridad;
 
 namespace MiPeluqueria.Api.Repositories.Interfaces
 {
@@ -15,5 +18,10 @@ namespace MiPeluqueria.Api.Repositories.Interfaces
         void Update(Usuario usuario);
         Task RegistrarHistorialSesionAsync(HistorialSesion historial, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<HistorialSesion>> GetHistorialSesionesAsync(int? usuarioId = null, int top = 100, CancellationToken cancellationToken = default);
+
+        // Nuevos métodos para ciclo de vida de RefreshToken
+        Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default);
+        Task<RefreshToken?> GetRefreshTokenAsync(string token, CancellationToken cancellationToken = default);
+        Task RevocarRefreshTokensUsuarioAsync(int usuarioId, string motivo, string? ip = null, CancellationToken cancellationToken = default);
     }
 }

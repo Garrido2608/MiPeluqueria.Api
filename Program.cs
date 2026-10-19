@@ -1,13 +1,9 @@
+using System;
+using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MiPeluqueria.Api.Data.Context;
@@ -18,123 +14,125 @@ using MiPeluqueria.Api.Mappings;
 using MiPeluqueria.Api.Middlewares;
 using MiPeluqueria.Api.Repositories.Implementations;
 using MiPeluqueria.Api.Repositories.Interfaces;
+using MiPeluqueria.Api.Services.Background;
 using MiPeluqueria.Api.Services.Implementations;
 using MiPeluqueria.Api.Services.Interfaces;
-using System;
-using System.Text;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Controladores REST, Caché en Memoria y Contexto HTTP
-builder.Services.AddControllers();
-builder.Services.AddMemoryCache();
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddHealthChecks();
-
-// 2. Base de Datos SQL Server con Resiliencia de Conexión Automática
+// ============================================================================
+// 1. BASE DE DATOS (SQL SERVER CON RESILIENCIA PARA PRODUCCIÓN)
+// ============================================================================
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(10),
-            errorNumbersToAdd: null)
-    )
-);
+        sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorNumbersToAdd: null);
+        }));
 
-// 3. Contenedor IoC (Inyección de Dependencias Scoped)
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// Módulo Clientes y Fichas Técnicas
-builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
-builder.Services.AddScoped<IFichaTecnicaRepository, FichaTecnicaRepository>();
-builder.Services.AddScoped<IClienteService, ClienteService>();
-builder.Services.AddScoped<IFichaTecnicaService, FichaTecnicaService>();
-
-// Módulo Staff, Servicios Comerciales y Catálogos Maestros
-builder.Services.AddScoped<IPeluqueroRepository, PeluqueroRepository>();
-builder.Services.AddScoped<IServicioRepository, ServicioRepository>();
-builder.Services.AddScoped<ICatalogoRepository, CatalogoRepository>();
-builder.Services.AddScoped<IPeluqueroService, PeluqueroService>();
-builder.Services.AddScoped<IServicioService, ServicioService>();
-builder.Services.AddScoped<ICatalogoService, CatalogoService>();
-
-// Módulo Turnos y Bloqueos de Agenda
-builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
-builder.Services.AddScoped<IBloqueoHorarioRepository, BloqueoHorarioRepository>();
-builder.Services.AddScoped<ITurnoService, TurnoService>();
-builder.Services.AddScoped<IBloqueoHorarioService, BloqueoHorarioService>();
-
-// Módulo Stock, Proveedores, Caja Diaria y Ventas
-builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
-builder.Services.AddScoped<IProveedorRepository, ProveedorRepository>();
-builder.Services.AddScoped<IProductoService, ProductoService>();
-builder.Services.AddScoped<IProveedorService, ProveedorService>();
-builder.Services.AddScoped<ISesionCajaRepository, SesionCajaRepository>();
-builder.Services.AddScoped<IVentaRepository, VentaRepository>();
-// F. Módulo Caja Diaria y Ventas (100% Separado por Responsabilidad)
-builder.Services.AddScoped<ISesionCajaRepository, SesionCajaRepository>();
-builder.Services.AddScoped<IVentaRepository, VentaRepository>();
-builder.Services.AddScoped<ICajaService, CajaService>();
-builder.Services.AddScoped<IVentaService, VentaService>();
-
-// Módulo Comisiones, Liquidaciones y Dashboard Analítico
-builder.Services.AddScoped<IComisionConfigRepository, ComisionConfigRepository>();
-builder.Services.AddScoped<ILiquidacionRepository, LiquidacionRepository>();
-builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
-builder.Services.AddScoped<IComisionConfigService, ComisionConfigService>();
-builder.Services.AddScoped<ILiquidacionService, LiquidacionService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-
-// Módulo Seguridad, Usuarios, Configuración SaaS e Integraciones Externas
-builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
-builder.Services.AddScoped<IConfiguracionSalonRepository, ConfiguracionSalonRepository>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUsuarioService, UsuarioService>();
-builder.Services.AddScoped<IConfiguracionSalonService, ConfiguracionSalonService>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
-builder.Services.AddScoped<IWhatsAppService, WhatsAppNotificationService>();
-
-
-
-// 4. AutoMapper
+// ============================================================================
+// 2. AUTOMAPPER Y FLUENTVALIDATION
+// ============================================================================
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 
-// 5. FluentValidation Automático en Frontera HTTP
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
-// 6. Rate Limiting Nativo (.NET 8)
-builder.Services.AddRateLimiter(options =>
+// Caché en memoria (para Configuración del Salón y Catálogos)
+builder.Services.AddMemoryCache();
+
+// ============================================================================
+// 3. INYECCIÓN DE DEPENDENCIAS: REPOSITORIOS Y UNIT OF WORK (SIN DUPLICADOS)
+// ============================================================================
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IPeluqueroRepository, PeluqueroRepository>();
+builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
+builder.Services.AddScoped<IProveedorRepository, ProveedorRepository>();
+builder.Services.AddScoped<IServicioRepository, ServicioRepository>();
+builder.Services.AddScoped<ITurnoRepository, TurnoRepository>();
+builder.Services.AddScoped<ISesionCajaRepository, SesionCajaRepository>();
+builder.Services.AddScoped<IVentaRepository, VentaRepository>();
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IFichaTecnicaRepository, FichaTecnicaRepository>();
+builder.Services.AddScoped<IBloqueoHorarioRepository, BloqueoHorarioRepository>();
+builder.Services.AddScoped<IComisionConfigRepository, ComisionConfigRepository>();
+builder.Services.AddScoped<ILiquidacionRepository, LiquidacionRepository>();
+builder.Services.AddScoped<ICatalogoRepository, CatalogoRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IConfiguracionSalonRepository, ConfiguracionSalonRepository>();
+builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+
+// ============================================================================
+// 4. INYECCIÓN DE DEPENDENCIAS: SERVICIOS DE NEGOCIO Y SAAS CORE
+// ============================================================================
+builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<IFichaTecnicaService, FichaTecnicaService>();
+builder.Services.AddScoped<IPeluqueroService, PeluqueroService>();
+builder.Services.AddScoped<IServicioService, ServicioService>();
+builder.Services.AddScoped<IBloqueoHorarioService, BloqueoHorarioService>();
+builder.Services.AddScoped<ITurnoService, TurnoService>();
+builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IProveedorService, ProveedorService>();
+builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<IVentaService, VentaService>();
+builder.Services.AddScoped<IComisionConfigService, ComisionConfigService>();
+builder.Services.AddScoped<ILiquidacionService, LiquidacionService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ICatalogoService, CatalogoService>();
+builder.Services.AddScoped<IConfiguracionSalonService, ConfiguracionSalonService>();
+builder.Services.AddScoped<IOrdenCompraService, OrdenCompraService>();
+builder.Services.AddScoped<IRecetaServicioService, RecetaServicioService>();
+
+// ============================================================================
+// 5. INTEGRACIONES EXTERNAS Y BACKGROUND WORKERS (24H + 2H WHATSAPP)
+// ============================================================================
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IWhatsAppService, WhatsAppNotificationService>();
+builder.Services.AddScoped<IPaymentGatewayService, PaymentGatewayService>();
+
+// Registro del Worker Automático de Recordatorios (24hs y 2hs antes)
+builder.Services.AddHostedService<RecordatorioTurnosBackgroundService>();
+
+// ============================================================================
+// 6. SEGURIDAD JWT Y POLÍTICA CORS DINÁMICA
+// ============================================================================
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSecretaSuperSeguraMiPeluqueriaSaaS2026!";
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
 {
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-    options.AddPolicy("StrictAuthOtpPolicy", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown_ip",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            }));
-
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "global_ip",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 120,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 2,
-                AutoReplenishment = true
-            }));
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
 });
 
-// 7. Política CORS Dinámica
+builder.Services.AddAuthorization();
+
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:5173", "http://localhost:3000" };
 
@@ -143,52 +141,35 @@ builder.Services.AddCors(options =>
     options.AddPolicy("CorsFrontend", policy =>
     {
         policy.WithOrigins(allowedOrigins)
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials();
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
-// 8. Autenticación JWT Bearer
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("CRÍTICO: No se configuró 'Jwt:Key' en appsettings.json.");
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.Zero
-        };
-    });
-
-builder.Services.AddAuthorization();
-
-// 9. Swagger / OpenAPI
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// ============================================================================
+// 7. SWAGGER CON SOPORTE BEARER JWT
+// ============================================================================
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "MiPeluqueria.Api — SaaS Backend Empresarial",
-        Version = "v5.0",
-        Description = "API RESTful para Gestión Integral de Salones y Barberías (.NET 8 + EF Core 8 + Clean Architecture)"
+        Title = "MiPeluqueria.Api - SaaS Management System",
+        Version = "v1",
+        Description = "API Empresarial Multi-Tenant para Gestión Integral de Peluquerías y Barberías"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Ingrese el token JWT con el formato: Bearer {su_token}",
+        Description = "Autorización JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -207,16 +188,11 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Fase 2 - Repositorios, Servicios e Integraciones
-builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
-builder.Services.AddScoped<IOrdenCompraService, OrdenCompraService>();
-builder.Services.AddScoped<IRecetaServicioService, RecetaServicioService>();
-builder.Services.AddScoped<IPaymentGatewayService, PaymentGatewayService>();
-builder.Services.AddScoped<ITenantProvider, TenantProvider>();
-
 var app = builder.Build();
 
-// 10. Pipeline de Middlewares
+// ============================================================================
+// 8. PIPELINE HTTP MIDDLEWARES
+// ============================================================================
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -227,12 +203,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("CorsFrontend");
-app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<MiPeluqueria.Api.Middlewares.TenantResolutionMiddleware>();
 
-app.MapHealthChecks("/health");
+// Resolución automática de TenantId y SucursalId en cada request
+app.UseMiddleware<TenantResolutionMiddleware>();
+
 app.MapControllers();
 
 app.Run();

@@ -21,93 +21,115 @@ namespace MiPeluqueria.Api.Repositories.Implementations
 
         public async Task<Usuario?> GetByIdWithRolAsync(int id, CancellationToken cancellationToken = default)
         {
-            return await _context.Set<Usuario>()
+            return await _context.Usuarios
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
 
         public async Task<Usuario?> GetByUsernameOrEmailAsync(string usernameOrEmail, CancellationToken cancellationToken = default)
         {
-            var normalized = usernameOrEmail.Trim().ToLower();
-            return await _context.Set<Usuario>()
+            var norm = usernameOrEmail.Trim().ToLower();
+            return await _context.Usuarios
                 .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.Username.ToLower() == normalized || u.Email.ToLower() == normalized, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == norm || u.Email.ToLower() == norm, cancellationToken);
         }
 
         public async Task<Usuario?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
-            var normalized = email.Trim().ToLower();
-            return await _context.Set<Usuario>()
+            var norm = email.Trim().ToLower();
+            return await _context.Usuarios
                 .Include(u => u.Rol)
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, cancellationToken);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == norm, cancellationToken);
         }
 
         public async Task<IReadOnlyList<Usuario>> GetAllWithRolesAsync(CancellationToken cancellationToken = default)
         {
-            return await _context.Set<Usuario>()
-                .AsNoTracking()
+            return await _context.Usuarios
                 .Include(u => u.Rol)
-                .OrderByDescending(u => u.CreatedAt)
+                .OrderBy(u => u.Id)
+                .AsNoTracking()
                 .ToListAsync(cancellationToken);
         }
 
         public async Task<bool> ExistsUsernameOrEmailAsync(string username, string email, int? excludeUserId = null, CancellationToken cancellationToken = default)
         {
-            var normUser = username.Trim().ToLower();
-            var normEmail = email.Trim().ToLower();
+            var userNorm = username.Trim().ToLower();
+            var emailNorm = email.Trim().ToLower();
 
-            var query = _context.Set<Usuario>().AsNoTracking()
-                .Where(u => u.Username.ToLower() == normUser || u.Email.ToLower() == normEmail);
-
+            var query = _context.Usuarios.AsQueryable();
             if (excludeUserId.HasValue)
                 query = query.Where(u => u.Id != excludeUserId.Value);
 
-            return await query.AnyAsync(cancellationToken);
+            return await query.AnyAsync(u => u.Username.ToLower() == userNorm || u.Email.ToLower() == emailNorm, cancellationToken);
         }
 
         public async Task<Rol?> GetRolByIdAsync(int rolId, CancellationToken cancellationToken = default)
         {
-            return await _context.Set<Rol>().FirstOrDefaultAsync(r => r.Id == rolId, cancellationToken);
+            return await _context.Roles.FirstOrDefaultAsync(r => r.Id == rolId, cancellationToken);
         }
 
         public async Task<Rol?> GetRolByNombreAsync(string nombreRol, CancellationToken cancellationToken = default)
         {
-            return await _context.Set<Rol>()
-                .FirstOrDefaultAsync(r => r.Nombre.ToLower() == nombreRol.Trim().ToLower(), cancellationToken);
+            var norm = nombreRol.Trim().ToLower();
+            return await _context.Roles.FirstOrDefaultAsync(r => r.Nombre.ToLower() == norm, cancellationToken);
         }
 
         public async Task AddAsync(Usuario usuario, CancellationToken cancellationToken = default)
         {
-            usuario.CreatedAt = DateTime.UtcNow;
-            await _context.Set<Usuario>().AddAsync(usuario, cancellationToken);
+            await _context.Usuarios.AddAsync(usuario, cancellationToken);
         }
 
         public void Update(Usuario usuario)
         {
-            usuario.UpdatedAt = DateTime.UtcNow;
-            _context.Set<Usuario>().Update(usuario);
+            _context.Usuarios.Update(usuario);
         }
 
         public async Task RegistrarHistorialSesionAsync(HistorialSesion historial, CancellationToken cancellationToken = default)
         {
-            historial.CreatedAt = DateTime.UtcNow;
-            await _context.Set<HistorialSesion>().AddAsync(historial, cancellationToken);
+            await _context.HistorialSesiones.AddAsync(historial, cancellationToken);
         }
 
         public async Task<IReadOnlyList<HistorialSesion>> GetHistorialSesionesAsync(int? usuarioId = null, int top = 100, CancellationToken cancellationToken = default)
         {
-            var query = _context.Set<HistorialSesion>()
-                .AsNoTracking()
+            var query = _context.HistorialSesiones
                 .Include(h => h.Usuario)
+                .AsNoTracking()
                 .AsQueryable();
 
             if (usuarioId.HasValue)
                 query = query.Where(h => h.UsuarioId == usuarioId.Value);
 
             return await query
-                .OrderByDescending(h => h.FechaIntento)
-                .Take(Math.Clamp(top, 1, 500))
+                .OrderByDescending(h => h.Id)
+                .Take(top > 0 ? top : 100)
                 .ToListAsync(cancellationToken);
+        }
+
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default)
+        {
+            await _context.RefreshTokens.AddAsync(refreshToken, cancellationToken);
+        }
+
+        public async Task<RefreshToken?> GetRefreshTokenAsync(string token, CancellationToken cancellationToken = default)
+        {
+            return await _context.RefreshTokens
+                .Include(r => r.Usuario)
+                    .ThenInclude(u => u!.Rol)
+                .FirstOrDefaultAsync(r => r.Token == token, cancellationToken);
+        }
+
+        public async Task RevocarRefreshTokensUsuarioAsync(int usuarioId, string motivo, string? ip = null, CancellationToken cancellationToken = default)
+        {
+            var tokensActivos = await _context.RefreshTokens
+                .Where(r => r.UsuarioId == usuarioId && r.RevokedAt == null && r.ExpiresAt > DateTime.UtcNow)
+                .ToListAsync(cancellationToken);
+
+            foreach (var token in tokensActivos)
+            {
+                token.RevokedAt = DateTime.UtcNow;
+                token.RevokedByIp = ip;
+                token.ReasonRevoked = motivo;
+            }
         }
     }
 }

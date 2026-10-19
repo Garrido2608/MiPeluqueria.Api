@@ -18,12 +18,18 @@ namespace MiPeluqueria.Api.Services.Implementations
         private readonly IUnitOfWork _unitOfWork;
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
+        private readonly IRecetaServicioService _recetaServicioService;
 
-        public TurnoService(IUnitOfWork unitOfWork, ApplicationDbContext context, IMapper mapper)
+        public TurnoService(
+            IUnitOfWork unitOfWork,
+            ApplicationDbContext context,
+            IMapper mapper,
+            IRecetaServicioService recetaServicioService)
         {
             _unitOfWork = unitOfWork;
             _context = context;
             _mapper = mapper;
+            _recetaServicioService = recetaServicioService;
         }
 
         public async Task<ApiResponse<IEnumerable<TurnoResponseDto>>> GetAllAsync(DateTime? fecha = null, int? peluqueroId = null)
@@ -33,7 +39,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .Include(t => t.Peluquero)
                 .Include(t => t.Estado)
                 .Include(t => t.TurnoServicios)
-                .ThenInclude(ts => ts.Servicio)
+                    .ThenInclude(ts => ts.Servicio)
                 .AsNoTracking()
                 .AsQueryable();
 
@@ -60,7 +66,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .Include(t => t.Peluquero)
                 .Include(t => t.Estado)
                 .Include(t => t.TurnoServicios)
-                .ThenInclude(ts => ts.Servicio)
+                    .ThenInclude(ts => ts.Servicio)
                 .FirstOrDefaultAsync(t => t.Id == id);
 
             if (turno == null)
@@ -79,19 +85,22 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (peluquero == null)
                 return ApiResponse<TurnoResponseDto>.Falla("El peluquero especificado no existe.");
 
-            var serviciosIds = GetServiciosIdsFromDto(dto);
+            var serviciosIds = dto.ServiciosIds ?? new List<int>();
             int duracionTotal = 30;
+            decimal montoTotalEstimado = 0m;
+            var servicios = new List<Servicio>();
 
             if (serviciosIds.Any())
             {
-                var servicios = await _context.Servicios
+                servicios = await _context.Servicios
                     .Where(s => serviciosIds.Contains(s.Id) && s.Activo)
                     .ToListAsync();
 
                 if (!servicios.Any())
                     return ApiResponse<TurnoResponseDto>.Falla("Los servicios seleccionados no existen o están inactivos.");
 
-                duracionTotal = servicios.Sum(s => GetDuracionMinutos(s));
+                duracionTotal = servicios.Sum(s => s.DuracionMinutos > 0 ? s.DuracionMinutos : 30);
+                montoTotalEstimado = servicios.Sum(s => s.Precio);
             }
 
             var fechaInicio = dto.FechaHoraInicio;
@@ -112,37 +121,25 @@ namespace MiPeluqueria.Api.Services.Implementations
                 PeluqueroId = dto.PeluqueroId,
                 FechaHoraInicio = fechaInicio,
                 FechaHoraFin = fechaFin,
-                EstadoId = (int)EstadoTurnoEnum.Pendiente
+                EstadoId = (int)EstadoTurnoEnum.Pendiente,
+                MontoTotalEstimado = montoTotalEstimado,
+                Observaciones = dto.Observaciones,
+                CreatedByUserId = usuarioId
             };
-
-            var obsProp = dto.GetType().GetProperty("Observaciones") ?? dto.GetType().GetProperty("Notas");
-            if (obsProp != null)
-            {
-                var obsVal = obsProp.GetValue(dto)?.ToString();
-                SetOptionalProp(turno, "Observaciones", obsVal);
-                SetOptionalProp(turno, "Notas", obsVal);
-            }
 
             await _context.Turnos.AddAsync(turno);
             await _unitOfWork.SaveChangesAsync();
 
-            if (serviciosIds.Any())
+            foreach (var serv in servicios)
             {
-                var servicios = await _context.Servicios
-                    .Where(s => serviciosIds.Contains(s.Id))
-                    .ToListAsync();
-
-                foreach (var serv in servicios)
+                var ts = new TurnoServicio
                 {
-                    var ts = new TurnoServicio
-                    {
-                        TurnoId = turno.Id,
-                        ServicioId = serv.Id
-                    };
-                    SetOptionalProp(ts, "PrecioAcordado", serv.Precio);
-                    SetOptionalProp(ts, "Precio", serv.Precio);
-                    await _context.TurnoServicios.AddAsync(ts);
-                }
+                    TurnoId = turno.Id,
+                    ServicioId = serv.Id
+                };
+                SetOptionalProp(ts, "PrecioAcordado", serv.Precio);
+                SetOptionalProp(ts, "Precio", serv.Precio);
+                await _context.TurnoServicios.AddAsync(ts);
             }
 
             await _context.HistorialEstadoTurnos.AddAsync(new HistorialEstadoTurno
@@ -166,15 +163,12 @@ namespace MiPeluqueria.Api.Services.Implementations
                 return ApiResponse<bool>.Falla("El turno solicitado no existe.");
 
             int estadoAnterior = turno.EstadoId;
-            int nuevoEstado = Convert.ToInt32(GetOptionalProp(dto, new[] { "NuevoEstadoId", "EstadoId", "Estado" }) ?? (int)EstadoTurnoEnum.Confirmado);
+            int nuevoEstado = dto.NuevoEstadoId > 0 ? dto.NuevoEstadoId : (int)EstadoTurnoEnum.Confirmado;
 
             turno.EstadoId = nuevoEstado;
 
-            var motivoId = GetOptionalProp(dto, new[] { "MotivoCancelacionId" }) as int?;
-            if (motivoId.HasValue)
-                SetOptionalProp(turno, "MotivoCancelacionId", motivoId.Value);
-
-            var obs = GetOptionalProp(dto, new[] { "Observaciones", "Motivo" })?.ToString();
+            if (dto.MotivoCancelacionId.HasValue)
+                turno.MotivoCancelacionId = dto.MotivoCancelacionId.Value;
 
             await _context.HistorialEstadoTurnos.AddAsync(new HistorialEstadoTurno
             {
@@ -183,11 +177,17 @@ namespace MiPeluqueria.Api.Services.Implementations
                 EstadoNuevoId = nuevoEstado,
                 FechaCambio = DateTime.UtcNow,
                 UsuarioId = usuarioId,
-                Observaciones = string.IsNullOrWhiteSpace(obs) ? "Cambio de estado del turno." : obs
+                Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? "Cambio de estado del turno." : dto.Observaciones
             });
 
             _context.Turnos.Update(turno);
             await _unitOfWork.SaveChangesAsync();
+
+            // GANCHO AUTOMÁTICO DE GABINETE: Si el turno pasa a Completado por primera vez, descuenta insumos de la receta
+            if (estadoAnterior != (int)EstadoTurnoEnum.Completado && nuevoEstado == (int)EstadoTurnoEnum.Completado)
+            {
+                await _recetaServicioService.AplicarConsumoGabinetePorTurnoAsync(turno.Id, usuarioId);
+            }
 
             return ApiResponse<bool>.Exito(true, "Estado del turno actualizado correctamente.");
         }
@@ -207,7 +207,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                     .ToListAsync();
 
                 if (servicios.Any())
-                    duracionTotalMinutos = servicios.Sum(s => GetDuracionMinutos(s));
+                    duracionTotalMinutos = servicios.Sum(s => s.DuracionMinutos > 0 ? s.DuracionMinutos : 30);
             }
 
             int diaSemana = (int)fecha.DayOfWeek;
@@ -216,8 +216,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .AsNoTracking()
                 .ToListAsync();
 
-            var horarioDia = horariosPeluquero.FirstOrDefault(h =>
-                Convert.ToInt32(GetOptionalProp(h, new[] { "DiaSemana", "Dia" }) ?? -1) == diaSemana);
+            var horarioDia = horariosPeluquero.FirstOrDefault(h => (int)h.DiaSemana == diaSemana);
 
             TimeSpan horaApertura = new TimeSpan(9, 0, 0);
             TimeSpan horaCierre = new TimeSpan(20, 0, 0);
@@ -230,8 +229,8 @@ namespace MiPeluqueria.Api.Services.Implementations
                 if (!activo)
                     return ApiResponse<IEnumerable<string>>.Exito(Enumerable.Empty<string>(), "El profesional no atiende en el día seleccionado.");
 
-                horaApertura = GetTimeSpanProp(horarioDia, new[] { "HoraInicio", "HoraDesde", "HoraApertura" }) ?? horaApertura;
-                horaCierre = GetTimeSpanProp(horarioDia, new[] { "HoraFin", "HoraHasta", "HoraCierre" }) ?? horaCierre;
+                horaApertura = horarioDia.HoraInicio;
+                horaCierre = horarioDia.HoraFin;
                 descansoInicio = GetTimeSpanProp(horarioDia, new[] { "HoraInicioDescanso", "DescansoInicio" });
                 descansoFin = GetTimeSpanProp(horarioDia, new[] { "HoraFinDescanso", "DescansoFin" });
             }
@@ -272,13 +271,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 }
 
                 bool solapaTurno = turnosOcupados.Any(t => slotInicio < t.FechaHoraFin && slotFin > t.FechaHoraInicio);
-
-                bool solapaBloqueo = bloqueosPeluquero.Any(b =>
-                {
-                    var bInicio = GetDateTimeProp(b, new[] { "FechaHoraInicio", "FechaInicio", "Desde" });
-                    var bFin = GetDateTimeProp(b, new[] { "FechaHoraFin", "FechaFin", "Hasta" });
-                    return bInicio.HasValue && bFin.HasValue && slotInicio < bFin.Value && slotFin > bInicio.Value;
-                });
+                bool solapaBloqueo = bloqueosPeluquero.Any(b => slotInicio < b.FechaFin && slotFin > b.FechaInicio);
 
                 if (!enDescanso && !solapaTurno && !solapaBloqueo)
                 {
@@ -298,7 +291,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .Include(t => t.Peluquero)
                 .Include(t => t.Estado)
                 .Include(t => t.TurnoServicios)
-                .ThenInclude(ts => ts.Servicio)
+                    .ThenInclude(ts => ts.Servicio)
                 .Where(t => t.ClienteId == clienteId)
                 .OrderByDescending(t => t.FechaHoraInicio)
                 .AsNoTracking()
@@ -319,7 +312,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                     h.Id,
                     h.TurnoId,
                     h.EstadoAnteriorId,
-                    EstadoAnterior = ((EstadoTurnoEnum)h.EstadoAnteriorId).ToString(),
+                    EstadoAnterior = h.EstadoAnteriorId.HasValue ? ((EstadoTurnoEnum)h.EstadoAnteriorId.Value).ToString() : "N/A",
                     h.EstadoNuevoId,
                     EstadoNuevo = ((EstadoTurnoEnum)h.EstadoNuevoId).ToString(),
                     h.FechaCambio,
@@ -329,20 +322,6 @@ namespace MiPeluqueria.Api.Services.Implementations
                 .ToListAsync();
 
             return ApiResponse<IEnumerable<object>>.Exito(historial);
-        }
-
-        private static List<int> GetServiciosIdsFromDto(CrearTurnoDto dto)
-        {
-            var prop = dto.GetType().GetProperty("ServiciosIds") ?? dto.GetType().GetProperty("Servicios");
-            if (prop != null && prop.GetValue(dto) is IEnumerable<int> ids)
-                return ids.ToList();
-            return new List<int>();
-        }
-
-        private static int GetDuracionMinutos(Servicio s)
-        {
-            var val = GetOptionalProp(s, new[] { "DuracionMinutos", "Duracion", "TiempoEstimadoMinutos" });
-            return val != null ? Convert.ToInt32(val) : 30;
         }
 
         private static object? GetOptionalProp(object target, string[] names)
@@ -362,13 +341,6 @@ namespace MiPeluqueria.Api.Services.Implementations
             var val = GetOptionalProp(target, names);
             if (val is TimeSpan ts) return ts;
             if (val is TimeOnly to) return to.ToTimeSpan();
-            return null;
-        }
-
-        private static DateTime? GetDateTimeProp(object target, string[] names)
-        {
-            var val = GetOptionalProp(target, names);
-            if (val is DateTime dt) return dt;
             return null;
         }
 

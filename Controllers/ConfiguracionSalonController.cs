@@ -50,4 +50,31 @@ namespace MiPeluqueria.Api.Controllers
         {
             return Ok(ApiResponse<ConfiguracionSalonDto>.Exito(
                 _configActual,
-                "Configuración comercial del salón obten
+                "Configuración comercial del salón obtenida."
+            ));
+        }
+
+        [HttpPut]
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public IActionResult ActualizarConfiguracion([FromBody] ConfiguracionSalonDto dto)
+        {
+            if (dto == null)
+                return BadRequest(ApiResponse<ConfiguracionSalonDto>.Falla("Datos de configuración inválidos."));
+
+            dto.NombreSalon = string.IsNullOrWhiteSpace(dto.NombreComercial)
+                ? dto.NombreSalon
+                : dto.NombreComercial;
+
+            dto.MonedaIso = string.IsNullOrWhiteSpace(dto.Moneda)
+                ? dto.MonedaIso
+                : dto.Moneda;
+
+            _configActual = dto;
+
+            return Ok(ApiResponse<ConfiguracionSalonDto>.Exito(
+                _configActual,
+                "Configuración del salón actualizada correctamente."
+            ));
+        }
+    }
+}

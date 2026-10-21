@@ -1,129 +1,283 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿// filepath: Controllers/CatalogosController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
-using MiPeluqueria.Api.Services.Interfaces;
+using MiPeluqueria.Api.Models;
+using MiPeluqueria.Api.Models.Stock;
+using MiPeluqueria.Api.Models.Turnos;
+using MiPeluqueria.Api.Models.Ventas;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MiPeluqueria.Api.Controllers
 {
+    [Route("api/catalogos")]
     [ApiController]
-    [Route("api/[controller]")]
     public class CatalogosController : ControllerBase
     {
-        private readonly ICatalogoService _catalogoService;
+        private readonly ApplicationDbContext _context;
 
-        public CatalogosController(ICatalogoService catalogoService)
+        public CatalogosController(ApplicationDbContext context)
         {
-            _catalogoService = catalogoService;
+            _context = context;
         }
 
+        // 0. CONSOLIDADO DE LAS 9 TABLAS MAESTRAS (/api/catalogos/todos y /api/catalogos/maestros)
         [HttpGet("todos")]
-        public async Task<IActionResult> GetAllCatalogos()
+        [HttpGet("maestros")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerTodos()
         {
-            var result = await _catalogoService.ObtenerTodosLosCatalogosAsync();
-            return Ok(result);
+            var dto = new CatalogosMaestrosResponseDto
+            {
+                TiposCabello = await _context.TiposCabello
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                TiposRostro = await _context.TiposRostro
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                CategoriasServicio = await _context.CategoriasServicio
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                Especialidades = await _context.Especialidades
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                EstadosTurno = await _context.EstadosTurno
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                MotivosCancelacion = await _context.MotivosCancelacion
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Descripcion, Descripcion = x.Descripcion })
+                    .ToListAsync(),
+
+                CategoriasProducto = await _context.CategoriasProducto
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                MediosPago = await _context.MediosPago
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync(),
+
+                Roles = await _context.Roles
+                    .AsNoTracking()
+                    .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                    .ToListAsync()
+            };
+
+            return Ok(ApiResponse<CatalogosMaestrosResponseDto>.Exito(dto, "Catálogos maestros obtenidos correctamente."));
         }
 
+        // 1. TIPOS DE CABELLO
         [HttpGet("tipos-cabello")]
-        public async Task<IActionResult> GetTiposCabello()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerTiposCabello()
         {
-            return Ok(await _catalogoService.ObtenerTiposCabelloAsync());
+            var items = await _context.TiposCabello
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
+        // 2. TIPOS DE ROSTRO
         [HttpGet("tipos-rostro")]
-        public async Task<IActionResult> GetTiposRostro()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerTiposRostro()
         {
-            return Ok(await _catalogoService.ObtenerTiposRostroAsync());
+            var items = await _context.TiposRostro
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
+        // 3. CATEGORÍAS DE SERVICIO (GET + POST)
         [HttpGet("categorias-servicio")]
-        public async Task<IActionResult> GetCategoriasServicio()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerCategoriasServicio()
         {
-            return Ok(await _catalogoService.ObtenerCategoriasServicioAsync());
+            var items = await _context.CategoriasServicio
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
         [HttpPost("categorias-servicio")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateCategoriaServicio([FromBody] CrearCatalogoItemDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> CrearCategoriaServicio([FromBody] CrearCatalogoItemDto dto)
         {
-            var result = await _catalogoService.CrearCategoriaServicioAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                return BadRequest(ApiResponse<CatalogoItemDto>.Falla("El nombre de la categoría es obligatorio."));
+
+            var nueva = new CategoriaServicio { Nombre = dto.Nombre.Trim() };
+            _context.CategoriasServicio.Add(nueva);
+            await _context.SaveChangesAsync();
+
+            var result = new CatalogoItemDto { Id = nueva.Id, Nombre = nueva.Nombre, Descripcion = nueva.Nombre };
+            return Ok(ApiResponse<CatalogoItemDto>.Exito(result, "Categoría de servicio creada."));
         }
 
+        // 4. ESPECIALIDADES DE PELUQUERO (GET + POST + DELETE)
         [HttpGet("especialidades")]
-        public async Task<IActionResult> GetEspecialidades()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerEspecialidades()
         {
-            return Ok(await _catalogoService.ObtenerEspecialidadesAsync());
+            var items = await _context.Especialidades
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
         [HttpPost("especialidades")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateEspecialidad([FromBody] CrearCatalogoItemDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> CrearEspecialidad([FromBody] CrearCatalogoItemDto dto)
         {
-            var result = await _catalogoService.CrearEspecialidadAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                return BadRequest(ApiResponse<CatalogoItemDto>.Falla("El nombre de la especialidad es obligatorio."));
+
+            var nueva = new Especialidad { Nombre = dto.Nombre.Trim() };
+            _context.Especialidades.Add(nueva);
+            await _context.SaveChangesAsync();
+
+            var result = new CatalogoItemDto { Id = nueva.Id, Nombre = nueva.Nombre, Descripcion = nueva.Nombre };
+            return Ok(ApiResponse<CatalogoItemDto>.Exito(result, "Especialidad creada."));
         }
 
-        [HttpDelete("especialidades/{id}")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> DeleteEspecialidad(int id)
+        [HttpDelete("especialidades/{id:int}")]
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> EliminarEspecialidad(int id)
         {
-            var result = await _catalogoService.EliminarEspecialidadAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            var esp = await _context.Especialidades.FindAsync(id);
+            if (esp == null)
+                return NotFound(ApiResponse<bool>.Falla("Especialidad no encontrada."));
+
+            _context.Especialidades.Remove(esp);
+            await _context.SaveChangesAsync();
+
+            return Ok(ApiResponse<bool>.Exito(true, "Especialidad eliminada correctamente."));
         }
 
+        // 5. ESTADOS DE TURNO
         [HttpGet("estados-turno")]
-        public async Task<IActionResult> GetEstadosTurno()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerEstadosTurno()
         {
-            return Ok(await _catalogoService.ObtenerEstadosTurnoAsync());
+            var items = await _context.EstadosTurno
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
+        // 6. MOTIVOS DE CANCELACIÓN (GET + POST)
         [HttpGet("motivos-cancelacion")]
-        public async Task<IActionResult> GetMotivosCancelacion()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerMotivosCancelacion()
         {
-            return Ok(await _catalogoService.ObtenerMotivosCancelacionAsync());
+            var items = await _context.MotivosCancelacion
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Descripcion, Descripcion = x.Descripcion })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
         [HttpPost("motivos-cancelacion")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateMotivoCancelacion([FromBody] CrearCatalogoItemDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> CrearMotivoCancelacion([FromBody] CrearCatalogoItemDto dto)
         {
-            var result = await _catalogoService.CrearMotivoCancelacionAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var texto = !string.IsNullOrWhiteSpace(dto.Descripcion) ? dto.Descripcion.Trim() : dto.Nombre.Trim();
+            if (string.IsNullOrWhiteSpace(texto))
+                return BadRequest(ApiResponse<CatalogoItemDto>.Falla("La descripción del motivo es obligatoria."));
+
+            var nuevo = new MotivoCancelacion { Descripcion = texto };
+            _context.MotivosCancelacion.Add(nuevo);
+            await _context.SaveChangesAsync();
+
+            var result = new CatalogoItemDto { Id = nuevo.Id, Nombre = nuevo.Descripcion, Descripcion = nuevo.Descripcion };
+            return Ok(ApiResponse<CatalogoItemDto>.Exito(result, "Motivo de cancelación creado."));
         }
 
+        // 7. CATEGORÍAS DE PRODUCTO (GET + POST)
         [HttpGet("categorias-producto")]
-        public async Task<IActionResult> GetCategoriasProducto()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerCategoriasProducto()
         {
-            return Ok(await _catalogoService.ObtenerCategoriasProductoAsync());
+            var items = await _context.CategoriasProducto
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
         [HttpPost("categorias-producto")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateCategoriaProducto([FromBody] CrearCatalogoItemDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> CrearCategoriaProducto([FromBody] CrearCatalogoItemDto dto)
         {
-            var result = await _catalogoService.CrearCategoriaProductoAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                return BadRequest(ApiResponse<CatalogoItemDto>.Falla("El nombre de la categoría de producto es obligatorio."));
+
+            var nueva = new CategoriaProducto { Nombre = dto.Nombre.Trim() };
+            _context.CategoriasProducto.Add(nueva);
+            await _context.SaveChangesAsync();
+
+            var result = new CatalogoItemDto { Id = nueva.Id, Nombre = nueva.Nombre, Descripcion = nueva.Nombre };
+            return Ok(ApiResponse<CatalogoItemDto>.Exito(result, "Categoría de producto creada."));
         }
 
+        // 8. MEDIOS DE PAGO (GET + POST)
         [HttpGet("medios-pago")]
-        public async Task<IActionResult> GetMediosPago()
+        [AllowAnonymous]
+        public async Task<IActionResult> ObtenerMediosPago()
         {
-            return Ok(await _catalogoService.ObtenerMediosPagoAsync());
+            var items = await _context.MediosPago
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
 
         [HttpPost("medios-pago")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> CreateMedioPago([FromBody] CrearCatalogoItemDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> CrearMedioPago([FromBody] CrearCatalogoItemDto dto)
         {
-            var result = await _catalogoService.CrearMedioPagoAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            if (string.IsNullOrWhiteSpace(dto.Nombre))
+                return BadRequest(ApiResponse<CatalogoItemDto>.Falla("El nombre del medio de pago es obligatorio."));
+
+            var nuevo = new MedioPago { Nombre = dto.Nombre.Trim() };
+            _context.MediosPago.Add(nuevo);
+            await _context.SaveChangesAsync();
+
+            var result = new CatalogoItemDto { Id = nuevo.Id, Nombre = nuevo.Nombre, Descripcion = nuevo.Nombre };
+            return Ok(ApiResponse<CatalogoItemDto>.Exito(result, "Medio de pago creado."));
         }
 
+        // 9. ROLES DEL SISTEMA
         [HttpGet("roles")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> GetRoles()
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        public async Task<IActionResult> ObtenerRoles()
         {
-            return Ok(await _catalogoService.ObtenerRolesAsync());
+            var items = await _context.Roles
+                .AsNoTracking()
+                .Select(x => new CatalogoItemDto { Id = x.Id, Nombre = x.Nombre, Descripcion = x.Nombre })
+                .ToListAsync();
+            return Ok(ApiResponse<List<CatalogoItemDto>>.Exito(items));
         }
     }
 }

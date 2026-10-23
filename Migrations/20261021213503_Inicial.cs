@@ -8,11 +8,36 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MiPeluqueria.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class Inicial_Completa_Final : Migration
+    public partial class Inicial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "AuditLogs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UsuarioId = table.Column<int>(type: "int", nullable: true),
+                    EntidadNombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Accion = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    ClavePrimaria = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    ValoresAnterioresJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ValoresNuevosJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IpAddress = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    FechaUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuditLogs", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "CategoriasProducto",
                 columns: table => new
@@ -47,6 +72,37 @@ namespace MiPeluqueria.Api.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_CategoriasServicio", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ConfiguracionSalon",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    NombreSalon = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    RazonSocial = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Cuit = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Direccion = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    Telefono = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    EmailContacto = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    MonedaIso = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false, defaultValue: "ARS"),
+                    TimeZoneId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false, defaultValue: "America/Argentina/Cordoba"),
+                    IntervaloTurnosMinutos = table.Column<int>(type: "int", nullable: false),
+                    MinutosToleranciaEspera = table.Column<int>(type: "int", nullable: false),
+                    HorasAnticipacionCancelacion = table.Column<int>(type: "int", nullable: false),
+                    PorcentajeSenaReserva = table.Column<decimal>(type: "decimal(5,2)", nullable: false),
+                    NotificacionesWhatsAppActivas = table.Column<bool>(type: "bit", nullable: false),
+                    NotificacionesEmailActivas = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ConfiguracionSalon", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -131,7 +187,7 @@ namespace MiPeluqueria.Api.Migrations
                     Apellido = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Telefono = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    ColorAgendaHex = table.Column<string>(type: "nvarchar(7)", maxLength: 7, nullable: false),
+                    ColorAgendaHex = table.Column<string>(type: "nvarchar(7)", maxLength: 7, nullable: false, defaultValue: "#3B82F6"),
                     Activo = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
@@ -142,6 +198,30 @@ namespace MiPeluqueria.Api.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Peluqueros", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PlanesSuscripcion",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    PrecioMensualUsd = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    MaxSucursales = table.Column<int>(type: "int", nullable: false),
+                    MaxPeluqueros = table.Column<int>(type: "int", nullable: false),
+                    IncluyeWhatsAppRecordatorios = table.Column<bool>(type: "bit", nullable: false),
+                    IncluyePortalReservasOnline = table.Column<bool>(type: "bit", nullable: false),
+                    Activo = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PlanesSuscripcion", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -191,12 +271,12 @@ namespace MiPeluqueria.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     UsuarioAperturaId = table.Column<int>(type: "int", nullable: false),
                     FechaApertura = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    MontoInicial = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    MontoInicial = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     UsuarioCierreId = table.Column<int>(type: "int", nullable: true),
                     FechaCierre = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    MontoFinalReal = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
-                    MontoFinalEsperado = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
-                    Diferencia = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
+                    MontoFinalReal = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                    MontoFinalEsperado = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
+                    Diferencia = table.Column<decimal>(type: "decimal(18,2)", nullable: true),
                     EstadoAbierta = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
@@ -207,6 +287,29 @@ namespace MiPeluqueria.Api.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SesionesCaja", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Tenants",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    NombreComercial = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    SubdominioSlug = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    IdentificacionFiscal = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    EmailPropietario = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    PaisIso = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Activo = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Tenants", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -256,9 +359,10 @@ namespace MiPeluqueria.Api.Migrations
                     CategoriaId = table.Column<int>(type: "int", nullable: false),
                     Nombre = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
                     Descripcion = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    Precio = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Precio = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     DuracionMinutos = table.Column<int>(type: "int", nullable: false),
                     Activo = table.Column<bool>(type: "bit", nullable: false),
+                    CategoriaServicioId = table.Column<int>(type: "int", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -274,6 +378,11 @@ namespace MiPeluqueria.Api.Migrations
                         principalTable: "CategoriasServicio",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Servicios_CategoriasServicio_CategoriaServicioId",
+                        column: x => x.CategoriaServicioId,
+                        principalTable: "CategoriasServicio",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -300,7 +409,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -327,7 +436,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -340,9 +449,9 @@ namespace MiPeluqueria.Api.Migrations
                     FechaDesde = table.Column<DateTime>(type: "datetime2", nullable: false),
                     FechaHasta = table.Column<DateTime>(type: "datetime2", nullable: false),
                     FechaVencimiento = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    TotalServicios = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    TotalProductos = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    TotalPagar = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    TotalServicios = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    TotalProductos = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    TotalPagar = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     FechaPago = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Estado = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -387,6 +496,38 @@ namespace MiPeluqueria.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "OrdenesCompra",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ProveedorId = table.Column<int>(type: "int", nullable: false),
+                    NumeroComprobanteProveedor = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    FechaEmision = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    FechaRecepcion = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Estado = table.Column<int>(type: "int", nullable: false),
+                    Total = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Observaciones = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    UsuarioCreacionId = table.Column<int>(type: "int", nullable: false),
+                    UsuarioRecepcionId = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OrdenesCompra", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_OrdenesCompra_Proveedores_ProveedorId",
+                        column: x => x.ProveedorId,
+                        principalTable: "Proveedores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Productos",
                 columns: table => new
                 {
@@ -396,11 +537,12 @@ namespace MiPeluqueria.Api.Migrations
                     ProveedorId = table.Column<int>(type: "int", nullable: true),
                     CodigoBarras = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     Nombre = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    PrecioCosto = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
-                    PrecioVenta = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    PrecioCosto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioVenta = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     StockActual = table.Column<int>(type: "int", nullable: false),
                     StockMinimoAlerta = table.Column<int>(type: "int", nullable: false),
                     EsParaVenta = table.Column<bool>(type: "bit", nullable: false),
+                    CategoriaProductoId = table.Column<int>(type: "int", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -417,11 +559,16 @@ namespace MiPeluqueria.Api.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_Productos_CategoriasProducto_CategoriaProductoId",
+                        column: x => x.CategoriaProductoId,
+                        principalTable: "CategoriasProducto",
+                        principalColumn: "Id");
+                    table.ForeignKey(
                         name: "FK_Productos_Proveedores_ProveedorId",
                         column: x => x.ProveedorId,
                         principalTable: "Proveedores",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -432,7 +579,7 @@ namespace MiPeluqueria.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     SesionCajaId = table.Column<int>(type: "int", nullable: false),
                     Tipo = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Monto = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Monto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Concepto = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
                     Fecha = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -453,6 +600,72 @@ namespace MiPeluqueria.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Sucursales",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TenantId = table.Column<int>(type: "int", nullable: false),
+                    Nombre = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Direccion = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
+                    Telefono = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    TimeZoneId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false, defaultValue: "America/Argentina/Cordoba"),
+                    MonedaIso = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false, defaultValue: "ARS"),
+                    EsCasaMatriz = table.Column<bool>(type: "bit", nullable: false),
+                    Activa = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Sucursales", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Sucursales_Tenants_TenantId",
+                        column: x => x.TenantId,
+                        principalTable: "Tenants",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SuscripcionesTenant",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    TenantId = table.Column<int>(type: "int", nullable: false),
+                    PlanSuscripcionId = table.Column<int>(type: "int", nullable: false),
+                    FechaInicio = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    FechaProximoVencimiento = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Estado = table.Column<int>(type: "int", nullable: false),
+                    ExternalSubscriptionId = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SuscripcionesTenant", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SuscripcionesTenant_PlanesSuscripcion_PlanSuscripcionId",
+                        column: x => x.PlanSuscripcionId,
+                        principalTable: "PlanesSuscripcion",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SuscripcionesTenant_Tenants_TenantId",
+                        column: x => x.TenantId,
+                        principalTable: "Tenants",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Clientes",
                 columns: table => new
                 {
@@ -467,6 +680,8 @@ namespace MiPeluqueria.Api.Migrations
                     Activo = table.Column<bool>(type: "bit", nullable: false),
                     TipoCabelloId = table.Column<int>(type: "int", nullable: true),
                     TipoRostroId = table.Column<int>(type: "int", nullable: true),
+                    TipoCabelloId1 = table.Column<int>(type: "int", nullable: true),
+                    TipoRostroId1 = table.Column<int>(type: "int", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -483,23 +698,33 @@ namespace MiPeluqueria.Api.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_Clientes_TiposCabello_TipoCabelloId1",
+                        column: x => x.TipoCabelloId1,
+                        principalTable: "TiposCabello",
+                        principalColumn: "Id");
+                    table.ForeignKey(
                         name: "FK_Clientes_TiposRostro_TipoRostroId",
                         column: x => x.TipoRostroId,
                         principalTable: "TiposRostro",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Clientes_TiposRostro_TipoRostroId1",
+                        column: x => x.TipoRostroId1,
+                        principalTable: "TiposRostro",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
-                name: "ComisionesConfigs",
+                name: "ComisionesConfig",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     PeluqueroId = table.Column<int>(type: "int", nullable: false),
                     ServicioId = table.Column<int>(type: "int", nullable: true),
-                    PorcentajeServicio = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
-                    PorcentajeVentaProducto = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    PorcentajeServicio = table.Column<decimal>(type: "decimal(5,2)", nullable: false),
+                    PorcentajeVentaProducto = table.Column<decimal>(type: "decimal(5,2)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -508,19 +733,48 @@ namespace MiPeluqueria.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ComisionesConfigs", x => x.Id);
+                    table.PrimaryKey("PK_ComisionesConfig", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ComisionesConfigs_Peluqueros_PeluqueroId",
+                        name: "FK_ComisionesConfig_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_ComisionesConfigs_Servicios_ServicioId",
+                        name: "FK_ComisionesConfig_Servicios_ServicioId",
                         column: x => x.ServicioId,
                         principalTable: "Servicios",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HistorialPreciosServicio",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ServicioId = table.Column<int>(type: "int", nullable: false),
+                    PrecioAnterior = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioNuevo = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    FechaCambio = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UsuarioModificacionId = table.Column<int>(type: "int", nullable: true),
+                    Motivo = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HistorialPreciosServicio", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_HistorialPreciosServicio_Servicios_ServicioId",
+                        column: x => x.ServicioId,
+                        principalTable: "Servicios",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -532,7 +786,7 @@ namespace MiPeluqueria.Api.Migrations
                     LiquidacionId = table.Column<int>(type: "int", nullable: false),
                     TurnoId = table.Column<int>(type: "int", nullable: true),
                     DetalleVentaId = table.Column<int>(type: "int", nullable: true),
-                    MontoComisionCalculado = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    MontoComisionCalculado = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -547,7 +801,73 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.LiquidacionId,
                         principalTable: "Liquidaciones",
                         principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DetallesOrdenCompra",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OrdenCompraId = table.Column<int>(type: "int", nullable: false),
+                    ProductoId = table.Column<int>(type: "int", nullable: false),
+                    CantidadPedida = table.Column<int>(type: "int", nullable: false),
+                    CantidadRecibida = table.Column<int>(type: "int", nullable: false),
+                    PrecioUnitarioCosto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Subtotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DetallesOrdenCompra", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DetallesOrdenCompra_OrdenesCompra_OrdenCompraId",
+                        column: x => x.OrdenCompraId,
+                        principalTable: "OrdenesCompra",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DetallesOrdenCompra_Productos_ProductoId",
+                        column: x => x.ProductoId,
+                        principalTable: "Productos",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HistorialPreciosProducto",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ProductoId = table.Column<int>(type: "int", nullable: false),
+                    PrecioCostoAnterior = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioCostoNuevo = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioVentaAnterior = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioVentaNuevo = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    FechaCambio = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UsuarioModificacionId = table.Column<int>(type: "int", nullable: true),
+                    Motivo = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HistorialPreciosProducto", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_HistorialPreciosProducto_Productos_ProductoId",
+                        column: x => x.ProductoId,
+                        principalTable: "Productos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -580,6 +900,41 @@ namespace MiPeluqueria.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ServiciosInsumosRecetas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ServicioId = table.Column<int>(type: "int", nullable: false),
+                    ProductoId = table.Column<int>(type: "int", nullable: false),
+                    CantidadUnidadesDescontar = table.Column<int>(type: "int", nullable: false),
+                    CantidadMedidaEstandar = table.Column<decimal>(type: "decimal(10,2)", nullable: false),
+                    UnidadMedida = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    DescuentoAutomaticoAlCompletarTurno = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ServiciosInsumosRecetas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ServiciosInsumosRecetas_Productos_ProductoId",
+                        column: x => x.ProductoId,
+                        principalTable: "Productos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ServiciosInsumosRecetas_Servicios_ServicioId",
+                        column: x => x.ServicioId,
+                        principalTable: "Servicios",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Turnos",
                 columns: table => new
                 {
@@ -591,8 +946,9 @@ namespace MiPeluqueria.Api.Migrations
                     FechaHoraFin = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EstadoId = table.Column<int>(type: "int", nullable: false),
                     MotivoCancelacionId = table.Column<int>(type: "int", nullable: true),
-                    MontoTotalEstimado = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    MontoTotalEstimado = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Observaciones = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    EstadoTurnoId = table.Column<int>(type: "int", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -615,6 +971,11 @@ namespace MiPeluqueria.Api.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
+                        name: "FK_Turnos_EstadosTurno_EstadoTurnoId",
+                        column: x => x.EstadoTurnoId,
+                        principalTable: "EstadosTurno",
+                        principalColumn: "Id");
+                    table.ForeignKey(
                         name: "FK_Turnos_MotivosCancelacion_MotivoCancelacionId",
                         column: x => x.MotivoCancelacionId,
                         principalTable: "MotivosCancelacion",
@@ -636,7 +997,7 @@ namespace MiPeluqueria.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     RolId = table.Column<int>(type: "int", nullable: false),
                     Username = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
                     EmailVerificado = table.Column<bool>(type: "bit", nullable: false),
                     CodigoVerificacion = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: true),
@@ -648,6 +1009,7 @@ namespace MiPeluqueria.Api.Migrations
                     PeluqueroId = table.Column<int>(type: "int", nullable: true),
                     ClienteId = table.Column<int>(type: "int", nullable: true),
                     Activo = table.Column<bool>(type: "bit", nullable: false),
+                    RolId1 = table.Column<int>(type: "int", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -662,19 +1024,24 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Usuarios_Peluqueros_PeluqueroId",
                         column: x => x.PeluqueroId,
                         principalTable: "Peluqueros",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Usuarios_Roles_RolId",
                         column: x => x.RolId,
                         principalTable: "Roles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Usuarios_Roles_RolId1",
+                        column: x => x.RolId1,
+                        principalTable: "Roles",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -715,11 +1082,11 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
-                name: "HistorialEstadoTurnos",
+                name: "HistorialEstadosTurno",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -738,25 +1105,25 @@ namespace MiPeluqueria.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_HistorialEstadoTurnos", x => x.Id);
+                    table.PrimaryKey("PK_HistorialEstadosTurno", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_HistorialEstadoTurnos_EstadosTurno_EstadoAnteriorId",
+                        name: "FK_HistorialEstadosTurno_EstadosTurno_EstadoAnteriorId",
                         column: x => x.EstadoAnteriorId,
                         principalTable: "EstadosTurno",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_HistorialEstadoTurnos_EstadosTurno_EstadoNuevoId",
+                        name: "FK_HistorialEstadosTurno_EstadosTurno_EstadoNuevoId",
                         column: x => x.EstadoNuevoId,
                         principalTable: "EstadosTurno",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_HistorialEstadoTurnos_Turnos_TurnoId",
+                        name: "FK_HistorialEstadosTurno_Turnos_TurnoId",
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -795,7 +1162,7 @@ namespace MiPeluqueria.Api.Migrations
                     ClienteId = table.Column<int>(type: "int", nullable: true),
                     TurnoId = table.Column<int>(type: "int", nullable: true),
                     Fecha = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Total = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Total = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     UsuarioId = table.Column<int>(type: "int", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: true),
@@ -811,7 +1178,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.ClienteId,
                         principalTable: "Clientes",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_Ventas_SesionesCaja_SesionCajaId",
                         column: x => x.SesionCajaId,
@@ -823,7 +1190,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.TurnoId,
                         principalTable: "Turnos",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -852,7 +1219,38 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.UsuarioId,
                         principalTable: "Usuarios",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UsuarioId = table.Column<int>(type: "int", nullable: false),
+                    Token = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByIp = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    RevokedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RevokedByIp = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ReplacedByToken = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    ReasonRevoked = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedByUserId = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "bit", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Usuarios_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "Usuarios",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -862,7 +1260,7 @@ namespace MiPeluqueria.Api.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     VentaId = table.Column<int>(type: "int", nullable: false),
-                    TipoItem = table.Column<int>(type: "int", maxLength: 20, nullable: false),
+                    TipoItem = table.Column<int>(type: "int", nullable: false),
                     ItemId = table.Column<int>(type: "int", nullable: false),
                     Cantidad = table.Column<int>(type: "int", nullable: false),
                     PrecioUnitario = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
@@ -914,7 +1312,7 @@ namespace MiPeluqueria.Api.Migrations
                         column: x => x.VentaId,
                         principalTable: "Ventas",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
@@ -922,12 +1320,12 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8662), null, null, false, "Pendiente", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8664), null, null, false, "Confirmado", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8666), null, null, false, "En Proceso", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8667), null, null, false, "Completado", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8669), null, null, false, "Cancelado", null },
-                    { 6, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8670), null, null, false, "No Asistió", null }
+                    { 1, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Pendiente", null },
+                    { 2, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Confirmado", null },
+                    { 3, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "En Proceso", null },
+                    { 4, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Completado", null },
+                    { 5, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Cancelado", null },
+                    { 6, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "No Asistió", null }
                 });
 
             migrationBuilder.InsertData(
@@ -935,13 +1333,34 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8904), null, null, false, "Efectivo", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8906), null, null, false, "Tarjeta de Débito", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8908), null, null, false, "Tarjeta de Crédito", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8909), null, null, false, "Transferencia / Alias", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8911), null, null, false, "Mercado Pago QR", null },
-                    { 6, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8912), null, null, false, "Billetera Virtual (Otra)", null },
-                    { 7, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8914), null, null, false, "Canje / Cortesía", null }
+                    { 1, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Efectivo", null },
+                    { 2, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Tarjeta de Débito", null },
+                    { 3, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Tarjeta de Crédito", null },
+                    { 4, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Transferencia / Alias", null },
+                    { 5, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Mercado Pago QR", null },
+                    { 6, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Billetera Virtual (Otra)", null },
+                    { 7, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Canje / Cortesía", null }
+                });
+
+            migrationBuilder.InsertData(
+                table: "MotivosCancelacion",
+                columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "Descripcion", "IsDeleted", "UpdatedAt" },
+                values: new object[,]
+                {
+                    { 1, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "Cancelación con aviso previo del cliente", false, null },
+                    { 2, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "Ausencia o indisposición del profesional", false, null },
+                    { 3, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "Reprogramación solicitada por recepción", false, null },
+                    { 4, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "Fuerza mayor / Feriado / Corte de suministro", false, null }
+                });
+
+            migrationBuilder.InsertData(
+                table: "PlanesSuscripcion",
+                columns: new[] { "Id", "Activo", "CreatedAt", "CreatedByUserId", "DeletedAt", "IncluyePortalReservasOnline", "IncluyeWhatsAppRecordatorios", "IsDeleted", "MaxPeluqueros", "MaxSucursales", "Nombre", "PrecioMensualUsd", "UpdatedAt" },
+                values: new object[,]
+                {
+                    { 1, true, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, true, true, false, 3, 1, "Starter", 19.99m, null },
+                    { 2, true, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, true, true, false, 15, 3, "Professional", 39.99m, null },
+                    { 3, true, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, true, true, false, 999, 99, "Enterprise", 79.99m, null }
                 });
 
             migrationBuilder.InsertData(
@@ -949,17 +1368,48 @@ namespace MiPeluqueria.Api.Migrations
                 columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "IsDeleted", "Nombre", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8940), null, null, false, "Administrador", null },
-                    { 2, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8942), null, null, false, "Recepcionista", null },
-                    { 3, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8943), null, null, false, "Peluquero", null },
-                    { 4, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8944), null, null, false, "Cliente", null },
-                    { 5, new DateTime(2026, 10, 3, 4, 43, 50, 412, DateTimeKind.Utc).AddTicks(8946), null, null, false, "Cajero", null }
+                    { 1, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Administrador", null },
+                    { 2, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Recepcionista", null },
+                    { 3, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Peluquero", null },
+                    { 4, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Cliente", null },
+                    { 5, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, false, "Cajero", null }
                 });
 
+            migrationBuilder.InsertData(
+                table: "Tenants",
+                columns: new[] { "Id", "Activo", "CreatedAt", "CreatedByUserId", "DeletedAt", "EmailPropietario", "IdentificacionFiscal", "IsDeleted", "NombreComercial", "PaisIso", "SubdominioSlug", "UpdatedAt" },
+                values: new object[] { 1, true, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "admin@tesis.com", "30-71234567-9", false, "Mi Peluquería Central", "AR", "mi-peluqueria-central", null });
+
+            migrationBuilder.InsertData(
+                table: "Sucursales",
+                columns: new[] { "Id", "Activa", "CreatedAt", "CreatedByUserId", "DeletedAt", "Direccion", "EsCasaMatriz", "IsDeleted", "MonedaIso", "Nombre", "Telefono", "TenantId", "TimeZoneId", "UpdatedAt" },
+                values: new object[] { 1, true, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "Av. Colón 500, Córdoba", true, false, "ARS", "Sucursal Casa Matriz (Córdoba)", "+54 9 351 000-0000", 1, "America/Argentina/Cordoba", null });
+
+            migrationBuilder.InsertData(
+                table: "SuscripcionesTenant",
+                columns: new[] { "Id", "CreatedAt", "CreatedByUserId", "DeletedAt", "Estado", "ExternalSubscriptionId", "FechaInicio", "FechaProximoVencimiento", "IsDeleted", "PlanSuscripcionId", "TenantId", "UpdatedAt" },
+                values: new object[] { 1, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, 2, null, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), new DateTime(2027, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), false, 2, 1, null });
+
+            migrationBuilder.InsertData(
+                table: "Usuarios",
+                columns: new[] { "Id", "AceptaTerminos", "Activo", "BloqueadoHasta", "ClienteId", "CodigoVerificacion", "CreatedAt", "CreatedByUserId", "DeletedAt", "Email", "EmailVerificado", "FechaAceptacionTerminos", "FechaExpiracionCodigo", "IntentosFallidos", "IsDeleted", "PasswordHash", "PeluqueroId", "RolId", "RolId1", "UpdatedAt", "Username" },
+                values: new object[] { 1, true, true, null, null, null, new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, null, "admin@tesis.com", true, null, null, 0, false, "$2a$11$0nN01jB5P169DXZgN/.hCeeNInhV/9tYkH.fK5v4a9jR1LqFkI5C6", null, 1, null, null, "admin" });
+
             migrationBuilder.CreateIndex(
-                name: "IX_BloqueosHorario_PeluqueroId",
+                name: "IX_AuditLogs_Entidad_Clave_Fecha",
+                table: "AuditLogs",
+                columns: new[] { "EntidadNombre", "ClavePrimaria", "FechaUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BloqueosHorario_PeluqueroId_Fechas",
                 table: "BloqueosHorario",
-                column: "PeluqueroId");
+                columns: new[] { "PeluqueroId", "FechaInicio", "FechaFin" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Clientes_Telefono",
+                table: "Clientes",
+                column: "Telefono",
+                filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Clientes_TipoCabelloId",
@@ -967,19 +1417,38 @@ namespace MiPeluqueria.Api.Migrations
                 column: "TipoCabelloId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Clientes_TipoCabelloId1",
+                table: "Clientes",
+                column: "TipoCabelloId1");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Clientes_TipoRostroId",
                 table: "Clientes",
                 column: "TipoRostroId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ComisionesConfigs_PeluqueroId",
-                table: "ComisionesConfigs",
-                column: "PeluqueroId");
+                name: "IX_Clientes_TipoRostroId1",
+                table: "Clientes",
+                column: "TipoRostroId1");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ComisionesConfigs_ServicioId",
-                table: "ComisionesConfigs",
+                name: "UX_Clientes_Email_Active",
+                table: "Clientes",
+                column: "Email",
+                unique: true,
+                filter: "[Email] IS NOT NULL AND [IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ComisionesConfig_ServicioId",
+                table: "ComisionesConfig",
                 column: "ServicioId");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_ComisionesConfig_Peluquero_Servicio",
+                table: "ComisionesConfig",
+                columns: new[] { "PeluqueroId", "ServicioId" },
+                unique: true,
+                filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DetallesLiquidacion_LiquidacionId",
@@ -987,14 +1456,24 @@ namespace MiPeluqueria.Api.Migrations
                 column: "LiquidacionId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DetallesOrdenCompra_OrdenCompraId",
+                table: "DetallesOrdenCompra",
+                column: "OrdenCompraId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DetallesOrdenCompra_ProductoId",
+                table: "DetallesOrdenCompra",
+                column: "ProductoId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DetallesVenta_VentaId",
                 table: "DetallesVenta",
                 column: "VentaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_FichasTecnicas_ClienteId",
+                name: "IX_FichasTecnicas_ClienteId_Fecha",
                 table: "FichasTecnicas",
-                column: "ClienteId");
+                columns: new[] { "ClienteId", "Fecha" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_FichasTecnicas_PeluqueroId",
@@ -1007,44 +1486,59 @@ namespace MiPeluqueria.Api.Migrations
                 column: "TurnoId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_HistorialEstadoTurnos_EstadoAnteriorId",
-                table: "HistorialEstadoTurnos",
+                name: "IX_HistorialEstadosTurno_EstadoAnteriorId",
+                table: "HistorialEstadosTurno",
                 column: "EstadoAnteriorId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_HistorialEstadoTurnos_EstadoNuevoId",
-                table: "HistorialEstadoTurnos",
+                name: "IX_HistorialEstadosTurno_EstadoNuevoId",
+                table: "HistorialEstadosTurno",
                 column: "EstadoNuevoId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_HistorialEstadoTurnos_TurnoId",
-                table: "HistorialEstadoTurnos",
-                column: "TurnoId");
+                name: "IX_HistorialEstadosTurno_TurnoId_FechaCambio",
+                table: "HistorialEstadosTurno",
+                columns: new[] { "TurnoId", "FechaCambio" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_HistorialSesiones_UsuarioId",
-                table: "HistorialSesiones",
-                column: "UsuarioId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_HorariosLaborales_PeluqueroId",
-                table: "HorariosLaborales",
-                column: "PeluqueroId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Liquidaciones_PeluqueroId",
-                table: "Liquidaciones",
-                column: "PeluqueroId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MovimientosCaja_SesionCajaId",
-                table: "MovimientosCaja",
-                column: "SesionCajaId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MovimientosStock_ProductoId",
-                table: "MovimientosStock",
+                name: "IX_HistorialPreciosProducto_ProductoId",
+                table: "HistorialPreciosProducto",
                 column: "ProductoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HistorialPreciosServicio_ServicioId",
+                table: "HistorialPreciosServicio",
+                column: "ServicioId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HistorialSesiones_UsuarioId_FechaIntento",
+                table: "HistorialSesiones",
+                columns: new[] { "UsuarioId", "FechaIntento" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HorariosLaborales_PeluqueroId_DiaSemana",
+                table: "HorariosLaborales",
+                columns: new[] { "PeluqueroId", "DiaSemana" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Liquidaciones_PeluqueroId_Estado_FechaDesde",
+                table: "Liquidaciones",
+                columns: new[] { "PeluqueroId", "Estado", "FechaDesde" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MovimientosCaja_SesionCajaId_Fecha",
+                table: "MovimientosCaja",
+                columns: new[] { "SesionCajaId", "Fecha" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MovimientosStock_Kardex_ProductoId_Fecha",
+                table: "MovimientosStock",
+                columns: new[] { "ProductoId", "Fecha" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OrdenesCompra_Proveedor_Estado_Fecha",
+                table: "OrdenesCompra",
+                columns: new[] { "ProveedorId", "Estado", "FechaEmision" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Pagos_MedioPagoId",
@@ -1062,9 +1556,21 @@ namespace MiPeluqueria.Api.Migrations
                 column: "EspecialidadId");
 
             migrationBuilder.CreateIndex(
+                name: "UX_Peluqueros_Email_Active",
+                table: "Peluqueros",
+                column: "Email",
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Productos_CategoriaId",
                 table: "Productos",
                 column: "CategoriaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Productos_CategoriaProductoId",
+                table: "Productos",
+                column: "CategoriaProductoId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Productos_ProveedorId",
@@ -1072,14 +1578,88 @@ namespace MiPeluqueria.Api.Migrations
                 column: "ProveedorId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Servicios_CategoriaId",
-                table: "Servicios",
-                column: "CategoriaId");
+                name: "IX_Productos_StockCritico",
+                table: "Productos",
+                columns: new[] { "StockActual", "StockMinimoAlerta" },
+                filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Turnos_ClienteId",
+                name: "UX_Productos_CodigoBarras_Active",
+                table: "Productos",
+                column: "CodigoBarras",
+                unique: true,
+                filter: "[CodigoBarras] IS NOT NULL AND [IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UsuarioId",
+                table: "RefreshTokens",
+                column: "UsuarioId");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_RefreshTokens_Token",
+                table: "RefreshTokens",
+                column: "Token",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Servicios_CategoriaId_Activo",
+                table: "Servicios",
+                columns: new[] { "CategoriaId", "Activo" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Servicios_CategoriaServicioId",
+                table: "Servicios",
+                column: "CategoriaServicioId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ServiciosInsumosRecetas_ProductoId",
+                table: "ServiciosInsumosRecetas",
+                column: "ProductoId");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_ServiciosInsumosRecetas_Servicio_Producto",
+                table: "ServiciosInsumosRecetas",
+                columns: new[] { "ServicioId", "ProductoId" },
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SesionesCaja_EstadoAbierta_FechaApertura",
+                table: "SesionesCaja",
+                columns: new[] { "EstadoAbierta", "FechaApertura" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Sucursales_TenantId",
+                table: "Sucursales",
+                column: "TenantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SuscripcionesTenant_PlanSuscripcionId",
+                table: "SuscripcionesTenant",
+                column: "PlanSuscripcionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SuscripcionesTenant_TenantId",
+                table: "SuscripcionesTenant",
+                column: "TenantId");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Tenants_SubdominioSlug",
+                table: "Tenants",
+                column: "SubdominioSlug",
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Turnos_ClienteId_FechaHoraInicio",
                 table: "Turnos",
-                column: "ClienteId");
+                columns: new[] { "ClienteId", "FechaHoraInicio" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Turnos_Disponibilidad_Peluquero_Fecha_Estado",
+                table: "Turnos",
+                columns: new[] { "PeluqueroId", "FechaHoraInicio", "EstadoId" },
+                filter: "[IsDeleted] = 0");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Turnos_EstadoId",
@@ -1087,14 +1667,14 @@ namespace MiPeluqueria.Api.Migrations
                 column: "EstadoId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Turnos_EstadoTurnoId",
+                table: "Turnos",
+                column: "EstadoTurnoId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Turnos_MotivoCancelacionId",
                 table: "Turnos",
                 column: "MotivoCancelacionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Turnos_PeluqueroId",
-                table: "Turnos",
-                column: "PeluqueroId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TurnoServicios_ServicioId",
@@ -1117,14 +1697,38 @@ namespace MiPeluqueria.Api.Migrations
                 column: "RolId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_RolId1",
+                table: "Usuarios",
+                column: "RolId1");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Usuarios_Email_Active",
+                table: "Usuarios",
+                column: "Email",
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Usuarios_Username_Active",
+                table: "Usuarios",
+                column: "Username",
+                unique: true,
+                filter: "[IsDeleted] = 0");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Ventas_ClienteId",
                 table: "Ventas",
                 column: "ClienteId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Ventas_SesionCajaId",
+                name: "IX_Ventas_Fecha_Dashboard",
                 table: "Ventas",
-                column: "SesionCajaId");
+                column: "Fecha");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Ventas_SesionCajaId_Fecha",
+                table: "Ventas",
+                columns: new[] { "SesionCajaId", "Fecha" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Ventas_TurnoId",
@@ -1136,13 +1740,22 @@ namespace MiPeluqueria.Api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "AuditLogs");
+
+            migrationBuilder.DropTable(
                 name: "BloqueosHorario");
 
             migrationBuilder.DropTable(
-                name: "ComisionesConfigs");
+                name: "ComisionesConfig");
+
+            migrationBuilder.DropTable(
+                name: "ConfiguracionSalon");
 
             migrationBuilder.DropTable(
                 name: "DetallesLiquidacion");
+
+            migrationBuilder.DropTable(
+                name: "DetallesOrdenCompra");
 
             migrationBuilder.DropTable(
                 name: "DetallesVenta");
@@ -1151,7 +1764,13 @@ namespace MiPeluqueria.Api.Migrations
                 name: "FichasTecnicas");
 
             migrationBuilder.DropTable(
-                name: "HistorialEstadoTurnos");
+                name: "HistorialEstadosTurno");
+
+            migrationBuilder.DropTable(
+                name: "HistorialPreciosProducto");
+
+            migrationBuilder.DropTable(
+                name: "HistorialPreciosServicio");
 
             migrationBuilder.DropTable(
                 name: "HistorialSesiones");
@@ -1172,16 +1791,25 @@ namespace MiPeluqueria.Api.Migrations
                 name: "PeluqueroEspecialidades");
 
             migrationBuilder.DropTable(
+                name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
+                name: "ServiciosInsumosRecetas");
+
+            migrationBuilder.DropTable(
+                name: "Sucursales");
+
+            migrationBuilder.DropTable(
+                name: "SuscripcionesTenant");
+
+            migrationBuilder.DropTable(
                 name: "TurnoServicios");
 
             migrationBuilder.DropTable(
                 name: "Liquidaciones");
 
             migrationBuilder.DropTable(
-                name: "Usuarios");
-
-            migrationBuilder.DropTable(
-                name: "Productos");
+                name: "OrdenesCompra");
 
             migrationBuilder.DropTable(
                 name: "MediosPago");
@@ -1193,7 +1821,25 @@ namespace MiPeluqueria.Api.Migrations
                 name: "Especialidades");
 
             migrationBuilder.DropTable(
+                name: "Usuarios");
+
+            migrationBuilder.DropTable(
+                name: "Productos");
+
+            migrationBuilder.DropTable(
+                name: "PlanesSuscripcion");
+
+            migrationBuilder.DropTable(
+                name: "Tenants");
+
+            migrationBuilder.DropTable(
                 name: "Servicios");
+
+            migrationBuilder.DropTable(
+                name: "SesionesCaja");
+
+            migrationBuilder.DropTable(
+                name: "Turnos");
 
             migrationBuilder.DropTable(
                 name: "Roles");
@@ -1203,12 +1849,6 @@ namespace MiPeluqueria.Api.Migrations
 
             migrationBuilder.DropTable(
                 name: "Proveedores");
-
-            migrationBuilder.DropTable(
-                name: "SesionesCaja");
-
-            migrationBuilder.DropTable(
-                name: "Turnos");
 
             migrationBuilder.DropTable(
                 name: "CategoriasServicio");

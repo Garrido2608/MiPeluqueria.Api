@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MiPeluqueria.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261019205254_Fase2_SaaS_Completa_Final")]
-    partial class Fase2_SaaS_Completa_Final
+    [Migration("20261021213503_Inicial")]
+    partial class Inicial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

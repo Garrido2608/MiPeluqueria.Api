@@ -363,4 +363,3 @@ mipeluqueria-saas-web/
     "typescript": "^5.6.3"
   }
 }
-```

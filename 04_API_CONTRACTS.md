@@ -1,4 +1,4 @@
-﻿```markdown
+﻿
 # 04 - CONTRATOS DE INTERFAZ, ENDPOINTS HTTP, PAGINACIÓN Y DTOs (CAPA 4 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)[cite: 28]
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md`, `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `03_DATA_MODEL.md`[cite: 28]
@@ -136,4 +136,3 @@ namespace MiPeluqueria.Api.DTOs.Common
 12. **`ProductosController` (`/api/productos`), `ProveedoresController` (`/api/proveedores`) y `OrdenesCompraController` (`/api/ordenes-compra`):** CRUD con `ActualizarProductoDto` / `ActualizarProveedorDto`, `GET` paginados y `GET {id:int}/kardex` paginado con `KardexItemResponseDto`[cite: 28].
 13. **`CajaController` (`/api/caja`), `VentasController` (`/api/ventas`), `ComisionesController` (`/api/comisiones`) y `LiquidacionesController` (`/api/liquidaciones`):** Incluye `GET /api/caja/{id:int}`, `POST /api/ventas` idempotente y `POST /api/liquidaciones/{id:int}/anular`[cite: 28].
 14. **`ConfiguracionSalonController`, `DashboardController`, `SucursalesController` y `SuscripcionesController`:** Todos operando vía Servicios e `IUnitOfWork` devolviendo DTOs tipados[cite: 28].
-``` 

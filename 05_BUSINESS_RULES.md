@@ -1,4 +1,4 @@
-﻿```markdown
+﻿
 # 05 - REGLAS DE NEGOCIO, ALGORITMOS MATEMÁTICOS Y CASOS BORDE (CAPA 5 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8)[cite: 29]
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md`, `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `03_DATA_MODEL.md`, `04_API_CONTRACTS.md`[cite: 29]
@@ -96,4 +96,3 @@ Al invocar `BloqueoHorarioService.CrearBloqueoAsync(dto)`, el bloqueo se guarda 
 2. **Protección en Baja de `Peluquero` y `Servicio`:**
    * No se permite dar de baja un `Peluquero` con turnos futuros `Pendientes`/`Confirmados` o liquidaciones `Pendientes`[cite: 29].
    * Al dar de baja un `Servicio` con turnos futuros, se desactiva (`Activo = false`, `IsDeleted = true`) preservando intactos los `TurnoServicios` ya agendados[cite: 29].
-```

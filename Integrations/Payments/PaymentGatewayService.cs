@@ -1,4 +1,6 @@
-﻿using System;
+using System;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -42,11 +44,119 @@ namespace MiPeluqueria.Api.Integrations.Payments
 
         public bool ValidarFirmaWebhook(string proveedor, string? signatureHeader, string rawBody)
         {
-            var webhookSecret = _config[$"Payments:{proveedor}:WebhookSecret"];
-            if (string.IsNullOrWhiteSpace(webhookSecret))
-                return true; // Modo Sandbox / Desarrollo
+            if (string.IsNullOrWhiteSpace(proveedor) || string.IsNullOrWhiteSpace(signatureHeader))
+            {
+                return false;
+            }
 
-            return !string.IsNullOrWhiteSpace(signatureHeader);
+            string providerKey = proveedor.Trim();
+            var webhookSecret = _config[$"Payments:{providerKey}:WebhookSecret"];
+
+            // Política Fail-Closed estricta: si el secreto no existe o está vacío, se rechaza siempre.
+            if (string.IsNullOrWhiteSpace(webhookSecret))
+            {
+                _logger.LogWarning(
+                    "[PAYMENT GATEWAY] Webhook rechazado (Fail-Closed): 'Payments:{Proveedor}:WebhookSecret' no se encuentra configurado.",
+                    providerKey);
+                return false;
+            }
+
+            if (!TryExtraerFirmaHex(signatureHeader, out string firmaHex, out string? timestamp))
+            {
+                return false;
+            }
+
+            byte[] receivedHashBytes;
+            try
+            {
+                receivedHashBytes = Convert.FromHexString(firmaHex);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+
+            byte[] secretBytes = Encoding.UTF8.GetBytes(webhookSecret);
+            string safePayload = rawBody ?? string.Empty;
+
+            byte[] directHashBytes = HMACSHA256.HashData(secretBytes, Encoding.UTF8.GetBytes(safePayload));
+            if (CryptographicOperations.FixedTimeEquals(directHashBytes, receivedHashBytes))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(timestamp))
+            {
+                byte[] mpManifestHash = HMACSHA256.HashData(
+                    secretBytes,
+                    Encoding.UTF8.GetBytes($"id:{safePayload};ts:{timestamp};"));
+
+                if (CryptographicOperations.FixedTimeEquals(mpManifestHash, receivedHashBytes))
+                {
+                    return true;
+                }
+
+                byte[] stripeManifestHash = HMACSHA256.HashData(
+                    secretBytes,
+                    Encoding.UTF8.GetBytes($"{timestamp}.{safePayload}"));
+
+                if (CryptographicOperations.FixedTimeEquals(stripeManifestHash, receivedHashBytes))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryExtraerFirmaHex(string header, out string firmaHex, out string? timestamp)
+        {
+            firmaHex = string.Empty;
+            timestamp = null;
+
+            string trimmed = header.Trim();
+            if (trimmed.Length == 0)
+            {
+                return false;
+            }
+
+            if (trimmed.Contains(','))
+            {
+                var segments = trimmed.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                foreach (var segment in segments)
+                {
+                    if (segment.StartsWith("v1=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        firmaHex = segment[3..].Trim();
+                    }
+                    else if (segment.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        firmaHex = segment[7..].Trim();
+                    }
+                    else if (segment.StartsWith("ts=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        timestamp = segment[3..].Trim();
+                    }
+                    else if (segment.StartsWith("t=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        timestamp = segment[2..].Trim();
+                    }
+                }
+            }
+            else if (trimmed.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase))
+            {
+                firmaHex = trimmed[7..].Trim();
+            }
+            else if (trimmed.StartsWith("v1=", StringComparison.OrdinalIgnoreCase))
+            {
+                firmaHex = trimmed[3..].Trim();
+            }
+            else
+            {
+                firmaHex = trimmed;
+            }
+
+            return firmaHex.Length > 0 && firmaHex.Length % 2 == 0;
         }
     }
 }

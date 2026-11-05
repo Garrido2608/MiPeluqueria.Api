@@ -7,8 +7,8 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 4.4 - Servicios Financieros: Caja, POS Idempotente, Comisiones, Liquidaciones y Dashboard [HARD GATE 2]`
-* **Tarea Actual en Curso:** `EN ESPERA DE AUTORIZACIÓN HUMANA [HARD GATE 2] -> Próxima: TAREA 5.1 - Middlewares, Integraciones (HMAC + SMTP Guard), Background Worker, Configuración ODS y Program.cs`
+* **Última Tarea Completada:** `TAREA 5.1 - Middlewares, Integraciones (HMAC + SMTP Guard), Background Worker, Configuración ODS y Program.cs`
+* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 5.2 - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]`
 * **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias`
 * **Estado de Migración SQL Server:** `Esquema Fluent API y Seeding compilados y validados (DDL verificado sin FKs sombra).`
 * **Estado de Compilación Frontend (`npm run build`):** `En espera hasta superar HARD GATE 3`
@@ -22,6 +22,9 @@
 | Fecha / Tarea | Archivo `.md` Original Afectado | Especificación Original | Nuevo Valor / Cambio Implementado | Motivo Técnico / Autorización |
 | :--- | :--- | :--- | :--- | :--- |
 | *Inicial* | `03_DATA_MODEL.md` | `ITentantEntity.cs` | `ITenantEntity.cs` + `AuditableTenantEntity.cs` | Corrección de typo e inclusión de herencia universal (`TenantId`, `SucursalId`)[cite: 30, 35]. |
+| Tarea 5.1 | `02_ARCHITECTURE.md` (Sección 3.2, pasos 2 y 3) | Validación del par Tenant/Sucursal consultando `ApplicationDbContext.Sucursales` directo desde el middleware; caché solo con `SlidingExpiration = 10 min`. | Consulta vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync(...)`; caché válida con `SlidingExpiration = 10 min` + tope `AbsoluteExpirationRelativeToNow = 60 min`; resultados inválidos cacheados `1 min`. | Regla "0 DbContext directo" (`01` Sección 4.2). El tope absoluto impide que el tráfico continuo mantenga válida para siempre una sucursal desactivada (OWASP A01). **SPEC-SYNC aplicado en `02`.** |
+| Tarea 5.1 | `06_INTEGRATION_AND_ODD_PLAN.md` (Tarea 5.1, ítem 5) / `02_ARCHITECTURE.md` (árbol) | `Services/Background/RecordatorioTurnosBackgroundService.cs` | Se conserva la ruta física existente `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (la clase sí se llama `RecordatorioTurnosBackgroundService`, namespace `MiPeluqueria.Api.Services.Background`). | Solo cambia el nombre del archivo, no el contrato. No se renombró para no alterar rutas fuera de la tarea. **Pendiente de decisión del Arquitecto.** |
+| Tarea 5.1 | `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 2) | Sin valor por defecto especificado para `BackgroundJobs:CancelarReservasOnlineImpagas` si falta la clave. | Valor por defecto `false` si la clave no existe (el JSON la declara `true`). La expiración aplica **solo** a turnos con `RequiereSena && !SenaPagada` cuyo campo `Observaciones` empiece con `"[Reserva Online]"`. | `TurnoService.CreateAsync` marca `RequiereSena = true` también en los turnos cargados por el staff; sin este filtro el worker cancelaría turnos presenciales. |
 
 ---
 
@@ -246,6 +249,13 @@
   - `IComisionConfigService`: `ObtenerTodasAsync(CancellationToken ct = default)`, `ObtenerPorPeluqueroAsync(int peluqueroId, CancellationToken ct = default)`, `GuardarConfiguracionAsync(GuardarComisionConfigDto dto, CancellationToken ct = default)`, `ActualizarConfiguracionAsync(int id, GuardarComisionConfigDto dto, CancellationToken ct = default)`, `EliminarConfiguracionAsync(int id, CancellationToken ct = default)`.
   - `ILiquidacionService`: `LiquidarPeriodoAsync(GenerarLiquidacionDto dto, int? usuarioLiquidacionId = null, CancellationToken ct = default)`, `RegistrarPagoLiquidacionAsync(int liquidacionId, int? sesionCajaId = null, int? usuarioId = null, CancellationToken ct = default)`, `AnularLiquidacionAsync(int liquidacionId, string? motivo = null, int? usuarioId = null, CancellationToken ct = default)`, `ObtenerPorPeluqueroAsync(int peluqueroId, CancellationToken ct = default)`, `ObtenerTodasAsync(PaginationFilterDto filter, int? peluqueroId = null, EstadoLiquidacionEnum? estado = null, CancellationToken ct = default)` y sobrecarga `(int? peluqueroId = null, DateTime? desde = null, DateTime? hasta = null, CancellationToken ct = default)` (`ApiResponse<PagedResult<LiquidacionResponseDto>>`), `ObtenerPorIdAsync(int id, CancellationToken ct = default)` (poblando `ConceptoNombre` en lote).
   - `IDashboardService`: `ObtenerMetricasMesActualAsync(CancellationToken ct = default)`, `ObtenerKpisAsync(DateTime? fechaDesde = null, DateTime? fechaHasta = null, CancellationToken ct = default)` (`0 DbContext`, operando vía `IUnitOfWork.Dashboard` y `TimeZoneInfo` del salón).
+* **Infraestructura Transversal Consolidada en Tarea 5.1 (`Middlewares`, `Integrations`, `Background`, `Program.cs`):**
+  - `GlobalExceptionMiddleware`: `NotFoundException`/`KeyNotFoundException` → `404`; `UnauthorizedAppException`/`UnauthorizedAccessException` → `401`; `ForbiddenAccessException` → `403`; `DbUpdateConcurrencyException` → `409` (*"El registro fue modificado simultáneamente por otro usuario. Recargue la pantalla e intente nuevamente."*); `BusinessRuleException`/`InvalidOperationException`/`ArgumentException` → `400`; el resto → `500` con mensaje genérico. Siempre responde `ApiResponse<object>.Fail(message)` en camelCase, sin exponer detalles internos en `Errors`.
+  - `TenantResolutionMiddleware.InvokeAsync(HttpContext context, ITenantProvider tenantProvider, IUnitOfWork unitOfWork)`: con usuario autenticado manda el claim `TenantId` (los headers de tenant se ignoran); con usuario anónimo lee el header o la QueryString (`X-Tenant-Id`/`tenantId`, `X-Sucursal-Id`/`sucursalId`) o `?subdominioSlug`; si no hay nada, usa `1/1`. Valida contra la caché `$"SaaS_Valid_T{tenantId}_S{sucursalId}"` usando `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync` y, si el par no es válido, lanza `ForbiddenAccessException("La sucursal indicada no pertenece al salón actual o se encuentra inactiva.")`.
+  - `IPaymentGatewayService.ValidarFirmaWebhook(string proveedor, string? signatureHeader, string rawBody)` (firma sin cambios): usa `HMACSHA256.HashData` + `CryptographicOperations.FixedTimeEquals` con política Fail-Closed (devuelve `false` si falta el secreto, falta la firma o el hex es inválido). Formatos de header aceptados: `<hex>`, `sha256=<hex>`, `ts=..,v1=<hex>` (manifiesto `id:{rawBody};ts:{ts};`) y `t=..,v1=<hex>` (manifiesto `{t}.{rawBody}`).
+  - `SmtpEmailService.EnviarEmailAsync`: si `Smtp:Host` está vacío → `LogWarning` + `return false` sin crear `SmtpClient`. `Timeout = Smtp:TimeoutMilliseconds` (máximo y valor por defecto `5000`) + `CancellationTokenSource(timeout)`. Lee también `Port`, `EnableSsl`, `FromEmail` y `FromName`. Cualquier excepción → `LogWarning` + `false`.
+  - `RecordatorioTurnosBackgroundService`: recorre las sucursales activas de tenants activos (`IUnitOfWork.SaaS.AsQueryable().IgnoreQueryFilters()`) y crea un scope DI por sucursal con `ITenantProvider.SetTenantContext(tenantId, sucursalId)`. Lee la config vía `IConfiguracionSalonService`, expira señas online a través de `ITurnoService.CambiarEstadoAsync` (con un motivo de cancelación válido del tenant) y calcula los recordatorios de 24h/2h en hora local del salón. Valores por defecto si faltan claves: intervalo `Math.Max(1, valor ?? 15)` min, expiración `Math.Max(1, valor ?? 30)` min.
+  - `Program.cs`: registra `IGenericRepository<>` abierto, `IUnitOfWork`, 19 repositorios, `ITenantProvider`, 20 servicios de negocio, 3 integraciones y el worker. `AddRateLimiter` define la política `"StrictAuthOtpPolicy"` (ventana fija por IP; valores de `RateLimiting:StrictAuthOtpPolicy`, por defecto 5/1 min) y `OnRejected` responde `429` con `ApiResponse<object>.Fail`. `InvalidModelStateResponseFactory` responde `400` con `ApiResponse<object>.Fail("Error de validación de datos.", errors, fieldErrors)` y claves en camelCase. Orden del pipeline: `GlobalException → Swagger(dev) → HttpsRedirection → Cors → RateLimiter → Authentication → TenantResolution → Authorization → MapControllers`.
 
 ---
 
@@ -621,4 +631,33 @@
     1. `Select-String -Path .\Services\**\*.cs, .\Repositories\**\*.cs -Pattern "GetProperty|SetOptionalProp|GetOptionalProp|Metadata"` -> **0 coincidencias**.
     2. `Select-String -Path .\Services\Implementations\*.cs -Pattern "ApplicationDbContext"` -> **0 coincidencias**.
 - **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `04_API_CONTRACTS.md`, `05_BUSINESS_RULES.md` y `06_INTEGRATION_AND_ODD_PLAN.md`).
+- **Resultado dotnet build:** 0 Errores / 0 Advertencias.
+
+
+### [TAREA 5.1] - Middlewares, Integraciones (HMAC + SMTP Guard), Background Worker, Configuración ODS y Program.cs
+- **Estado:** COMPLETADA (EN REVISIÓN HUMANA)
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `Middlewares/GlobalExceptionMiddleware.cs`
+  - `Middlewares/TenantResolutionMiddleware.cs`
+  - `Integrations/Payments/PaymentGatewayService.cs`
+  - `Integrations/Email/SmtpEmailService.cs`
+  - `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (clase `RecordatorioTurnosBackgroundService`)
+  - `appsettings.json`
+  - `appsettings.Development.json`
+  - `Program.cs`
+  - `02_ARCHITECTURE.md` (SPEC-SYNC Sección 3.2)
+  - `07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **`GlobalExceptionMiddleware.cs`:** se agregó el mapeo `ForbiddenAccessException` → `403` y `DbUpdateConcurrencyException` → `409 Conflict` con el mensaje oficial de `02` Sección 3.3. Se eliminó la fuga de `exception.Message` en `Errors` para los errores `500`. Se agregó una protección por si `Response.HasStarted` y se reutiliza un único `JsonSerializerOptions` estático.
+  - **`TenantResolutionMiddleware.cs` (`[BUG-03]`):** con usuario autenticado, los claims del JWT mandan y se ignora `X-Tenant-Id` (Test 01). Las rutas públicas resuelven el contexto por header, QueryString o `subdominioSlug`. El par se valida en `IMemoryCache` vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync`, y un par inválido o mal formado lanza `ForbiddenAccessException` (`403`), sin acceso directo a `ApplicationDbContext`. Solo después se fija el contexto con `ITenantProvider.SetTenantContext`.
+  - **`PaymentGatewayService.cs` (`[BUG-08]`):** se eliminó el `return true` de "modo sandbox". Ahora se calcula `HMAC-SHA256` real y se compara en tiempo constante con `CryptographicOperations.FixedTimeEquals`, con política Fail-Closed.
+  - **`SmtpEmailService.cs` (deuda táctica SMTP):** si `Smtp:Host` está vacío, se corta antes de crear `SmtpClient` y devuelve `false` (antes simulaba el envío y devolvía `true`, ocultando el aviso en `Warnings`). Se configuró `Timeout = 5000` + `CancellationToken` de 5s, y remitente/SSL/puerto tomados de la configuración.
+  - **`RecordatorioTurnosBackgroundService`:** se eliminaron `ApplicationDbContext` y el `MotivoCancelacionId = 1` fijo (que podía no existir en otros tenants). Ahora recorre todas las sucursales activas por Tenant con `.IgnoreQueryFilters()`, en un scope aislado por sucursal y con manejo de errores por sucursal. Aplica los valores por defecto de `09` Sección 2 y calcula las ventanas de recordatorio en hora local del salón, igual que `TurnoService`, que guarda `FechaHoraInicio` en hora local. La expiración automática se limita a reservas `"[Reserva Online]"` con `RequiereSena && !SenaPagada` (ver Sección 2).
+  - **`appsettings.json` / `appsettings.Development.json`:** contrato completo de `09` Sección 1 (`Jwt`, `Cors`, `RateLimiting`, `Smtp`, `Payments`, `BackgroundJobs`, `SaaSLimits`). Se eliminó el comentario `// filepath:` inválido en JSON de `appsettings.Development.json` y se conservó su `Server=localhost`. La sintaxis de ambos se validó con `ConvertFrom-Json`.
+  - **`Program.cs` (`[BUG-04]`):** `AddRateLimiter` + `UseRateLimiter` con la política `"StrictAuthOtpPolicy"` (5 req/min por IP, `429` con `ApiResponse`), `InvalidModelStateResponseFactory` con `FieldErrors`, registro reordenado de los 19 repositorios + 20 servicios, y orden de middlewares según `02` Sección 3.1 (corrige que `TenantResolution` corría **después** de `UseAuthorization`).
+  - **Auditoría PowerShell:** `Select-String` sobre `Middlewares`, `Integrations/Email`, `Integrations/Payments`, `Services/BackGround` y `Services/Implementations` con el patrón `ApplicationDbContext|GetProperty|SetValue\(|SetOptionalProp|GetOptionalProp|System.Reflection` -> **0 coincidencias**.
+  - **Nota para Tarea 5.2:** `WebhooksController` hoy pasa `payload.ExternalReference` como `rawBody` y sigue llamando a `CambiarEstadoAsync` en lugar de `ProcesarPagoSenaWebhookAsync`. Además, `PortalReservasController` todavía inyecta `ApplicationDbContext`. Ambos se corrigen en la Tarea 5.2 (fuera del alcance de esta tarea).
+- **Sincronización de MD (Spec-Sync):** `02_ARCHITECTURE.md` Sección 3.2 actualizado (consulta vía `IUnitOfWork.SaaS` + políticas de caché). Desviaciones registradas en la Sección 2 de este Libro Mayor.
 - **Resultado dotnet build:** 0 Errores / 0 Advertencias.

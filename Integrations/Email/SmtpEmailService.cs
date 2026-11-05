@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Mail;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,9 @@ namespace MiPeluqueria.Api.Integrations.Email
 {
     public class SmtpEmailService : IEmailService
     {
+        private const int DefaultTimeoutMilliseconds = 5000;
+        private const int MaxTimeoutMilliseconds = 5000;
+
         private readonly IConfiguration _config;
         private readonly ILogger<SmtpEmailService> _logger;
 
@@ -21,40 +25,76 @@ namespace MiPeluqueria.Api.Integrations.Email
         public async Task<bool> EnviarEmailAsync(string destinatario, string asunto, string cuerpoHtml)
         {
             var host = _config["Smtp:Host"];
+
+            // Cortocircuito defensivo ODS: si Smtp:Host está vacío, jamás instanciar SmtpClient
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                _logger.LogWarning(
+                    "SMTP no configurado en entorno local. Se omite el envío real de correo a {Destinatario}.",
+                    destinatario);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(destinatario))
+            {
+                _logger.LogWarning("Se omitió el envío de correo porque el destinatario está vacío.");
+                return false;
+            }
+
             var user = _config["Smtp:User"];
             var pass = _config["Smtp:Password"];
             var portStr = _config["Smtp:Port"];
+            var enableSslStr = _config["Smtp:EnableSsl"];
+            var timeoutStr = _config["Smtp:TimeoutMilliseconds"];
+            var fromEmailConfig = _config["Smtp:FromEmail"];
+            var fromNameConfig = _config["Smtp:FromName"];
 
-            // Modo Simulación si no hay servidor SMTP configurado en appsettings.json
-            if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
-            {
-                _logger.LogInformation("==================================================================");
-                _logger.LogInformation("[SIMULACIÓN SMTP EMAIL] Para: {Destinatario} | Asunto: {Asunto}", destinatario, asunto);
-                _logger.LogInformation("[CONTENIDO]: {Cuerpo}", cuerpoHtml);
-                _logger.LogInformation("==================================================================");
-                return true;
-            }
+            int port = int.TryParse(portStr, out int p) && p > 0 ? p : 587;
+            bool enableSsl = !bool.TryParse(enableSslStr, out bool ssl) || ssl;
+            int timeoutMs = int.TryParse(timeoutStr, out int configuredTimeout) && configuredTimeout > 0
+                ? Math.Min(configuredTimeout, MaxTimeoutMilliseconds)
+                : DefaultTimeoutMilliseconds;
+
+            string fromEmail = !string.IsNullOrWhiteSpace(fromEmailConfig)
+                ? fromEmailConfig.Trim()
+                : (!string.IsNullOrWhiteSpace(user) ? user.Trim() : "no-reply@mipeluqueria.com");
+            string fromName = !string.IsNullOrWhiteSpace(fromNameConfig)
+                ? fromNameConfig.Trim()
+                : "Mi Peluquería SaaS";
 
             try
             {
-                int port = int.TryParse(portStr, out int p) ? p : 587;
-                using var client = new SmtpClient(host, port)
+                using var client = new SmtpClient(host.Trim(), port)
                 {
-                    Credentials = new NetworkCredential(user, pass),
-                    EnableSsl = true
+                    EnableSsl = enableSsl,
+                    Timeout = timeoutMs
                 };
 
-                using var mail = new MailMessage(user, destinatario, asunto, cuerpoHtml)
+                if (!string.IsNullOrWhiteSpace(user))
                 {
+                    client.Credentials = new NetworkCredential(user.Trim(), pass ?? string.Empty);
+                }
+
+                using var mail = new MailMessage
+                {
+                    From = new MailAddress(fromEmail, fromName),
+                    Subject = asunto,
+                    Body = cuerpoHtml,
                     IsBodyHtml = true
                 };
+                mail.To.Add(destinatario.Trim());
 
-                await client.SendMailAsync(mail);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeoutMs));
+                await client.SendMailAsync(mail, cts.Token);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo enviar el correo vía SMTP real. Se registró en consola local.");
+                _logger.LogWarning(
+                    ex,
+                    "No se pudo enviar el correo vía SMTP a {Destinatario} dentro del límite de {TimeoutMs}ms.",
+                    destinatario,
+                    timeoutMs);
                 return false;
             }
         }

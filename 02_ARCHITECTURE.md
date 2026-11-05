@@ -1,4 +1,4 @@
-﻿# 02 - ARQUITECTURA FÍSICA, GRAFO DE DEPENDENCIAS E INFRAESTRUCTURA TRANSVERSAL (CAPA 2 SDD)
+# 02 - ARQUITECTURA FÍSICA, GRAFO DE DEPENDENCIAS E INFRAESTRUCTURA TRANSVERSAL (CAPA 2 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)[cite: 26]
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md` y `01_SYSTEM_CONSTRAINTS.md`[cite: 26]
 **Estado:** INMUTABLE - ESPECIFICACIÓN ESTRUCTURAL Y DE PIPELINE[cite: 26]
@@ -277,8 +277,8 @@ app.Run();
 ### 3.2 Validación Cruzada `TenantId <-> SucursalId` en `TenantResolutionMiddleware` con `IMemoryCache`
 Para cerrar el vector OWASP A01 sin penalizar la base de datos en cada request:
 1. `TenantResolutionMiddleware` extrae `tenantId` y `sucursalId` de los claims del JWT (si está autenticado, los claims tienen prioridad absoluta sobre los headers) o de los headers `X-Tenant-Id` / `X-Sucursal-Id` / QueryString en rutas públicas[cite: 11, 28].
-2. Verifica en `IMemoryCache` la clave `$"SaaS_Valid_T{tenantId}_S{sucursalId}"` (`SlidingExpiration = TimeSpan.FromMinutes(10)`).
-3. Si no existe en caché, consulta en `ApplicationDbContext` (`Sucursales.AsNoTracking().AnyAsync(s => s.Id == sucursalId && s.TenantId == tenantId && s.Activa && !s.IsDeleted)`).
+2. Verifica en `IMemoryCache` la clave `$"SaaS_Valid_T{tenantId}_S{sucursalId}"` (`SlidingExpiration = TimeSpan.FromMinutes(10)` con tope `AbsoluteExpirationRelativeToNow = 60 min`; los resultados inválidos se cachean solo `1 min`).
+3. Si no existe en caché, consulta vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync(tenantId, sucursalId, ct)` (que ejecuta `Sucursales.AsNoTracking().AnyAsync(s => s.Id == sucursalId && s.TenantId == tenantId && s.Activa && !s.IsDeleted)` dentro del repositorio; **0 `ApplicationDbContext` directo en el middleware**).
 4. Si la combinación es inválida, lanza `ForbiddenAccessException("La sucursal indicada no pertenece al salón actual o se encuentra inactiva.")` devolviendo `403 Forbidden`.
 
 ### 3.3 Mapeo Exhaustivo de Códigos HTTP en `GlobalExceptionMiddleware.cs`

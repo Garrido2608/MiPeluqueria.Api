@@ -145,6 +145,17 @@ X-Sucursal-Id: {{sucursalId}}
 }
 
 ### 4. Apertura de Caja, Venta POS Idempotente y Verificación de montoFinalEsperado (Verifica BUG-02, BUG-07, BUG-10)
+POST {{baseUrl}}/caja/abrir
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "montoInicial": 10000.00
+}
+
+### 5. Registro de Venta POS con Idempotency-Key
 POST {{baseUrl}}/ventas
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
@@ -153,13 +164,13 @@ X-Sucursal-Id: {{sucursalId}}
 X-Idempotency-Key: {{idempotencyKey}}
 
 {
+  "sesionCajaId": 1,
   "clienteId": 1,
-  "items": [
+  "detalles": [
     {
       "tipoItem": 1,
       "itemId": 1,
       "cantidad": 1,
-      "precioUnitario": 12000.00,
       "peluqueroId": 1
     }
   ],

@@ -1,189 +1,146 @@
-﻿using Microsoft.EntityFrameworkCore;
-using MiPeluqueria.Api.Data.Context;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using MiPeluqueria.Api.DTOs.Clientes;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.Models.Clientes;
+using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
     public class FichaTecnicaService : IFichaTecnicaService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _uow;
 
-        public FichaTecnicaService(ApplicationDbContext context)
+        public FichaTecnicaService(IUnitOfWork uow)
         {
-            _context = context;
+            _uow = uow;
         }
 
-        public async Task<ApiResponse<FichaTecnicaResponseDto>> CrearFichaAsync(CrearFichaTecnicaDto dto)
+        public async Task<ApiResponse<FichaTecnicaResponseDto>> ObtenerPorIdAsync(int id, CancellationToken ct = default)
         {
-            var cliente = await _context.Clientes.FindAsync(dto.ClienteId);
-            if (cliente == null)
-                return ApiResponse<FichaTecnicaResponseDto>.Fail("El cliente especificado no existe.");
+            var ficha = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(id, ct);
+            if (ficha == null)
+                return ApiResponse<FichaTecnicaResponseDto>.Fail($"No se encontró la ficha técnica con ID {id}.");
 
-            var ficha = new FichaTecnica
-            {
-                ClienteId = dto.ClienteId,
-                TurnoId = dto.TurnoId,
-                PeluqueroId = dto.PeluqueroId
-            };
-
-            SetOptionalProp(ficha, new[] { "FormulaAplicada", "FormulaColor", "Formula", "TrabajoRealizado" }, dto.FormulaAplicada);
-            SetOptionalProp(ficha, new[] { "Observaciones", "Notas", "NotasTecnicas", "Descripcion", "Comentarios" }, dto.Observaciones);
-            SetOptionalProp(ficha, new[] { "ProductosUtilizados", "Productos" }, dto.ProductosUtilizados);
-            SetOptionalProp(ficha, new[] { "FotoResultadoUrl", "FotoUrl" }, dto.FotoResultadoUrl);
-            SetOptionalDate(ficha, new[] { "FechaRegistro", "Fecha", "FechaCreacion" }, DateTime.UtcNow);
-
-            _context.FichasTecnicas.Add(ficha);
-            await _context.SaveChangesAsync();
-
-            var peluqueroNombre = "No asignado";
-            if (dto.PeluqueroId > 0)
-            {
-                var peluquero = await _context.Peluqueros.FindAsync(dto.PeluqueroId);
-                if (peluquero != null)
-                    peluqueroNombre = $"{peluquero.Nombre} {peluquero.Apellido}";
-            }
-
-            var response = MapToDto(ficha, $"{cliente.Nombre} {cliente.Apellido}", peluqueroNombre, dto);
-            return ApiResponse<FichaTecnicaResponseDto>.Ok(response, "Ficha técnica registrada correctamente.");
+            return ApiResponse<FichaTecnicaResponseDto>.Ok(MapToDto(ficha));
         }
 
         public async Task<ApiResponse<IEnumerable<FichaTecnicaResponseDto>>> ObtenerHistorialClienteAsync(int clienteId)
         {
-            var fichas = await _context.FichasTecnicas
-                .Include(f => f.Cliente)
-                .Include(f => f.Peluquero)
-                .Where(f => f.ClienteId == clienteId && !f.IsDeleted)
-                .OrderByDescending(f => f.Id)
-                .AsNoTracking()
-                .ToListAsync();
-
-            var response = fichas.Select(f => MapToDto(
-                f,
-                f.Cliente != null ? $"{f.Cliente.Nombre} {f.Cliente.Apellido}" : string.Empty,
-                f.Peluquero != null ? $"{f.Peluquero.Nombre} {f.Peluquero.Apellido}" : "No asignado",
-                null
-            )).ToList();
-
+            var fichas = await _uow.FichasTecnicas.GetByClienteIdAsync(clienteId);
+            var response = fichas.Select(MapToDto).ToList();
             return ApiResponse<IEnumerable<FichaTecnicaResponseDto>>.Ok(response);
+        }
+
+        public async Task<ApiResponse<FichaTecnicaResponseDto>> CrearFichaAsync(CrearFichaTecnicaDto dto)
+        {
+            var cliente = await _uow.Clientes.GetByIdAsync(dto.ClienteId);
+            if (cliente == null)
+                return ApiResponse<FichaTecnicaResponseDto>.Fail("El cliente especificado no existe.");
+
+            var peluquero = await _uow.Peluqueros.GetByIdAsync(dto.PeluqueroId);
+            if (peluquero == null)
+                return ApiResponse<FichaTecnicaResponseDto>.Fail("El profesional especificado no existe.");
+
+            var ficha = new FichaTecnica
+            {
+                ClienteId = dto.ClienteId,
+                PeluqueroId = dto.PeluqueroId,
+                TurnoId = dto.TurnoId,
+                FechaRegistro = DateTime.UtcNow,
+                FormulaAplicada = dto.FormulaAplicada.Trim(),
+                Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim(),
+                NotasSensibilidadAlergias = string.IsNullOrWhiteSpace(dto.NotasSensibilidadAlergias) ? null : dto.NotasSensibilidadAlergias.Trim(),
+                ProductosUtilizados = string.IsNullOrWhiteSpace(dto.ProductosUtilizados) ? null : dto.ProductosUtilizados.Trim(),
+                FotoResultadoUrl = string.IsNullOrWhiteSpace(dto.FotoResultadoUrl) ? null : dto.FotoResultadoUrl.Trim()
+            };
+
+            await _uow.FichasTecnicas.AddAsync(ficha);
+            await _uow.SaveChangesAsync();
+
+            var creada = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(ficha.Id) ?? ficha;
+            creada.Cliente ??= cliente;
+            creada.Peluquero ??= peluquero;
+
+            return ApiResponse<FichaTecnicaResponseDto>.Ok(MapToDto(creada), "Ficha técnica registrada correctamente.");
+        }
+
+        public async Task<ApiResponse<FichaTecnicaResponseDto>> ActualizarFichaAsync(
+            int id,
+            ActualizarFichaTecnicaDto dto,
+            CancellationToken ct = default)
+        {
+            var ficha = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(id, ct);
+            if (ficha == null)
+                return ApiResponse<FichaTecnicaResponseDto>.Fail("La ficha técnica solicitada no existe.");
+
+            if (ficha.PeluqueroId != dto.PeluqueroId)
+            {
+                var peluquero = await _uow.Peluqueros.GetByIdAsync(dto.PeluqueroId, ct);
+                if (peluquero == null)
+                    return ApiResponse<FichaTecnicaResponseDto>.Fail("El profesional especificado no existe.");
+                ficha.Peluquero = peluquero;
+            }
+
+            ficha.PeluqueroId = dto.PeluqueroId;
+            ficha.TurnoId = dto.TurnoId;
+            ficha.FormulaAplicada = dto.FormulaAplicada.Trim();
+            ficha.Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim();
+            ficha.NotasSensibilidadAlergias = string.IsNullOrWhiteSpace(dto.NotasSensibilidadAlergias) ? null : dto.NotasSensibilidadAlergias.Trim();
+            ficha.ProductosUtilizados = string.IsNullOrWhiteSpace(dto.ProductosUtilizados) ? null : dto.ProductosUtilizados.Trim();
+            ficha.FotoResultadoUrl = string.IsNullOrWhiteSpace(dto.FotoResultadoUrl) ? null : dto.FotoResultadoUrl.Trim();
+
+            _uow.FichasTecnicas.Update(ficha);
+            await _uow.SaveChangesAsync(ct);
+
+            var actualizada = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(id, ct) ?? ficha;
+            return ApiResponse<FichaTecnicaResponseDto>.Ok(MapToDto(actualizada), "Ficha técnica actualizada correctamente.");
         }
 
         public async Task<ApiResponse<FichaTecnicaResponseDto>> ActualizarFichaAsync(int id, CrearFichaTecnicaDto dto)
         {
-            var ficha = await _context.FichasTecnicas
-                .Include(f => f.Cliente)
-                .Include(f => f.Peluquero)
-                .FirstOrDefaultAsync(f => f.Id == id && !f.IsDeleted);
-
-            if (ficha == null)
-                return ApiResponse<FichaTecnicaResponseDto>.Fail("La ficha técnica solicitada no existe.");
-
-            ficha.TurnoId = dto.TurnoId;
-            ficha.PeluqueroId = dto.PeluqueroId;
-
-            SetOptionalProp(ficha, new[] { "FormulaAplicada", "FormulaColor", "Formula", "TrabajoRealizado" }, dto.FormulaAplicada);
-            SetOptionalProp(ficha, new[] { "Observaciones", "Notas", "NotasTecnicas", "Descripcion", "Comentarios" }, dto.Observaciones);
-            SetOptionalProp(ficha, new[] { "ProductosUtilizados", "Productos" }, dto.ProductosUtilizados);
-            SetOptionalProp(ficha, new[] { "FotoResultadoUrl", "FotoUrl" }, dto.FotoResultadoUrl);
-
-            await _context.SaveChangesAsync();
-
-            var response = MapToDto(
-                ficha,
-                ficha.Cliente != null ? $"{ficha.Cliente.Nombre} {ficha.Cliente.Apellido}" : string.Empty,
-                ficha.Peluquero != null ? $"{ficha.Peluquero.Nombre} {ficha.Peluquero.Apellido}" : "No asignado",
-                dto
-            );
-
-            return ApiResponse<FichaTecnicaResponseDto>.Ok(response, "Ficha técnica actualizada correctamente.");
+            return await ActualizarFichaAsync(id, new ActualizarFichaTecnicaDto
+            {
+                PeluqueroId = dto.PeluqueroId,
+                TurnoId = dto.TurnoId,
+                FormulaAplicada = dto.FormulaAplicada,
+                Observaciones = dto.Observaciones,
+                NotasSensibilidadAlergias = dto.NotasSensibilidadAlergias,
+                ProductosUtilizados = dto.ProductosUtilizados,
+                FotoResultadoUrl = dto.FotoResultadoUrl
+            });
         }
 
         public async Task<ApiResponse<bool>> EliminarFichaAsync(int id)
         {
-            var ficha = await _context.FichasTecnicas.FirstOrDefaultAsync(f => f.Id == id && !f.IsDeleted);
+            var ficha = await _uow.FichasTecnicas.GetByIdAsync(id);
             if (ficha == null)
                 return ApiResponse<bool>.Fail("La ficha técnica solicitada no existe.");
 
-            ficha.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            _uow.FichasTecnicas.Delete(ficha);
+            await _uow.SaveChangesAsync();
 
             return ApiResponse<bool>.Ok(true, "Ficha técnica eliminada correctamente.");
         }
 
-        private static FichaTecnicaResponseDto MapToDto(FichaTecnica f, string nombreCliente, string nombrePeluquero, CrearFichaTecnicaDto? fallbackDto)
+        private static FichaTecnicaResponseDto MapToDto(FichaTecnica f) => new()
         {
-            return new FichaTecnicaResponseDto
-            {
-                Id = f.Id,
-                ClienteId = f.ClienteId,
-                NombreCliente = nombreCliente,
-                TurnoId = f.TurnoId,
-                PeluqueroId = f.PeluqueroId,
-                NombrePeluquero = nombrePeluquero,
-                FechaRegistro = GetOptionalDate(f, new[] { "FechaRegistro", "Fecha", "FechaCreacion" }),
-                FormulaAplicada = GetOptionalProp(f, new[] { "FormulaAplicada", "FormulaColor", "Formula", "TrabajoRealizado" }) ?? fallbackDto?.FormulaAplicada ?? string.Empty,
-                Observaciones = GetOptionalProp(f, new[] { "Observaciones", "Notas", "NotasTecnicas", "Descripcion", "Comentarios" }) ?? fallbackDto?.Observaciones,
-                ProductosUtilizados = GetOptionalProp(f, new[] { "ProductosUtilizados", "Productos" }) ?? fallbackDto?.ProductosUtilizados,
-                FotoResultadoUrl = GetOptionalProp(f, new[] { "FotoResultadoUrl", "FotoUrl" }) ?? fallbackDto?.FotoResultadoUrl
-            };
-        }
-
-        private static void SetOptionalProp(object target, string[] propNames, string? value)
-        {
-            var type = target.GetType();
-            foreach (var name in propNames)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanWrite && prop.PropertyType == typeof(string))
-                {
-                    prop.SetValue(target, value ?? string.Empty);
-                    return;
-                }
-            }
-        }
-
-        private static string? GetOptionalProp(object target, string[] propNames)
-        {
-            var type = target.GetType();
-            foreach (var name in propNames)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanRead)
-                {
-                    return prop.GetValue(target)?.ToString();
-                }
-            }
-            return null;
-        }
-
-        private static void SetOptionalDate(object target, string[] propNames, DateTime value)
-        {
-            var type = target.GetType();
-            foreach (var name in propNames)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanWrite && prop.PropertyType == typeof(DateTime))
-                {
-                    prop.SetValue(target, value);
-                    return;
-                }
-            }
-        }
-
-        private static DateTime GetOptionalDate(object target, string[] propNames)
-        {
-            var type = target.GetType();
-            foreach (var name in propNames)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanRead && prop.GetValue(target) is DateTime dt)
-                {
-                    return dt;
-                }
-            }
-            return DateTime.UtcNow;
-        }
+            Id = f.Id,
+            ClienteId = f.ClienteId,
+            NombreCliente = f.Cliente != null ? $"{f.Cliente.Nombre} {f.Cliente.Apellido}".Trim() : string.Empty,
+            PeluqueroId = f.PeluqueroId,
+            NombrePeluquero = f.Peluquero != null ? $"{f.Peluquero.Nombre} {f.Peluquero.Apellido}".Trim() : "No asignado",
+            TurnoId = f.TurnoId,
+            FechaRegistro = f.FechaRegistro,
+            FormulaAplicada = f.FormulaAplicada,
+            Observaciones = f.Observaciones,
+            NotasSensibilidadAlergias = f.NotasSensibilidadAlergias,
+            ProductosUtilizados = f.ProductosUtilizados,
+            FotoResultadoUrl = f.FotoResultadoUrl
+        };
     }
 }

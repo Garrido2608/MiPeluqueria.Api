@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Clientes; 
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class Peluquero : AuditableEntity
+    public class Peluquero : AuditableTenantEntity
     {
         [Required(ErrorMessage = "El nombre es obligatorio")]
         [StringLength(100)]
@@ -28,6 +28,8 @@ namespace MiPeluqueria.Api.Models.Turnos
 
         public bool Activo { get; set; } = true;
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
         
         public ICollection<HorarioLaboral> HorariosLaborales { get; set; } = new List<HorarioLaboral>();
         public ICollection<BloqueoHorario> BloqueosHorario { get; set; } = new List<BloqueoHorario>();

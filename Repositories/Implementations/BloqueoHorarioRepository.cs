@@ -1,29 +1,34 @@
-﻿using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.Models.Turnos;
 using MiPeluqueria.Api.Repositories.Interfaces;
 
 namespace MiPeluqueria.Api.Repositories.Implementations
 {
-    public class BloqueoHorarioRepository : IBloqueoHorarioRepository
+    public class BloqueoHorarioRepository : GenericRepository<BloqueoHorario>, IBloqueoHorarioRepository
     {
-        private readonly ApplicationDbContext _context;
-
-        public BloqueoHorarioRepository(ApplicationDbContext context)
+        public BloqueoHorarioRepository(ApplicationDbContext context) : base(context)
         {
-            _context = context;
         }
 
-        public async Task<BloqueoHorario?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+        public override async Task<BloqueoHorario?> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            return await _context.Set<BloqueoHorario>()
+            return await _dbSet
                 .Include(b => b.Peluquero)
-                .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(b => b.Id == id, ct);
         }
 
-        public async Task<IReadOnlyList<BloqueoHorario>> GetByPeluqueroIdAsync(int peluqueroId, DateTime? desde = null, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<BloqueoHorario>> GetByPeluqueroIdAsync(
+            int peluqueroId,
+            DateTime? desde = null,
+            CancellationToken cancellationToken = default)
         {
-            var query = _context.Set<BloqueoHorario>()
+            var query = _dbSet
                 .AsNoTracking()
                 .Include(b => b.Peluquero)
                 .Where(b => b.PeluqueroId == peluqueroId);
@@ -36,9 +41,14 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .ToListAsync(cancellationToken);
         }
 
-        public async Task<bool> ExisteSolapamientoAsync(int peluqueroId, DateTime fechaInicio, DateTime fechaFin, int? excludeBloqueoId = null, CancellationToken cancellationToken = default)
+        public async Task<bool> ExisteSolapamientoAsync(
+            int peluqueroId,
+            DateTime fechaInicio,
+            DateTime fechaFin,
+            int? excludeBloqueoId = null,
+            CancellationToken cancellationToken = default)
         {
-            var query = _context.Set<BloqueoHorario>()
+            var query = _dbSet
                 .AsNoTracking()
                 .Where(b => b.PeluqueroId == peluqueroId && b.FechaInicio < fechaFin && b.FechaFin > fechaInicio);
 
@@ -46,17 +56,6 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 query = query.Where(b => b.Id != excludeBloqueoId.Value);
 
             return await query.AnyAsync(cancellationToken);
-        }
-
-        public async Task AddAsync(BloqueoHorario bloqueo, CancellationToken cancellationToken = default)
-        {
-            await _context.Set<BloqueoHorario>().AddAsync(bloqueo, cancellationToken);
-        }
-
-        public void Delete(BloqueoHorario bloqueo)
-        {
-            bloqueo.IsDeleted = true;
-            _context.Set<BloqueoHorario>().Update(bloqueo);
         }
     }
 }

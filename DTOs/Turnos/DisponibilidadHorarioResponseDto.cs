@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace MiPeluqueria.Api.DTOs.Turnos
@@ -8,7 +8,9 @@ namespace MiPeluqueria.Api.DTOs.Turnos
         public int PeluqueroId { get; set; }
         public string PeluqueroNombre { get; set; } = string.Empty;
         public DateTime Fecha { get; set; }
+        public int IntervaloMinutos { get; set; } = 30;
         public int DuracionTotalMinutos { get; set; }
+        public List<string> HorariosDisponibles { get; set; } = new();
         public List<SlotHorarioDisponibleDto> Slots { get; set; } = new();
     }
 

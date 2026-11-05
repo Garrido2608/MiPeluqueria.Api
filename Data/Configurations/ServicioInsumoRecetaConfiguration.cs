@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MiPeluqueria.Api.Models.Turnos;
 
@@ -10,10 +10,10 @@ namespace MiPeluqueria.Api.Data.Configurations
         {
             builder.ToTable("ServiciosInsumosRecetas");
 
-            builder.Property(r => r.CantidadMedidaEstandar).HasColumnType("decimal(10,2)");
+            builder.Property(r => r.CantidadMedidaEstandar).HasPrecision(10, 2);
             builder.Property(r => r.UnidadMedida).IsRequired().HasMaxLength(20);
 
-            builder.HasIndex(r => new { r.ServicioId, r.ProductoId })
+            builder.HasIndex(r => new { r.TenantId, r.SucursalId, r.ServicioId, r.ProductoId })
                 .IsUnique()
                 .HasDatabaseName("UX_ServiciosInsumosRecetas_Servicio_Producto")
                 .HasFilter("[IsDeleted] = 0");

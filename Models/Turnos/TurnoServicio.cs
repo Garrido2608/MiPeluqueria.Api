@@ -1,6 +1,8 @@
-﻿namespace MiPeluqueria.Api.Models.Turnos
+using MiPeluqueria.Api.Models.Common;
+
+namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class TurnoServicio
+    public class TurnoServicio : AuditableTenantEntity
     {
         public int TurnoId { get; set; }
         public int ServicioId { get; set; }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Seguridad;
@@ -8,6 +9,7 @@ namespace MiPeluqueria.Api.Services.Interfaces
     public interface IAuthService
     {
         Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto dto, string ip = "127.0.0.1", string dispositivo = "WebClient");
+        Task<ApiResponse<AuthResponseDto>> RefreshTokenAsync(RefreshTokenRequestDto dto, string ip = "127.0.0.1", CancellationToken ct = default);
         Task<ApiResponse<UsuarioResponseDto>> RegistrarUsuarioAsync(RegistroUsuarioDto dto);
         Task<ApiResponse<bool>> VerificarEmailAsync(VerificarEmailDto dto);
         Task<ApiResponse<bool>> CambiarPasswordAsync(int usuarioId, CambiarPasswordDto dto);

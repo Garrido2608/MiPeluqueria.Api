@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MiPeluqueria.Api.Models.Ventas;
 
@@ -14,9 +14,9 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.Property(d => d.Subtotal).HasPrecision(18, 2);
 
             builder.HasOne(d => d.Venta)
-                   .WithMany(v => v.DetallesVenta)
-                   .HasForeignKey(d => d.VentaId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                .WithMany(v => v.DetallesVenta)
+                .HasForeignKey(d => d.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

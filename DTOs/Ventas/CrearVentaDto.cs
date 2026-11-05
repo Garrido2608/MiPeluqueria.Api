@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
@@ -10,6 +10,9 @@ namespace MiPeluqueria.Api.DTOs.Ventas
 
         public int? ClienteId { get; set; }
         public int? TurnoId { get; set; }
+
+        [StringLength(64)]
+        public string? IdempotencyKey { get; set; }
 
         [Required]
         [MinLength(1, ErrorMessage = "La venta debe contener al menos un item")]

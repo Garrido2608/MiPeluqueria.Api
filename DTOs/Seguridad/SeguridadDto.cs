@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace MiPeluqueria.Api.DTOs.Seguridad
 {
@@ -7,10 +7,35 @@ namespace MiPeluqueria.Api.DTOs.Seguridad
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public int RolId { get; set; } = 5; // 5: Cliente por defecto (1: Admin, 2: Recepcionista, 3: Cajero, 4: Peluquero)
+        public int RolId { get; set; } = 4; // 4: Cliente por defecto (1: Administrador, 2: Recepcionista, 3: Peluquero, 4: Cliente, 5: Cajero, 6: SuperAdminSaaS)
         public int? ClienteId { get; set; }
         public int? PeluqueroId { get; set; }
         public bool AceptaTerminos { get; set; } = true;
+    }
+
+    public class RefreshTokenRequestDto
+    {
+        public string Token { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+    }
+
+    public class CrearUsuarioStaffDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int RolId { get; set; }
+        public int? PeluqueroId { get; set; }
+    }
+
+    public class CambiarRolUsuarioDto
+    {
+        public int RolId { get; set; }
+        public int NuevoRolId
+        {
+            get => RolId;
+            set => RolId = value;
+        }
     }
 
     public class VerificarEmailDto

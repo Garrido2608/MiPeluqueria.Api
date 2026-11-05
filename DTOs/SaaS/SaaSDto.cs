@@ -1,9 +1,21 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.SaaS;
 
 namespace MiPeluqueria.Api.DTOs.SaaS
 {
+    public class PlanSuscripcionResponseDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal PrecioMensualUsd { get; set; }
+        public int MaxSucursales { get; set; }
+        public int MaxPeluqueros { get; set; }
+        public bool IncluyeWhatsAppRecordatorios { get; set; }
+        public bool IncluyePortalReservasOnline { get; set; }
+        public bool Activo { get; set; }
+    }
+
     public class CrearSucursalDto
     {
         [Required]

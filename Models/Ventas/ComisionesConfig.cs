@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 using MiPeluqueria.Api.Models.Turnos;
 
 namespace MiPeluqueria.Api.Models.Ventas
 {
-    public class ComisionesConfig : AuditableEntity
+    public class ComisionesConfig : AuditableTenantEntity
     {
         [Required]
         public int PeluqueroId { get; set; }

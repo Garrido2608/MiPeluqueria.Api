@@ -1,4 +1,6 @@
-﻿using MiPeluqueria.Api.DTOs.Common;
+using System.Threading;
+using System.Threading.Tasks;
+using MiPeluqueria.Api.DTOs.Common;
 
 namespace MiPeluqueria.Api.Services.Interfaces
 {
@@ -6,5 +8,6 @@ namespace MiPeluqueria.Api.Services.Interfaces
     {
         Task<ConfiguracionSalonDto> ObtenerConfiguracionAsync(CancellationToken cancellationToken = default);
         Task<ConfiguracionSalonDto> ActualizarConfiguracionAsync(ConfiguracionSalonDto dto, CancellationToken cancellationToken = default);
+        Task<ConfiguracionSalonDto> ActualizarConfiguracionAsync(ActualizarConfiguracionSalonDto dto, CancellationToken cancellationToken = default);
     }
 }

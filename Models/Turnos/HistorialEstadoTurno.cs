@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class HistorialEstadoTurno : AuditableEntity
+    public class HistorialEstadoTurno : AuditableTenantEntity
     {
         [Required]
         public int TurnoId { get; set; }

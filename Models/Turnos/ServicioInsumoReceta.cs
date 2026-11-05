@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 using MiPeluqueria.Api.Models.Stock;
 
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class ServicioInsumoReceta : AuditableEntity
+    public class ServicioInsumoReceta : AuditableTenantEntity
     {
         [Required]
         public int ServicioId { get; set; }

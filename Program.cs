@@ -21,7 +21,7 @@ using MiPeluqueria.Api.Services.Interfaces;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================================================
-// 1. BASE DE DATOS (SQL SERVER CON RESILIENCIA PARA PRODUCCIÓN)
+// 1. BASE DE DATOS (SQL SERVER CON RESILIENCIA PARA PRODUCCIÃ“N)
 // ============================================================================
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
@@ -42,11 +42,11 @@ builder.Services.AddAutoMapper(typeof(MappingProfile));
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
-// Caché en memoria (para Configuración del Salón y Catálogos)
+// CachÃ© en memoria (para ConfiguraciÃ³n del SalÃ³n y CatÃ¡logos)
 builder.Services.AddMemoryCache();
 
 // ============================================================================
-// 3. INYECCIÓN DE DEPENDENCIAS: REPOSITORIOS Y UNIT OF WORK (SIN DUPLICADOS)
+// 3. INYECCIÃ“N DE DEPENDENCIAS: REPOSITORIOS Y UNIT OF WORK (SIN DUPLICADOS)
 // ============================================================================
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -67,9 +67,11 @@ builder.Services.AddScoped<ICatalogoRepository, CatalogoRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IConfiguracionSalonRepository, ConfiguracionSalonRepository>();
 builder.Services.AddScoped<IOrdenCompraRepository, OrdenCompraRepository>();
+builder.Services.AddScoped<IRecetaServicioRepository, RecetaServicioRepository>();
+builder.Services.AddScoped<ISaaSRepository, SaaSRepository>();
 
 // ============================================================================
-// 4. INYECCIÓN DE DEPENDENCIAS: SERVICIOS DE NEGOCIO Y SAAS CORE
+// 4. INYECCIÃ“N DE DEPENDENCIAS: SERVICIOS DE NEGOCIO Y SAAS CORE
 // ============================================================================
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 
@@ -92,6 +94,7 @@ builder.Services.AddScoped<ICatalogoService, CatalogoService>();
 builder.Services.AddScoped<IConfiguracionSalonService, ConfiguracionSalonService>();
 builder.Services.AddScoped<IOrdenCompraService, OrdenCompraService>();
 builder.Services.AddScoped<IRecetaServicioService, RecetaServicioService>();
+builder.Services.AddScoped<ISaaSService, SaaSService>();
 
 // ============================================================================
 // 5. INTEGRACIONES EXTERNAS Y BACKGROUND WORKERS (24H + 2H WHATSAPP)
@@ -100,11 +103,11 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppNotificationService>();
 builder.Services.AddScoped<IPaymentGatewayService, PaymentGatewayService>();
 
-// Registro del Worker Automático de Recordatorios (24hs y 2hs antes)
+// Registro del Worker AutomÃ¡tico de Recordatorios (24hs y 2hs antes)
 builder.Services.AddHostedService<RecordatorioTurnosBackgroundService>();
 
 // ============================================================================
-// 6. SEGURIDAD JWT Y POLÍTICA CORS DINÁMICA
+// 6. SEGURIDAD JWT Y POLÃTICA CORS DINÃMICA
 // ============================================================================
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "ClaveSecretaSuperSeguraMiPeluqueriaSaaS2026!";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
@@ -159,12 +162,12 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "MiPeluqueria.Api - SaaS Management System",
         Version = "v1",
-        Description = "API Empresarial Multi-Tenant para Gestión Integral de Peluquerías y Barberías"
+        Description = "API Empresarial Multi-Tenant para GestiÃ³n Integral de PeluquerÃ­as y BarberÃ­as"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Autorización JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
+        Description = "AutorizaciÃ³n JWT usando el esquema Bearer. Ejemplo: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -207,7 +210,7 @@ app.UseCors("CorsFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Resolución automática de TenantId y SucursalId en cada request
+// ResoluciÃ³n automÃ¡tica de TenantId y SucursalId en cada request
 app.UseMiddleware<TenantResolutionMiddleware>();
 
 app.MapControllers();

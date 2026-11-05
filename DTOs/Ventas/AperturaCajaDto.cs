@@ -1,10 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
 {
     public class AperturaCajaDto
     {
-        [Required]
         public int UsuarioId { get; set; }
 
         [Required]

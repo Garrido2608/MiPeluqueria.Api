@@ -1,27 +1,25 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.Models.Ventas;
 using MiPeluqueria.Api.Repositories.Interfaces;
 
 namespace MiPeluqueria.Api.Repositories.Implementations
 {
-    public class SesionCajaRepository : ISesionCajaRepository
+    public class SesionCajaRepository : GenericRepository<SesionCaja>, ISesionCajaRepository
     {
-        private readonly ApplicationDbContext _context;
-
-        public SesionCajaRepository(ApplicationDbContext context)
+        public SesionCajaRepository(ApplicationDbContext context) : base(context)
         {
-            _context = context;
         }
 
         public async Task<SesionCaja?> GetCajaAbiertaActualAsync(CancellationToken cancellationToken = default)
         {
-            return await _context.Set<SesionCaja>()
+            return await _dbSet
                 .Include(s => s.MovimientosCaja)
                 .Include(s => s.Ventas)
                     .ThenInclude(v => v.Pagos)
@@ -31,7 +29,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
 
         public async Task<SesionCaja?> GetByIdWithMovimientosYVentasAsync(int sesionCajaId, CancellationToken cancellationToken = default)
         {
-            return await _context.Set<SesionCaja>()
+            return await _dbSet
                 .Include(s => s.MovimientosCaja)
                 .Include(s => s.Ventas)
                     .ThenInclude(v => v.Pagos)
@@ -39,11 +37,13 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .FirstOrDefaultAsync(s => s.Id == sesionCajaId, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<SesionCaja>> GetHistorialCajasAsync(DateTime? desde = null, DateTime? hasta = null, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<SesionCaja>> GetHistorialCajasAsync(
+            DateTime? desde = null,
+            DateTime? hasta = null,
+            CancellationToken cancellationToken = default)
         {
-            var query = _context.Set<SesionCaja>()
+            var query = _dbSet
                 .AsNoTracking()
-                .Include(s => s.MovimientosCaja)
                 .Where(s => !s.IsDeleted);
 
             if (desde.HasValue)
@@ -57,27 +57,57 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<(IReadOnlyList<SesionCaja> Items, int TotalRecords)> GetHistorialCajasPagedAsync(
+            PaginationFilterDto filter,
+            CancellationToken ct = default)
+        {
+            var query = _dbSet
+                .AsNoTracking()
+                .Where(s => !s.IsDeleted);
+
+            if (filter.FechaDesde.HasValue)
+                query = query.Where(s => s.FechaApertura >= filter.FechaDesde.Value);
+
+            if (filter.FechaHasta.HasValue)
+                query = query.Where(s => s.FechaApertura <= filter.FechaHasta.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var term = filter.Search.Trim().ToLower();
+                query = query.Where(s => s.ObservacionesCierre != null && s.ObservacionesCierre.ToLower().Contains(term));
+            }
+
+            int totalRecords = await query.CountAsync(ct);
+
+            var items = await query
+                .OrderByDescending(s => s.FechaApertura)
+                .ThenByDescending(s => s.Id)
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(ct);
+
+            return (items, totalRecords);
+        }
+
         public async Task AbrirSesionCajaAsync(SesionCaja sesionCaja, CancellationToken cancellationToken = default)
         {
-            sesionCaja.CreatedAt = DateTime.UtcNow;
-            await _context.Set<SesionCaja>().AddAsync(sesionCaja, cancellationToken);
+            await AddAsync(sesionCaja, cancellationToken);
         }
 
         public void ActualizarSesionCaja(SesionCaja sesionCaja)
         {
-            sesionCaja.UpdatedAt = DateTime.UtcNow;
-            _context.Set<SesionCaja>().Update(sesionCaja);
+            Update(sesionCaja);
         }
 
         public async Task RegistrarMovimientoCajaAsync(MovimientoCaja movimiento, CancellationToken cancellationToken = default)
         {
             movimiento.CreatedAt = DateTime.UtcNow;
-            await _context.Set<MovimientoCaja>().AddAsync(movimiento, cancellationToken);
+            await _context.MovimientosCaja.AddAsync(movimiento, cancellationToken);
         }
 
         public async Task<IReadOnlyList<MovimientoCaja>> GetMovimientosBySesionIdAsync(int sesionCajaId, CancellationToken cancellationToken = default)
         {
-            return await _context.Set<MovimientoCaja>()
+            return await _context.MovimientosCaja
                 .AsNoTracking()
                 .Where(m => m.SesionCajaId == sesionCajaId)
                 .OrderByDescending(m => m.Fecha)

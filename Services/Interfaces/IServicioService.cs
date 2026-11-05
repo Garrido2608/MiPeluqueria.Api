@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
@@ -7,10 +8,11 @@ namespace MiPeluqueria.Api.Services.Interfaces
 {
     public interface IServicioService
     {
-        Task<ApiResponse<IEnumerable<ServicioDto>>> GetAllAsync();
-        Task<ApiResponse<ServicioDto>> GetByIdAsync(int id);
-        Task<ApiResponse<ServicioDto>> CreateAsync(CrearServicioDto dto);
+        Task<ApiResponse<IEnumerable<ServicioDto>>> GetAllAsync(bool soloActivos = false, CancellationToken ct = default);
+        Task<ApiResponse<ServicioDto>> GetByIdAsync(int id, CancellationToken ct = default);
+        Task<ApiResponse<ServicioDto>> CreateAsync(CrearServicioDto dto, CancellationToken ct = default);
+        Task<ApiResponse<ServicioDto>> UpdateAsync(int id, ActualizarServicioDto dto, int? usuarioModificacionId = null, CancellationToken ct = default);
         Task<ApiResponse<ServicioDto>> UpdateAsync(int id, CrearServicioDto dto);
-        Task<ApiResponse<bool>> DeleteAsync(int id);
+        Task<ApiResponse<bool>> DeleteAsync(int id, CancellationToken ct = default);
     }
 }

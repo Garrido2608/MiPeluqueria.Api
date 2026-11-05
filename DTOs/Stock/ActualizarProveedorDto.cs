@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.DTOs.Stock
 {
@@ -7,6 +7,9 @@ namespace MiPeluqueria.Api.DTOs.Stock
         [Required]
         [StringLength(150)]
         public string RazonSocial { get; set; } = string.Empty;
+
+        [StringLength(20)]
+        public string? Cuit { get; set; }
 
         [StringLength(100)]
         public string? Contacto { get; set; }

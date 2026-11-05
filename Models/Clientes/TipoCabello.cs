@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Clientes
 {
-    public class TipoCabello : AuditableEntity
+    public class TipoCabello : AuditableTenantEntity
     {
         [Required(ErrorMessage = "El tipo de cabello es obligatorio")]
         [StringLength(50)]

@@ -1,9 +1,9 @@
-﻿using MiPeluqueria.Api.Models.Common;
+using MiPeluqueria.Api.Models.Common;
 using MiPeluqueria.Api.Models.Turnos;
 using System.ComponentModel.DataAnnotations;
 namespace MiPeluqueria.Api.Models.Ventas
 {
-    public class DetalleVenta : AuditableEntity
+    public class DetalleVenta : AuditableTenantEntity
     {
         [Required]
         public int VentaId { get; set; }

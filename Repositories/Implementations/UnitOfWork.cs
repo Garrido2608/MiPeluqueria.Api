@@ -1,6 +1,8 @@
-﻿using System;
+using System;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.Repositories.Interfaces;
@@ -11,61 +13,70 @@ namespace MiPeluqueria.Api.Repositories.Implementations
     {
         private readonly ApplicationDbContext _context;
         private IDbContextTransaction? _currentTransaction;
+        private int _transactionDepth;
 
         public IClienteRepository Clientes { get; }
+        public IFichaTecnicaRepository FichasTecnicas { get; }
         public IPeluqueroRepository Peluqueros { get; }
+        public IServicioRepository Servicios { get; }
+        public IRecetaServicioRepository Recetas { get; }
+        public IBloqueoHorarioRepository BloqueosHorarios { get; }
+        public ITurnoRepository Turnos { get; }
         public IProductoRepository Productos { get; }
         public IProveedorRepository Proveedores { get; }
-        public IServicioRepository Servicios { get; }
-        public ITurnoRepository Turnos { get; }
+        public IOrdenCompraRepository OrdenesCompra { get; }
         public ISesionCajaRepository SesionesCaja { get; }
         public IVentaRepository Ventas { get; }
-
-        public IUsuarioRepository Usuarios { get; }
-        public IFichaTecnicaRepository FichasTecnicas { get; }
-        public IBloqueoHorarioRepository BloqueosHorarios { get; }
         public IComisionConfigRepository ComisionesConfig { get; }
         public ILiquidacionRepository Liquidaciones { get; }
+        public IUsuarioRepository Usuarios { get; }
         public ICatalogoRepository Catalogos { get; }
-        public IDashboardRepository Dashboard { get; }
         public IConfiguracionSalonRepository ConfiguracionSalon { get; }
+        public IDashboardRepository Dashboard { get; }
+        public ISaaSRepository SaaS { get; }
 
         public UnitOfWork(
             ApplicationDbContext context,
             IClienteRepository clientes,
+            IFichaTecnicaRepository fichasTecnicas,
             IPeluqueroRepository peluqueros,
+            IServicioRepository servicios,
+            IRecetaServicioRepository recetas,
+            IBloqueoHorarioRepository bloqueoHorarios,
+            ITurnoRepository turnos,
             IProductoRepository productos,
             IProveedorRepository proveedores,
-            IServicioRepository servicios,
-            ITurnoRepository turnos,
+            IOrdenCompraRepository ordenesCompra,
             ISesionCajaRepository sesionesCaja,
             IVentaRepository ventas,
-            IUsuarioRepository usuarios,
-            IFichaTecnicaRepository fichasTecnicas,
-            IBloqueoHorarioRepository bloqueoHorarios,
             IComisionConfigRepository comisionesConfig,
             ILiquidacionRepository liquidaciones,
+            IUsuarioRepository usuarios,
             ICatalogoRepository catalogos,
+            IConfiguracionSalonRepository configuracionSalon,
             IDashboardRepository dashboard,
-            IConfiguracionSalonRepository configuracionSalon)
+            ISaaSRepository saas)
         {
             _context = context;
             Clientes = clientes;
+            FichasTecnicas = fichasTecnicas;
             Peluqueros = peluqueros;
+            Servicios = servicios;
+            Recetas = recetas;
+            BloqueosHorarios = bloqueoHorarios;
+            Turnos = turnos;
             Productos = productos;
             Proveedores = proveedores;
-            Servicios = servicios;
-            Turnos = turnos;
+            OrdenesCompra = ordenesCompra;
             SesionesCaja = sesionesCaja;
             Ventas = ventas;
-            Usuarios = usuarios;
-            FichasTecnicas = fichasTecnicas;
-            BloqueosHorarios = bloqueoHorarios;
             ComisionesConfig = comisionesConfig;
             Liquidaciones = liquidaciones;
+            Usuarios = usuarios;
             Catalogos = catalogos;
-            Dashboard = dashboard;
             ConfiguracionSalon = configuracionSalon;
+            Dashboard = dashboard;
+            SaaS = saas;
         }
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -78,52 +89,63 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             return await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+        public async Task ExecuteInTransactionAsync(
+            Func<CancellationToken, Task> operation,
+            IsolationLevel isolationLevel = IsolationLevel.ReadCommitted,
+            CancellationToken ct = default)
         {
-            if (_currentTransaction != null)
+            ArgumentNullException.ThrowIfNull(operation);
+
+            if (_transactionDepth > 0 || _currentTransaction != null || _context.Database.CurrentTransaction != null)
+            {
+                _transactionDepth++;
+                try
+                {
+                    await operation(ct);
+                }
+                finally
+                {
+                    _transactionDepth--;
+                }
                 return;
-
-            _currentTransaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        }
-
-        public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                await _context.SaveChangesAsync(cancellationToken);
-                if (_currentTransaction != null)
-                    await _currentTransaction.CommitAsync(cancellationToken);
             }
-            catch
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async token =>
             {
-                await RollbackTransactionAsync(cancellationToken);
-                throw;
-            }
-            finally
-            {
-                if (_currentTransaction != null)
+                await using var transaction = await _context.Database.BeginTransactionAsync(isolationLevel, token);
+                _currentTransaction = transaction;
+                _transactionDepth = 1;
+
+                try
                 {
-                    await _currentTransaction.DisposeAsync();
+                    await operation(token);
+
+                    if (_context.ChangeTracker.HasChanges())
+                        await _context.SaveChangesAsync(token);
+
+                    await transaction.CommitAsync(token);
+                }
+                catch
+                {
+                    try
+                    {
+                        await transaction.RollbackAsync(CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // Si la conexión física cayó durante un fallo transitorio, ignorar error secundario en Rollback
+                    }
+
+                    _context.ChangeTracker.Clear();
+                    throw;
+                }
+                finally
+                {
+                    _transactionDepth = 0;
                     _currentTransaction = null;
                 }
-            }
-        }
-
-        public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (_currentTransaction != null)
-                    await _currentTransaction.RollbackAsync(cancellationToken);
-            }
-            finally
-            {
-                if (_currentTransaction != null)
-                {
-                    await _currentTransaction.DisposeAsync();
-                    _currentTransaction = null;
-                }
-            }
+            }, ct);
         }
 
         public void Dispose()

@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MiPeluqueria.Api.DTOs.Stock;
 
 namespace MiPeluqueria.Api.Validators.Stock
@@ -35,9 +35,19 @@ namespace MiPeluqueria.Api.Validators.Stock
                 .NotEmpty().WithMessage("La razón social del proveedor es obligatoria.")
                 .MaximumLength(150);
 
+            RuleFor(x => x.Cuit)
+                .MaximumLength(20).WithMessage("El CUIT no puede superar los 20 caracteres.");
+
+            RuleFor(x => x.Contacto)
+                .MaximumLength(100);
+
+            RuleFor(x => x.Telefono)
+                .MaximumLength(30);
+
             RuleFor(x => x.Email)
                 .EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email))
-                .WithMessage("El formato del correo electrónico no es válido.");
+                .WithMessage("El formato del correo electrónico no es válido.")
+                .MaximumLength(150);
         }
     }
 }

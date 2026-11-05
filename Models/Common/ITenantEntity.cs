@@ -1,4 +1,4 @@
-﻿namespace MiPeluqueria.Api.Models.Common
+namespace MiPeluqueria.Api.Models.Common
 {
     public interface ITenantEntity
     {

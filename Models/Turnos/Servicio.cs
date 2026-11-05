@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class Servicio : AuditableEntity
+    public class Servicio : AuditableTenantEntity
     {
         [Required]
         public int CategoriaId { get; set; }
@@ -21,6 +21,9 @@ namespace MiPeluqueria.Api.Models.Turnos
         public int DuracionMinutos { get; set; }
 
         public bool Activo { get; set; } = true;
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public CategoriaServicio? Categoria { get; set; }
 

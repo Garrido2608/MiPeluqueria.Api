@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
@@ -6,7 +6,7 @@ using MiPeluqueria.Api.Models.Turnos;
 
 namespace MiPeluqueria.Api.Models.Clientes
 {
-    public class Cliente : AuditableEntity
+    public class Cliente : AuditableTenantEntity
     {
         [Required(ErrorMessage = "El nombre es obligatorio")]
         [StringLength(100)]
@@ -34,6 +34,8 @@ namespace MiPeluqueria.Api.Models.Clientes
         public int? TipoCabelloId { get; set; }
         public int? TipoRostroId { get; set; }
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
         
         public TipoCabello? TipoCabello { get; set; }
         public TipoRostro? TipoRostro { get; set; }

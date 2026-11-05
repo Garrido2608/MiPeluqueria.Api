@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MiPeluqueria.Api.Models.Stock;
 
@@ -12,9 +12,10 @@ namespace MiPeluqueria.Api.Data.Configurations
 
             builder.Property(o => o.NumeroComprobanteProveedor).HasMaxLength(50);
             builder.Property(o => o.Observaciones).HasMaxLength(500);
-            builder.Property(o => o.Total).HasColumnType("decimal(18,2)");
+            builder.Property(o => o.Total).HasPrecision(18, 2);
+            builder.Property(o => o.RowVersion).IsRowVersion();
 
-            builder.HasIndex(o => new { o.ProveedorId, o.Estado, o.FechaEmision })
+            builder.HasIndex(o => new { o.TenantId, o.SucursalId, o.ProveedorId, o.Estado, o.FechaEmision })
                 .HasDatabaseName("IX_OrdenesCompra_Proveedor_Estado_Fecha");
 
             builder.HasOne(o => o.Proveedor)
@@ -30,8 +31,8 @@ namespace MiPeluqueria.Api.Data.Configurations
         {
             builder.ToTable("DetallesOrdenCompra");
 
-            builder.Property(d => d.PrecioUnitarioCosto).HasColumnType("decimal(18,2)");
-            builder.Property(d => d.Subtotal).HasColumnType("decimal(18,2)");
+            builder.Property(d => d.PrecioUnitarioCosto).HasPrecision(18, 2);
+            builder.Property(d => d.Subtotal).HasPrecision(18, 2);
 
             builder.HasOne(d => d.OrdenCompra)
                 .WithMany(o => o.Detalles)

@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MiPeluqueria.Api.DTOs.Ventas;
 
 namespace MiPeluqueria.Api.Validators.Ventas
@@ -7,9 +7,6 @@ namespace MiPeluqueria.Api.Validators.Ventas
     {
         public AperturaCajaDtoValidator()
         {
-            RuleFor(x => x.UsuarioId)
-                .GreaterThan(0).WithMessage("El usuario de apertura es obligatorio.");
-
             RuleFor(x => x.MontoInicial)
                 .GreaterThanOrEqualTo(0).WithMessage("El fondo inicial de caja no puede ser negativo.");
         }
@@ -19,11 +16,11 @@ namespace MiPeluqueria.Api.Validators.Ventas
     {
         public CierreCajaDtoValidator()
         {
-            RuleFor(x => x.UsuarioId)
-                .GreaterThan(0).WithMessage("El usuario de cierre es obligatorio.");
-
             RuleFor(x => x.MontoFinalReal)
                 .GreaterThanOrEqualTo(0).WithMessage("El monto físico declarado no puede ser negativo.");
+
+            RuleFor(x => x.ObservacionesCierre)
+                .MaximumLength(500).WithMessage("Las observaciones de cierre no pueden superar los 500 caracteres.");
         }
     }
 
@@ -33,6 +30,9 @@ namespace MiPeluqueria.Api.Validators.Ventas
         {
             RuleFor(x => x.SesionCajaId)
                 .GreaterThan(0).WithMessage("Debe especificar la sesión de caja activa.");
+
+            RuleFor(x => x.IdempotencyKey)
+                .MaximumLength(64).WithMessage("La clave de idempotencia no puede superar los 64 caracteres.");
 
             RuleFor(x => x.Detalles)
                 .NotEmpty().WithMessage("La venta debe incluir al menos un servicio o producto.");
@@ -59,6 +59,9 @@ namespace MiPeluqueria.Api.Validators.Ventas
 
                 pago.RuleFor(p => p.Importe)
                     .GreaterThan(0).WithMessage("El importe de cada pago debe ser mayor a cero.");
+
+                pago.RuleFor(p => p.ReferenciaOperacion)
+                    .MaximumLength(100).WithMessage("La referencia de operación no puede superar los 100 caracteres.");
             });
         }
     }

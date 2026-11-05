@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Stock
 {
-    public class MovimientoStock : AuditableEntity
+    public class MovimientoStock : AuditableTenantEntity
     {
         [Required]
         public int ProductoId { get; set; }
@@ -13,6 +13,9 @@ namespace MiPeluqueria.Api.Models.Stock
 
         [Required]
         public int Cantidad { get; set; }
+
+        [Required]
+        public int SaldoResultante { get; set; }
 
         public DateTime Fecha { get; set; } = DateTime.UtcNow;
 

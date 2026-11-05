@@ -1,27 +1,25 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.Data.Context;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.Models.Seguridad;
 using MiPeluqueria.Api.Repositories.Interfaces;
 
 namespace MiPeluqueria.Api.Repositories.Implementations
 {
-    public class UsuarioRepository : IUsuarioRepository
+    public class UsuarioRepository : GenericRepository<Usuario>, IUsuarioRepository
     {
-        private readonly ApplicationDbContext _context;
-
-        public UsuarioRepository(ApplicationDbContext context)
+        public UsuarioRepository(ApplicationDbContext context) : base(context)
         {
-            _context = context;
         }
 
         public async Task<Usuario?> GetByIdWithRolAsync(int id, CancellationToken cancellationToken = default)
         {
-            return await _context.Usuarios
+            return await _dbSet
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         }
@@ -29,7 +27,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         public async Task<Usuario?> GetByUsernameOrEmailAsync(string usernameOrEmail, CancellationToken cancellationToken = default)
         {
             var norm = usernameOrEmail.Trim().ToLower();
-            return await _context.Usuarios
+            return await _dbSet
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Username.ToLower() == norm || u.Email.ToLower() == norm, cancellationToken);
         }
@@ -37,14 +35,14 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         public async Task<Usuario?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             var norm = email.Trim().ToLower();
-            return await _context.Usuarios
+            return await _dbSet
                 .Include(u => u.Rol)
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == norm, cancellationToken);
         }
 
         public async Task<IReadOnlyList<Usuario>> GetAllWithRolesAsync(CancellationToken cancellationToken = default)
         {
-            return await _context.Usuarios
+            return await _dbSet
                 .Include(u => u.Rol)
                 .OrderBy(u => u.Id)
                 .AsNoTracking()
@@ -56,7 +54,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             var userNorm = username.Trim().ToLower();
             var emailNorm = email.Trim().ToLower();
 
-            var query = _context.Usuarios.AsQueryable();
+            var query = _dbSet.AsQueryable();
             if (excludeUserId.HasValue)
                 query = query.Where(u => u.Id != excludeUserId.Value);
 
@@ -74,18 +72,9 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             return await _context.Roles.FirstOrDefaultAsync(r => r.Nombre.ToLower() == norm, cancellationToken);
         }
 
-        public async Task AddAsync(Usuario usuario, CancellationToken cancellationToken = default)
-        {
-            await _context.Usuarios.AddAsync(usuario, cancellationToken);
-        }
-
-        public void Update(Usuario usuario)
-        {
-            _context.Usuarios.Update(usuario);
-        }
-
         public async Task RegistrarHistorialSesionAsync(HistorialSesion historial, CancellationToken cancellationToken = default)
         {
+            historial.CreatedAt = DateTime.UtcNow;
             await _context.HistorialSesiones.AddAsync(historial, cancellationToken);
         }
 
@@ -105,8 +94,49 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<(IReadOnlyList<HistorialSesion> Items, int TotalRecords)> GetHistorialSesionesPagedAsync(
+            PaginationFilterDto filter,
+            int? usuarioId = null,
+            CancellationToken ct = default)
+        {
+            var query = _context.HistorialSesiones
+                .Include(h => h.Usuario)
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (usuarioId.HasValue)
+                query = query.Where(h => h.UsuarioId == usuarioId.Value);
+
+            if (filter.FechaDesde.HasValue)
+                query = query.Where(h => h.FechaIntento >= filter.FechaDesde.Value);
+
+            if (filter.FechaHasta.HasValue)
+                query = query.Where(h => h.FechaIntento <= filter.FechaHasta.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var term = filter.Search.Trim().ToLower();
+                query = query.Where(h =>
+                    (h.Usuario != null && h.Usuario.Username.ToLower().Contains(term)) ||
+                    (h.DireccionIP != null && h.DireccionIP.ToLower().Contains(term)) ||
+                    (h.Dispositivo != null && h.Dispositivo.ToLower().Contains(term)));
+            }
+
+            int totalRecords = await query.CountAsync(ct);
+
+            var items = await query
+                .OrderByDescending(h => h.FechaIntento)
+                .ThenByDescending(h => h.Id)
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync(ct);
+
+            return (items, totalRecords);
+        }
+
         public async Task AddRefreshTokenAsync(RefreshToken refreshToken, CancellationToken cancellationToken = default)
         {
+            refreshToken.CreatedAt = DateTime.UtcNow;
             await _context.RefreshTokens.AddAsync(refreshToken, cancellationToken);
         }
 
@@ -118,17 +148,25 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .FirstOrDefaultAsync(r => r.Token == token, cancellationToken);
         }
 
+        public void UpdateRefreshToken(RefreshToken refreshToken)
+        {
+            refreshToken.UpdatedAt = DateTime.UtcNow;
+            _context.RefreshTokens.Update(refreshToken);
+        }
+
         public async Task RevocarRefreshTokensUsuarioAsync(int usuarioId, string motivo, string? ip = null, CancellationToken cancellationToken = default)
         {
             var tokensActivos = await _context.RefreshTokens
                 .Where(r => r.UsuarioId == usuarioId && r.RevokedAt == null && r.ExpiresAt > DateTime.UtcNow)
                 .ToListAsync(cancellationToken);
 
+            var now = DateTime.UtcNow;
             foreach (var token in tokensActivos)
             {
-                token.RevokedAt = DateTime.UtcNow;
+                token.RevokedAt = now;
                 token.RevokedByIp = ip;
                 token.ReasonRevoked = motivo;
+                token.UpdatedAt = now;
             }
         }
     }

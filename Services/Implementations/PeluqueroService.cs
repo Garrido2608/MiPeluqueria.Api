@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
-using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Models.Turnos;
@@ -15,128 +14,178 @@ namespace MiPeluqueria.Api.Services.Implementations
 {
     public class PeluqueroService : IPeluqueroService
     {
+        private const int MaxPeluquerosAntiAbuso = 50;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
 
-        public PeluqueroService(IUnitOfWork unitOfWork, ApplicationDbContext context, IMapper mapper)
+        public PeluqueroService(IUnitOfWork unitOfWork, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
-            _context = context;
             _mapper = mapper;
         }
 
-        public async Task<ApiResponse<IEnumerable<PeluqueroDto>>> GetAllAsync()
+        public async Task<ApiResponse<IEnumerable<PeluqueroDto>>> GetAllAsync(
+            bool soloActivos = false,
+            CancellationToken ct = default)
         {
-            var peluqueros = await _context.Peluqueros
-                .Include(p => p.PeluqueroEspecialidades)
-                .ThenInclude(pe => pe.Especialidad)
-                .AsNoTracking()
-                .ToListAsync();
-
+            var peluqueros = await _unitOfWork.Peluqueros.GetAllWithDetailsAsync(soloActivos, ct);
             var dtos = _mapper.Map<IEnumerable<PeluqueroDto>>(peluqueros);
             return ApiResponse<IEnumerable<PeluqueroDto>>.Exito(dtos);
         }
 
-        public async Task<ApiResponse<PeluqueroDto>> GetByIdAsync(int id)
+        public async Task<ApiResponse<PeluqueroDto>> GetByIdAsync(int id, CancellationToken ct = default)
         {
-            var peluquero = await _context.Peluqueros
-                .Include(p => p.PeluqueroEspecialidades)
-                .ThenInclude(pe => pe.Especialidad)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
+            var peluquero = await _unitOfWork.Peluqueros.GetByIdWithDetailsAsync(id, false, ct);
             if (peluquero == null)
                 return ApiResponse<PeluqueroDto>.Falla("El peluquero solicitado no existe.");
 
             return ApiResponse<PeluqueroDto>.Exito(_mapper.Map<PeluqueroDto>(peluquero));
         }
 
-        public async Task<ApiResponse<PeluqueroDto>> CreateAsync(CrearPeluqueroDto dto)
+        public async Task<ApiResponse<PeluqueroDto>> CreateAsync(CrearPeluqueroDto dto, CancellationToken ct = default)
         {
-            var peluquero = _mapper.Map<Peluquero>(dto);
-            await _context.Peluqueros.AddAsync(peluquero);
-            await _unitOfWork.SaveChangesAsync();
-
-            var especialidadesIds = GetEspecialidadesIdsFromDto(dto);
-            if (especialidadesIds.Any())
+            int activos = await _unitOfWork.Peluqueros.CountActivosAsync(ct);
+            if (activos >= MaxPeluquerosAntiAbuso)
             {
-                foreach (var espId in especialidadesIds.Distinct())
-                {
-                    await _context.PeluqueroEspecialidades.AddAsync(new PeluqueroEspecialidad
-                    {
-                        PeluqueroId = peluquero.Id,
-                        EspecialidadId = espId
-                    });
-                }
-                await _unitOfWork.SaveChangesAsync();
+                return ApiResponse<PeluqueroDto>.Falla(
+                    $"Se ha alcanzado el límite técnico anti-abuso máximo de {MaxPeluquerosAntiAbuso} profesionales activos en esta sucursal.");
             }
 
-            return await GetByIdAsync(peluquero.Id);
+            if (await _unitOfWork.Peluqueros.ExistsEmailAsync(dto.Email.Trim(), null, ct))
+            {
+                return ApiResponse<PeluqueroDto>.Falla("Ya existe un profesional registrado con ese correo electrónico en esta sucursal.");
+            }
+
+            var peluquero = new Peluquero
+            {
+                Nombre = dto.Nombre.Trim(),
+                Apellido = dto.Apellido.Trim(),
+                Telefono = string.IsNullOrWhiteSpace(dto.Telefono) ? null : dto.Telefono.Trim(),
+                Email = dto.Email.Trim().ToLowerInvariant(),
+                ColorAgendaHex = string.IsNullOrWhiteSpace(dto.ColorAgendaHex) ? "#3B82F6" : dto.ColorAgendaHex.Trim(),
+                Activo = true
+            };
+
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
+            {
+                await _unitOfWork.Peluqueros.AddAsync(peluquero, token);
+                await _unitOfWork.SaveChangesAsync(token);
+
+                if (dto.EspecialidadesIds != null && dto.EspecialidadesIds.Count > 0)
+                {
+                    await _unitOfWork.Peluqueros.ReemplazarEspecialidadesAsync(peluquero.Id, dto.EspecialidadesIds, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+                }
+            }, ct: ct);
+
+            return await GetByIdAsync(peluquero.Id, ct);
+        }
+
+        public async Task<ApiResponse<PeluqueroDto>> UpdateAsync(
+            int id,
+            ActualizarPeluqueroDto dto,
+            CancellationToken ct = default)
+        {
+            var peluquero = await _unitOfWork.Peluqueros.GetByIdWithDetailsAsync(id, true, ct);
+            if (peluquero == null)
+                return ApiResponse<PeluqueroDto>.Falla("El peluquero solicitado no existe.");
+
+            if (!peluquero.Activo && dto.Activo)
+            {
+                int activos = await _unitOfWork.Peluqueros.CountActivosAsync(ct);
+                if (activos >= MaxPeluquerosAntiAbuso)
+                {
+                    return ApiResponse<PeluqueroDto>.Falla(
+                        $"No se puede reactivar al profesional porque se alcanzó el límite máximo de {MaxPeluquerosAntiAbuso} profesionales activos.");
+                }
+            }
+
+            if (await _unitOfWork.Peluqueros.ExistsEmailAsync(dto.Email.Trim(), id, ct))
+            {
+                return ApiResponse<PeluqueroDto>.Falla("Ya existe otro profesional registrado con ese correo electrónico en esta sucursal.");
+            }
+
+            if (peluquero.Activo && !dto.Activo)
+            {
+                if (await _unitOfWork.Peluqueros.TieneTurnosFuturosActivosAsync(id, DateTime.UtcNow, ct))
+                    return ApiResponse<PeluqueroDto>.Falla("No se puede desactivar el profesional porque posee turnos futuros pendientes o confirmados.");
+
+                if (await _unitOfWork.Peluqueros.TieneLiquidacionesPendientesAsync(id, ct))
+                    return ApiResponse<PeluqueroDto>.Falla("No se puede desactivar el profesional porque posee liquidaciones de comisiones pendientes de pago.");
+            }
+
+            peluquero.Nombre = dto.Nombre.Trim();
+            peluquero.Apellido = dto.Apellido.Trim();
+            peluquero.Telefono = string.IsNullOrWhiteSpace(dto.Telefono) ? null : dto.Telefono.Trim();
+            peluquero.Email = dto.Email.Trim().ToLowerInvariant();
+            peluquero.ColorAgendaHex = string.IsNullOrWhiteSpace(dto.ColorAgendaHex) ? "#3B82F6" : dto.ColorAgendaHex.Trim();
+            peluquero.Activo = dto.Activo;
+
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
+            {
+                _unitOfWork.Peluqueros.Update(peluquero);
+                await _unitOfWork.Peluqueros.ReemplazarEspecialidadesAsync(peluquero.Id, dto.EspecialidadesIds ?? new List<int>(), token);
+                await _unitOfWork.SaveChangesAsync(token);
+            }, ct: ct);
+
+            return await GetByIdAsync(id, ct);
         }
 
         public async Task<ApiResponse<PeluqueroDto>> UpdateAsync(int id, CrearPeluqueroDto dto)
         {
-            var peluquero = await _context.Peluqueros
-                .Include(p => p.PeluqueroEspecialidades)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
-            if (peluquero == null)
-                return ApiResponse<PeluqueroDto>.Falla("El peluquero solicitado no existe.");
-
-            _mapper.Map(dto, peluquero);
-
-            var especialidadesIds = GetEspecialidadesIdsFromDto(dto);
-            if (especialidadesIds.Any())
+            var actual = await _unitOfWork.Peluqueros.GetByIdWithDetailsAsync(id, false);
+            return await UpdateAsync(id, new ActualizarPeluqueroDto
             {
-                _context.PeluqueroEspecialidades.RemoveRange(peluquero.PeluqueroEspecialidades);
-                foreach (var espId in especialidadesIds.Distinct())
-                {
-                    await _context.PeluqueroEspecialidades.AddAsync(new PeluqueroEspecialidad
-                    {
-                        PeluqueroId = peluquero.Id,
-                        EspecialidadId = espId
-                    });
-                }
-            }
-
-            _context.Peluqueros.Update(peluquero);
-            await _unitOfWork.SaveChangesAsync();
-
-            return await GetByIdAsync(id);
+                Nombre = dto.Nombre,
+                Apellido = dto.Apellido,
+                Telefono = dto.Telefono,
+                Email = dto.Email,
+                ColorAgendaHex = dto.ColorAgendaHex,
+                Activo = actual?.Activo ?? true,
+                EspecialidadesIds = dto.EspecialidadesIds ?? new List<int>()
+            });
         }
 
-        public async Task<ApiResponse<bool>> DeleteAsync(int id)
+        public async Task<ApiResponse<bool>> DeleteAsync(int id, CancellationToken ct = default)
         {
-            var peluquero = await _context.Peluqueros.FirstOrDefaultAsync(p => p.Id == id);
+            var peluquero = await _unitOfWork.Peluqueros.GetByIdWithDetailsAsync(id, true, ct);
             if (peluquero == null)
                 return ApiResponse<bool>.Falla("El peluquero solicitado no existe.");
 
-            peluquero.IsDeleted = true;
-            SetOptionalProp(peluquero, "Activo", false);
+            if (await _unitOfWork.Peluqueros.TieneTurnosFuturosActivosAsync(id, DateTime.UtcNow, ct))
+            {
+                return ApiResponse<bool>.Falla(
+                    "No se permite dar de baja al profesional porque posee turnos futuros en estado Pendiente, Confirmado o En Proceso.");
+            }
 
-            _context.Peluqueros.Update(peluquero);
-            await _unitOfWork.SaveChangesAsync();
+            if (await _unitOfWork.Peluqueros.TieneLiquidacionesPendientesAsync(id, ct))
+            {
+                return ApiResponse<bool>.Falla(
+                    "No se permite dar de baja al profesional porque posee liquidaciones de comisiones pendientes de pago.");
+            }
+
+            await _unitOfWork.Peluqueros.DeleteAsync(id, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
 
             return ApiResponse<bool>.Exito(true, "Peluquero dado de baja correctamente.");
         }
 
-        public async Task<ApiResponse<IEnumerable<HorarioLaboralDto>>> ObtenerHorariosAsync(int peluqueroId)
+        public async Task<ApiResponse<IEnumerable<HorarioLaboralDto>>> ObtenerHorariosAsync(
+            int peluqueroId,
+            CancellationToken ct = default)
         {
-            var horarios = await _context.HorariosLaborales
-                .Where(h => h.PeluqueroId == peluqueroId)
-                .AsNoTracking()
-                .ToListAsync();
+            var horarios = await _unitOfWork.Peluqueros.GetHorariosByPeluqueroIdAsync(peluqueroId, ct);
 
             var dtos = horarios.Select(h => new HorarioLaboralDto
             {
                 Id = h.Id,
                 PeluqueroId = h.PeluqueroId,
-                DiaSemana = Convert.ToInt32(GetOptionalProp(h, new[] { "DiaSemana", "Dia" }) ?? 1),
-                HoraInicio = GetTimeSpanProp(h, new[] { "HoraInicio", "HoraDesde", "HoraApertura" }) ?? new TimeSpan(9, 0, 0),
-                HoraFin = GetTimeSpanProp(h, new[] { "HoraFin", "HoraHasta", "HoraCierre" }) ?? new TimeSpan(18, 0, 0),
-                HoraInicioDescanso = GetTimeSpanProp(h, new[] { "HoraInicioDescanso", "DescansoInicio" }),
-                HoraFinDescanso = GetTimeSpanProp(h, new[] { "HoraFinDescanso", "DescansoFin" }),
-                Activo = (bool?)(GetOptionalProp(h, new[] { "Activo", "EsLaborable" })) ?? true
+                DiaSemana = (int)h.DiaSemana,
+                HoraInicio = h.HoraInicio,
+                HoraFin = h.HoraFin,
+                HoraInicioDescanso = h.HoraInicioDescanso,
+                HoraFinDescanso = h.HoraFinDescanso,
+                Activo = h.Activo
             })
             .OrderBy(h => h.DiaSemana)
             .ToList();
@@ -144,96 +193,50 @@ namespace MiPeluqueria.Api.Services.Implementations
             return ApiResponse<IEnumerable<HorarioLaboralDto>>.Exito(dtos);
         }
 
-        public async Task<ApiResponse<bool>> ConfigurarHorariosAsync(int peluqueroId, GuardarHorariosPeluqueroDto dto)
+        public async Task<ApiResponse<bool>> ConfigurarHorariosAsync(
+            int peluqueroId,
+            GuardarHorariosPeluqueroDto dto,
+            CancellationToken ct = default)
         {
-            var peluquero = await _context.Peluqueros.FirstOrDefaultAsync(p => p.Id == peluqueroId);
+            var peluquero = await _unitOfWork.Peluqueros.GetByIdWithDetailsAsync(peluqueroId, false, ct);
             if (peluquero == null)
                 return ApiResponse<bool>.Falla("El peluquero especificado no existe.");
 
-            var existentes = await _context.HorariosLaborales
-                .Where(h => h.PeluqueroId == peluqueroId)
-                .ToListAsync();
-
-            if (existentes.Any())
-                _context.HorariosLaborales.RemoveRange(existentes);
+            var nuevosHorarios = new List<HorarioLaboral>();
 
             foreach (var item in dto.Horarios)
             {
-                var nuevo = new HorarioLaboral
+                if (item.DiaSemana < 0 || item.DiaSemana > 6)
+                    return ApiResponse<bool>.Falla($"Día de semana inválido ({item.DiaSemana}). Debe estar entre 0 (Domingo) y 6 (Sábado).");
+
+                if (item.Activo && item.HoraFin <= item.HoraInicio)
+                    return ApiResponse<bool>.Falla($"La hora de fin debe ser posterior a la hora de inicio para el día {(DayOfWeek)item.DiaSemana}.");
+
+                if (item.HoraInicioDescanso.HasValue && item.HoraFinDescanso.HasValue &&
+                    item.HoraFinDescanso.Value <= item.HoraInicioDescanso.Value)
                 {
-                    PeluqueroId = peluqueroId
-                };
-
-                SetDiaProp(nuevo, new[] { "DiaSemana", "Dia" }, item.DiaSemana);
-                SetOptionalProp(nuevo, "HoraInicio", item.HoraInicio);
-                SetOptionalProp(nuevo, "HoraDesde", item.HoraInicio);
-                SetOptionalProp(nuevo, "HoraFin", item.HoraFin);
-                SetOptionalProp(nuevo, "HoraHasta", item.HoraFin);
-                if (item.HoraInicioDescanso.HasValue)
-                    SetOptionalProp(nuevo, "HoraInicioDescanso", item.HoraInicioDescanso.Value);
-                if (item.HoraFinDescanso.HasValue)
-                    SetOptionalProp(nuevo, "HoraFinDescanso", item.HoraFinDescanso.Value);
-                SetOptionalProp(nuevo, "Activo", item.Activo);
-
-                await _context.HorariosLaborales.AddAsync(nuevo);
-            }
-
-            await _unitOfWork.SaveChangesAsync();
-            return ApiResponse<bool>.Exito(true, "Horarios laborales actualizados correctamente.");
-        }
-
-        private static List<int> GetEspecialidadesIdsFromDto(CrearPeluqueroDto dto)
-        {
-            var prop = dto.GetType().GetProperty("EspecialidadesIds") ?? dto.GetType().GetProperty("Especialidades");
-            if (prop != null && prop.GetValue(dto) is IEnumerable<int> ids)
-                return ids.ToList();
-            return new List<int>();
-        }
-
-        private static object? GetOptionalProp(object target, string[] names)
-        {
-            var type = target.GetType();
-            foreach (var name in names)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanRead)
-                    return prop.GetValue(target);
-            }
-            return null;
-        }
-
-        private static TimeSpan? GetTimeSpanProp(object target, string[] names)
-        {
-            var val = GetOptionalProp(target, names);
-            if (val is TimeSpan ts) return ts;
-            if (val is TimeOnly to) return to.ToTimeSpan();
-            return null;
-        }
-
-        private static void SetOptionalProp(object target, string name, object value)
-        {
-            var prop = target.GetType().GetProperty(name);
-            if (prop != null && prop.CanWrite)
-            {
-                try { prop.SetValue(target, value); } catch { }
-            }
-        }
-
-        private static void SetDiaProp(object target, string[] names, int dia)
-        {
-            var type = target.GetType();
-            foreach (var name in names)
-            {
-                var prop = type.GetProperty(name);
-                if (prop != null && prop.CanWrite)
-                {
-                    if (prop.PropertyType.IsEnum)
-                        prop.SetValue(target, Enum.ToObject(prop.PropertyType, dia));
-                    else
-                        prop.SetValue(target, Convert.ChangeType(dia, prop.PropertyType));
-                    return;
+                    return ApiResponse<bool>.Falla($"El fin de descanso debe ser posterior al inicio de descanso para el día {(DayOfWeek)item.DiaSemana}.");
                 }
+
+                nuevosHorarios.Add(new HorarioLaboral
+                {
+                    PeluqueroId = peluqueroId,
+                    DiaSemana = (DayOfWeek)item.DiaSemana,
+                    HoraInicio = item.HoraInicio,
+                    HoraFin = item.HoraFin,
+                    HoraInicioDescanso = item.HoraInicioDescanso,
+                    HoraFinDescanso = item.HoraFinDescanso,
+                    Activo = item.Activo
+                });
             }
+
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
+            {
+                await _unitOfWork.Peluqueros.ReemplazarHorariosLaboralesAsync(peluqueroId, nuevosHorarios, token);
+                await _unitOfWork.SaveChangesAsync(token);
+            }, ct: ct);
+
+            return ApiResponse<bool>.Exito(true, "Horarios laborales actualizados correctamente.");
         }
     }
 }

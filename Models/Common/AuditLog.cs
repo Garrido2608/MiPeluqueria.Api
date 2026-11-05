@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.Models.Common
 {
-    public class AuditLog : AuditableEntity
+    public class AuditLog : AuditableTenantEntity
     {
         public int? UsuarioId { get; set; }
 

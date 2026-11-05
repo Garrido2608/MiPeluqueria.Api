@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class BloqueoHorario : AuditableEntity
+    public class BloqueoHorario : AuditableTenantEntity
     {
         [Required]
         public int PeluqueroId { get; set; }

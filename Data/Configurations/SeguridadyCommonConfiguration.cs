@@ -1,10 +1,25 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MiPeluqueria.Api.Models.Common;
 using MiPeluqueria.Api.Models.Seguridad;
 
 namespace MiPeluqueria.Api.Data.Configurations
 {
+    public class RolConfiguration : IEntityTypeConfiguration<Rol>
+    {
+        public void Configure(EntityTypeBuilder<Rol> builder)
+        {
+            builder.ToTable("Roles");
+
+            builder.Property(r => r.Nombre).IsRequired().HasMaxLength(50);
+
+            builder.HasIndex(r => r.Nombre)
+                .IsUnique()
+                .HasDatabaseName("UX_Roles_Nombre")
+                .HasFilter("[IsDeleted] = 0");
+        }
+    }
+
     public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
     {
         public void Configure(EntityTypeBuilder<Usuario> builder)
@@ -15,19 +30,20 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.Property(u => u.Email).IsRequired().HasMaxLength(150);
             builder.Property(u => u.PasswordHash).IsRequired().HasMaxLength(500);
             builder.Property(u => u.CodigoVerificacion).HasMaxLength(6);
+            builder.Property(u => u.RowVersion).IsRowVersion();
 
-            builder.HasIndex(u => u.Username)
+            builder.HasIndex(u => new { u.TenantId, u.SucursalId, u.Username })
                 .IsUnique()
-                .HasDatabaseName("UX_Usuarios_Username_Active")
+                .HasDatabaseName("UX_Usuarios_Local_Username")
                 .HasFilter("[IsDeleted] = 0");
 
-            builder.HasIndex(u => u.Email)
+            builder.HasIndex(u => new { u.TenantId, u.SucursalId, u.Email })
                 .IsUnique()
-                .HasDatabaseName("UX_Usuarios_Email_Active")
+                .HasDatabaseName("UX_Usuarios_Local_Email")
                 .HasFilter("[IsDeleted] = 0");
 
             builder.HasOne(u => u.Rol)
-                .WithMany()
+                .WithMany(r => r.Usuarios)
                 .HasForeignKey(u => u.RolId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -52,7 +68,7 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.Property(h => h.DireccionIP).IsRequired().HasMaxLength(50);
             builder.Property(h => h.Dispositivo).HasMaxLength(500);
 
-            builder.HasIndex(h => new { h.UsuarioId, h.FechaIntento })
+            builder.HasIndex(h => new { h.TenantId, h.SucursalId, h.UsuarioId, h.FechaIntento })
                 .HasDatabaseName("IX_HistorialSesiones_UsuarioId_FechaIntento");
 
             builder.HasOne(h => h.Usuario)
@@ -92,6 +108,7 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.ToTable("ConfiguracionSalon");
 
             builder.Property(c => c.NombreSalon).IsRequired().HasMaxLength(150);
+            builder.Property(c => c.NombreComercial).IsRequired().HasMaxLength(150);
             builder.Property(c => c.RazonSocial).HasMaxLength(150);
             builder.Property(c => c.Cuit).HasMaxLength(20);
             builder.Property(c => c.Direccion).HasMaxLength(250);
@@ -99,7 +116,13 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.Property(c => c.EmailContacto).HasMaxLength(150);
             builder.Property(c => c.MonedaIso).IsRequired().HasMaxLength(3).HasDefaultValue("ARS");
             builder.Property(c => c.TimeZoneId).IsRequired().HasMaxLength(100).HasDefaultValue("America/Argentina/Cordoba");
-            builder.Property(c => c.PorcentajeSenaReserva).HasColumnType("decimal(5,2)");
+            builder.Property(c => c.HorarioAtencionTexto).HasMaxLength(200);
+            builder.Property(c => c.PorcentajeSenaReserva).HasPrecision(5, 2);
+
+            builder.HasIndex(c => new { c.TenantId, c.SucursalId })
+                .IsUnique()
+                .HasDatabaseName("UX_ConfiguracionSalon_Tenant_Sucursal")
+                .HasFilter("[IsDeleted] = 0");
         }
     }
 
@@ -114,7 +137,7 @@ namespace MiPeluqueria.Api.Data.Configurations
             builder.Property(a => a.ClavePrimaria).IsRequired().HasMaxLength(50);
             builder.Property(a => a.IpAddress).HasMaxLength(50);
 
-            builder.HasIndex(a => new { a.EntidadNombre, a.ClavePrimaria, a.FechaUtc })
+            builder.HasIndex(a => new { a.TenantId, a.SucursalId, a.EntidadNombre, a.ClavePrimaria, a.FechaUtc })
                 .HasDatabaseName("IX_AuditLogs_Entidad_Clave_Fecha");
         }
     }

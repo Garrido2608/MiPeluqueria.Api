@@ -1,9 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class MotivoCancelacion : AuditableEntity
+    public class MotivoCancelacion : AuditableTenantEntity
     {
         [Required]
         [StringLength(150)]

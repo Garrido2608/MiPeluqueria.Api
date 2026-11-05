@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
 {
@@ -10,5 +10,8 @@ namespace MiPeluqueria.Api.DTOs.Ventas
         [Required]
         [Range(0.01, 9999999.99)]
         public decimal Importe { get; set; }
+
+        [StringLength(100)]
+        public string? ReferenciaOperacion { get; set; }
     }
 }

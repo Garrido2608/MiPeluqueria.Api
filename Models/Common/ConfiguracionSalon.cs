@@ -1,8 +1,9 @@
-﻿namespace MiPeluqueria.Api.Models.Common
+namespace MiPeluqueria.Api.Models.Common
 {
-    public class ConfiguracionSalon : AuditableEntity
+    public class ConfiguracionSalon : AuditableTenantEntity
     {
         public string NombreSalon { get; set; } = "Mi Peluquería SaaS";
+        public string NombreComercial { get; set; } = "Mi Peluquería SaaS";
         public string RazonSocial { get; set; } = string.Empty;
         public string Cuit { get; set; } = string.Empty;
         public string Direccion { get; set; } = string.Empty;
@@ -10,6 +11,7 @@
         public string EmailContacto { get; set; } = string.Empty;
         public string MonedaIso { get; set; } = "ARS";
         public string TimeZoneId { get; set; } = "America/Argentina/Cordoba";
+        public string HorarioAtencionTexto { get; set; } = string.Empty;
         public int IntervaloTurnosMinutos { get; set; } = 30;
         public int MinutosToleranciaEspera { get; set; } = 15;
         public int HorasAnticipacionCancelacion { get; set; } = 24;

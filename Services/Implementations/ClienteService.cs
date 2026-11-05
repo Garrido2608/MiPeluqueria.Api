@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using MiPeluqueria.Api.DTOs.Clientes;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.Models.Clientes;
@@ -14,51 +13,37 @@ namespace MiPeluqueria.Api.Services.Implementations
 {
     public class ClienteService : IClienteService
     {
-        private readonly IClienteRepository _repository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
 
         public ClienteService(
-            IClienteRepository repository,
             IUnitOfWork unitOfWork,
             IMapper mapper)
         {
-            _repository = repository;
             _unitOfWork = unitOfWork;
             _mapper = mapper;
         }
 
         public async Task<ApiResponse<PagedResult<ClienteResponseDto>>> ObtenerTodosAsync(
             int pageNumber = 1,
-            int pageSize = 10,
+            int pageSize = 15,
             string? search = null)
         {
-            if (pageNumber < 1) pageNumber = 1;
-            if (pageSize < 1) pageSize = 10;
-            if (pageSize > 100) pageSize = 100;
-
-            var query = _repository.GetAllQueryable();
-
-            if (!string.IsNullOrWhiteSpace(search))
+            var filter = new PaginationFilterDto
             {
-                var term = search.Trim().ToLower();
-                query = query.Where(c =>
-                    c.Nombre.ToLower().Contains(term) ||
-                    c.Apellido.ToLower().Contains(term) ||
-                    c.Telefono.Contains(term) ||
-                    (c.Email != null && c.Email.ToLower().Contains(term)));
-            }
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Search = search
+            };
+            return await ObtenerTodosAsync(filter);
+        }
 
-            int totalRecords = await query.CountAsync();
-
-            var clientesPagina = await query
-                .OrderBy(c => c.Apellido)
-                .ThenBy(c => c.Nombre)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            var dtos = _mapper.Map<List<ClienteResponseDto>>(clientesPagina);
+        public async Task<ApiResponse<PagedResult<ClienteResponseDto>>> ObtenerTodosAsync(
+            PaginationFilterDto filter,
+            CancellationToken ct = default)
+        {
+            var (items, totalRecords) = await _unitOfWork.Clientes.GetPagedAsync(filter, ct);
+            var dtos = _mapper.Map<List<ClienteResponseDto>>(items);
 
             var mesActual = DateTime.UtcNow.Month;
             foreach (var c in dtos)
@@ -70,8 +55,8 @@ namespace MiPeluqueria.Api.Services.Implementations
             {
                 Data = dtos,
                 TotalRecords = totalRecords,
-                PageNumber = pageNumber,
-                PageSize = pageSize
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
             };
 
             return ApiResponse<PagedResult<ClienteResponseDto>>.Exito(pagedResult, "Clientes obtenidos con éxito.");
@@ -79,7 +64,7 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<ClienteResponseDto>> ObtenerPorIdAsync(int id)
         {
-            var cliente = await _repository.GetByIdAsync(id);
+            var cliente = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id);
             if (cliente == null)
                 return ApiResponse<ClienteResponseDto>.Falla($"No se encontró el cliente con ID {id}.");
 
@@ -91,15 +76,21 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<ClienteResponseDto>> CrearClienteAsync(ClienteRequestDto dto)
         {
-            if (!string.IsNullOrWhiteSpace(dto.Email) && await _repository.ExistsEmailAsync(dto.Email))
-                return ApiResponse<ClienteResponseDto>.Falla("Ya existe un cliente registrado con ese correo electrónico.");
+            if (!string.IsNullOrWhiteSpace(dto.Email) && await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim()))
+                return ApiResponse<ClienteResponseDto>.Falla("Ya existe un cliente registrado con ese correo electrónico en este salón.");
 
             var cliente = _mapper.Map<Cliente>(dto);
+            cliente.Nombre = dto.Nombre.Trim();
+            cliente.Apellido = dto.Apellido.Trim();
+            cliente.Telefono = dto.Telefono.Trim();
+            cliente.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim().ToLowerInvariant();
+            cliente.FechaRegistro = DateTime.UtcNow;
+            cliente.Activo = true;
 
-            await _repository.AddAsync(cliente);
+            await _unitOfWork.Clientes.AddAsync(cliente);
             await _unitOfWork.SaveChangesAsync();
 
-            var creado = await _repository.GetByIdAsync(cliente.Id);
+            var creado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(cliente.Id);
             var response = _mapper.Map<ClienteResponseDto>(creado ?? cliente);
 
             return ApiResponse<ClienteResponseDto>.Exito(response, "Cliente registrado correctamente.");
@@ -107,23 +98,28 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<ClienteResponseDto>> ActualizarClienteAsync(int id, ClienteRequestDto dto)
         {
-            var clienteExistente = await _repository.GetByIdAsync(id);
+            var clienteExistente = await _unitOfWork.Clientes.GetByIdAsync(id);
             if (clienteExistente == null)
                 return ApiResponse<ClienteResponseDto>.Falla($"No se encontró el cliente con ID {id}.");
 
             if (!string.IsNullOrWhiteSpace(dto.Email) &&
-                !string.Equals(dto.Email, clienteExistente.Email, StringComparison.OrdinalIgnoreCase) &&
-                await _repository.ExistsEmailAsync(dto.Email))
+                await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim(), excludeId: id))
             {
-                return ApiResponse<ClienteResponseDto>.Falla("Ya existe otro cliente registrado con ese correo electrónico.");
+                return ApiResponse<ClienteResponseDto>.Falla("Ya existe otro cliente registrado con ese correo electrónico en este salón.");
             }
 
-            _mapper.Map(dto, clienteExistente);
+            clienteExistente.Nombre = dto.Nombre.Trim();
+            clienteExistente.Apellido = dto.Apellido.Trim();
+            clienteExistente.Telefono = dto.Telefono.Trim();
+            clienteExistente.Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim().ToLowerInvariant();
+            clienteExistente.FechaNacimiento = dto.FechaNacimiento;
+            clienteExistente.TipoCabelloId = dto.TipoCabelloId;
+            clienteExistente.TipoRostroId = dto.TipoRostroId;
 
-            await _repository.UpdateAsync(clienteExistente);
+            await _unitOfWork.Clientes.UpdateAsync(clienteExistente);
             await _unitOfWork.SaveChangesAsync();
 
-            var actualizado = await _repository.GetByIdAsync(id);
+            var actualizado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id);
             var response = _mapper.Map<ClienteResponseDto>(actualizado ?? clienteExistente);
 
             return ApiResponse<ClienteResponseDto>.Exito(response, "Cliente actualizado correctamente.");
@@ -131,11 +127,11 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         public async Task<ApiResponse<bool>> EliminarClienteAsync(int id)
         {
-            var existe = await _repository.GetByIdAsync(id);
+            var existe = await _unitOfWork.Clientes.GetByIdAsync(id);
             if (existe == null)
                 return ApiResponse<bool>.Falla($"No se encontró el cliente con ID {id}.");
 
-            await _repository.DeleteAsync(id);
+            await _unitOfWork.Clientes.DeleteAsync(id);
             await _unitOfWork.SaveChangesAsync();
 
             return ApiResponse<bool>.Exito(true, "Cliente dado de baja exitosamente (Soft Delete).");

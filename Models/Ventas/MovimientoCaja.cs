@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Ventas
 {
-    public class MovimientoCaja : AuditableEntity
+    public class MovimientoCaja : AuditableTenantEntity
     {
         [Required]
         public int SesionCajaId { get; set; }

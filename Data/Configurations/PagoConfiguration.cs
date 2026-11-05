@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MiPeluqueria.Api.Models.Ventas;
+
 namespace MiPeluqueria.Api.Data.Configurations
 {
     public class PagoConfiguration : IEntityTypeConfiguration<Pago>
@@ -8,17 +9,23 @@ namespace MiPeluqueria.Api.Data.Configurations
         public void Configure(EntityTypeBuilder<Pago> builder)
         {
             builder.ToTable("Pagos");
+
             builder.Property(p => p.Importe)
-            .HasPrecision(18, 2)
-            .IsRequired();
+                .HasPrecision(18, 2)
+                .IsRequired();
+
+            builder.Property(p => p.ReferenciaOperacion)
+                .HasMaxLength(100);
+
             builder.HasOne(p => p.Venta)
-            .WithMany(v => v.Pagos)
-            .HasForeignKey(p => p.VentaId)
-            .OnDelete(DeleteBehavior.Cascade);
+                .WithMany(v => v.Pagos)
+                .HasForeignKey(p => p.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             builder.HasOne(p => p.MedioPago)
-            .WithMany(m => m.Pagos)
-            .HasForeignKey(p => p.MedioPagoId)
-            .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(m => m.Pagos)
+                .HasForeignKey(p => p.MedioPagoId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

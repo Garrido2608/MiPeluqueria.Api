@@ -1,63 +1,105 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
-using Microsoft.EntityFrameworkCore;
-using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Models.Turnos;
+using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
     public class BloqueoHorarioService : IBloqueoHorarioService
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IUnitOfWork _uow;
 
-        public BloqueoHorarioService(ApplicationDbContext context, IMapper mapper)
+        public BloqueoHorarioService(IUnitOfWork uow)
         {
-            _context = context;
-            _mapper = mapper;
+            _uow = uow;
         }
 
-        public async Task<ApiResponse<IEnumerable<object>>> ObtenerPorPeluqueroAsync(int peluqueroId)
+        public async Task<ApiResponse<IReadOnlyList<BloqueoHorarioResponseDto>>> ObtenerPorPeluqueroAsync(
+            int peluqueroId,
+            CancellationToken ct = default)
         {
-            var bloqueos = await _context.BloqueosHorario
-                .Where(b => b.PeluqueroId == peluqueroId)
-                .OrderByDescending(b => b.Id)
-                .AsNoTracking()
-                .ToListAsync();
-
-            var resultado = bloqueos.Select(b => (object)b).ToList();
-            return ApiResponse<IEnumerable<object>>.Exito(resultado);
+            var bloqueos = await _uow.BloqueosHorarios.GetByPeluqueroIdAsync(peluqueroId, null, ct);
+            var dtos = bloqueos.Select(MapToDto).ToList();
+            return ApiResponse<IReadOnlyList<BloqueoHorarioResponseDto>>.Exito(dtos);
         }
 
-        public async Task<ApiResponse<int>> CrearBloqueoAsync(BloqueoHorarioDto dto)
+        public async Task<ApiResponse<BloqueoHorarioResponseDto>> CrearBloqueoAsync(
+            BloqueoHorarioDto dto,
+            CancellationToken ct = default)
         {
-            var peluquero = await _context.Peluqueros.FindAsync(dto.PeluqueroId);
+            if (dto.FechaFin <= dto.FechaInicio)
+                return ApiResponse<BloqueoHorarioResponseDto>.Falla("La fecha y hora de fin debe ser posterior a la fecha y hora de inicio.");
+
+            var peluquero = await _uow.Peluqueros.GetByIdWithDetailsAsync(dto.PeluqueroId, false, ct);
             if (peluquero == null)
-                return ApiResponse<int>.Falla("El peluquero especificado no existe.");
+                return ApiResponse<BloqueoHorarioResponseDto>.Falla("El peluquero especificado no existe.");
 
-            var bloqueo = _mapper.Map<BloqueoHorario>(dto);
-            await _context.BloqueosHorario.AddAsync(bloqueo);
-            await _context.SaveChangesAsync();
+            var bloqueo = new BloqueoHorario
+            {
+                PeluqueroId = dto.PeluqueroId,
+                FechaInicio = dto.FechaInicio,
+                FechaFin = dto.FechaFin,
+                Motivo = dto.Motivo.Trim()
+            };
 
-            return ApiResponse<int>.Exito(bloqueo.Id, "Bloqueo horario registrado correctamente.");
+            await _uow.BloqueosHorarios.AddAsync(bloqueo, ct);
+            await _uow.SaveChangesAsync(ct);
+
+            bloqueo.Peluquero = peluquero;
+
+            // Regla Permisiva con Alerta (05_BUSINESS_RULES.md Sección 2.3):
+            var turnosSolapados = await _uow.Turnos.GetTurnosActivosEnRangoAsync(
+                dto.PeluqueroId,
+                dto.FechaInicio,
+                dto.FechaFin,
+                ct);
+
+            var turnosAfectados = turnosSolapados
+                .Where(t => t.EstadoId == (int)EstadoTurnoEnum.Pendiente
+                         || t.EstadoId == (int)EstadoTurnoEnum.Confirmado
+                         || t.EstadoId == (int)EstadoTurnoEnum.EnProceso)
+                .ToList();
+
+            List<string>? warnings = null;
+            string mensaje = "Bloqueo horario registrado correctamente.";
+
+            if (turnosAfectados.Count > 0)
+            {
+                warnings = turnosAfectados
+                    .Select(t =>
+                        $"Turno #{t.Id} solapado ({t.FechaHoraInicio:dd/MM/yyyy HH:mm} a {t.FechaHoraFin:HH:mm}) - Cliente: {(t.Cliente != null ? $"{t.Cliente.Nombre} {t.Cliente.Apellido}".Trim() : $"ID {t.ClienteId}")}.")
+                    .ToList();
+                mensaje = $"Bloqueo horario registrado. Atención: existen {turnosAfectados.Count} turno(s) activo(s) solapado(s) que requieren reprogramación.";
+            }
+
+            return ApiResponse<BloqueoHorarioResponseDto>.Ok(MapToDto(bloqueo), mensaje, warnings);
         }
 
-        public async Task<ApiResponse<bool>> EliminarBloqueoAsync(int id)
+        public async Task<ApiResponse<bool>> EliminarBloqueoAsync(int id, CancellationToken ct = default)
         {
-            var bloqueo = await _context.BloqueosHorario.FindAsync(id);
+            var bloqueo = await _uow.BloqueosHorarios.GetByIdAsync(id, ct);
             if (bloqueo == null)
                 return ApiResponse<bool>.Falla("El bloqueo horario especificado no existe.");
 
-            _context.BloqueosHorario.Remove(bloqueo);
-            await _context.SaveChangesAsync();
+            _uow.BloqueosHorarios.Delete(bloqueo);
+            await _uow.SaveChangesAsync(ct);
 
             return ApiResponse<bool>.Exito(true, "Bloqueo horario eliminado correctamente.");
         }
+
+        private static BloqueoHorarioResponseDto MapToDto(BloqueoHorario b) => new()
+        {
+            Id = b.Id,
+            PeluqueroId = b.PeluqueroId,
+            PeluqueroNombre = b.Peluquero != null ? $"{b.Peluquero.Nombre} {b.Peluquero.Apellido}".Trim() : string.Empty,
+            FechaInicio = b.FechaInicio,
+            FechaFin = b.FechaFin,
+            Motivo = b.Motivo
+        };
     }
 }

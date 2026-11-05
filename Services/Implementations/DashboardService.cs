@@ -1,88 +1,108 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using MiPeluqueria.Api.Data.Context;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Dashboard;
 using MiPeluqueria.Api.Models.Turnos;
 using MiPeluqueria.Api.Models.Ventas;
+using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Services.Implementations
 {
     public class DashboardService : IDashboardService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IConfiguracionSalonService _configuracionSalonService;
 
-        public DashboardService(ApplicationDbContext context)
+        public DashboardService(
+            IUnitOfWork unitOfWork,
+            IConfiguracionSalonService configuracionSalonService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
+            _configuracionSalonService = configuracionSalonService;
         }
 
-        public async Task<ApiResponse<DashboardKpiResponseDto>> ObtenerMetricasMesActualAsync()
+        public async Task<ApiResponse<DashboardKpiResponseDto>> ObtenerMetricasMesActualAsync(CancellationToken ct = default)
         {
-            return await ObtenerKpisAsync(null, null);
+            return await ObtenerKpisAsync(null, null, ct);
         }
 
-        public async Task<ApiResponse<DashboardKpiResponseDto>> ObtenerKpisAsync(DateTime? fechaDesde = null, DateTime? fechaHasta = null)
+        public async Task<ApiResponse<DashboardKpiResponseDto>> ObtenerKpisAsync(
+            DateTime? fechaDesde = null,
+            DateTime? fechaHasta = null,
+            CancellationToken ct = default)
         {
-            var ahora = DateTime.UtcNow;
-            var inicio = fechaDesde ?? new DateTime(ahora.Year, ahora.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            var fin = fechaHasta ?? inicio.AddMonths(1).AddTicks(-1);
-            var hoyInicio = ahora.Date;
+            var config = await _configuracionSalonService.ObtenerConfiguracionAsync(ct);
+            string timeZoneId = !string.IsNullOrWhiteSpace(config.TimeZoneId)
+                ? config.TimeZoneId
+                : "America/Argentina/Cordoba";
+
+            TimeZoneInfo tz;
+            try
+            {
+                tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+            }
+            catch
+            {
+                tz = TimeZoneInfo.CreateCustomTimeZone("AR", TimeSpan.FromHours(-3), "Argentina", "Argentina");
+            }
+
+            DateTime ahoraLocalSalon = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+
+            var inicio = fechaDesde ?? new DateTime(ahoraLocalSalon.Year, ahoraLocalSalon.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var fin = fechaHasta.HasValue
+                ? (fechaHasta.Value.TimeOfDay == TimeSpan.Zero ? fechaHasta.Value.Date.AddDays(1).AddTicks(-1) : fechaHasta.Value)
+                : inicio.AddMonths(1).AddTicks(-1);
+
+            var hoyInicio = ahoraLocalSalon.Date;
             var hoyFin = hoyInicio.AddDays(1).AddTicks(-1);
 
-            // 1. Facturación y Ventas del período
-            var ventasPeriodo = await _context.Ventas
-                .AsNoTracking()
-                .Where(v => v.Fecha >= inicio && v.Fecha <= fin)
-                .ToListAsync();
+            // 1. Facturación, Ventas y Desglose del Período
+            var ventasPeriodo = await _unitOfWork.Dashboard.GetVentasEnRangoAsync(inicio, fin, ct);
 
             decimal facturacion = ventasPeriodo.Sum(v => v.Total);
             int cantidadVentas = ventasPeriodo.Count;
             decimal ticketPromedio = cantidadVentas > 0 ? Math.Round(facturacion / cantidadVentas, 2) : 0m;
 
-            // 2. Métricas de Turnos y Tasa de Cancelación
-            int turnosCompletados = await _context.Turnos
-                .CountAsync(t => t.FechaHoraInicio >= inicio && t.FechaHoraInicio <= fin && t.EstadoId == (int)EstadoTurnoEnum.Completado);
+            // 2. Métricas de Turnos, Tasa de Cancelación y Turnos Pendientes Hoy (según TimeZoneInfo del salón)
+            var turnosPeriodo = await _unitOfWork.Dashboard.GetTurnosEnRangoAsync(inicio, fin, ct);
 
-            int turnosCancelados = await _context.Turnos
-                .CountAsync(t => t.FechaHoraInicio >= inicio && t.FechaHoraInicio <= fin && t.EstadoId == (int)EstadoTurnoEnum.Cancelado);
-
-            int totalTurnosPeriodo = await _context.Turnos
-                .CountAsync(t => t.FechaHoraInicio >= inicio && t.FechaHoraInicio <= fin);
+            int turnosCompletados = turnosPeriodo.Count(t => t.EstadoId == (int)EstadoTurnoEnum.Completado);
+            int turnosCancelados = turnosPeriodo.Count(t => t.EstadoId == (int)EstadoTurnoEnum.Cancelado);
+            int totalTurnosPeriodo = turnosPeriodo.Count;
 
             double tasaCancelacion = totalTurnosPeriodo > 0
                 ? Math.Round((double)turnosCancelados / totalTurnosPeriodo * 100.0, 2)
                 : 0.0;
 
-            int turnosHoy = await _context.Turnos
-                .CountAsync(t => t.FechaHoraInicio >= hoyInicio && t.FechaHoraInicio <= hoyFin
-                              && (t.EstadoId == (int)EstadoTurnoEnum.Pendiente || t.EstadoId == (int)EstadoTurnoEnum.Confirmado));
+            int turnosHoy = await _unitOfWork.Dashboard.CountTurnosPendientesEnRangoAsync(hoyInicio, hoyFin, ct);
 
-            // 3. Servicio más vendido en el período
+            // 3. Servicio más vendido y Ranking de Profesionales (precarga en lote O(1))
+            var detallesActivos = ventasPeriodo
+                .SelectMany(v => v.DetallesVenta)
+                .Where(d => !d.IsDeleted)
+                .ToList();
+
             string nombreServicioTop = "Sin datos";
-            var topServicioGroup = await _context.DetallesVenta
-                .Include(d => d.Venta)
-                .Where(d => d.Venta != null && d.Venta.Fecha >= inicio && d.Venta.Fecha <= fin && d.TipoItem == TipoItemVentaEnum.Servicio)
+            var topServicioGroup = detallesActivos
+                .Where(d => d.TipoItem == TipoItemVentaEnum.Servicio)
                 .GroupBy(d => d.ItemId)
                 .Select(g => new { ServicioId = g.Key, Cantidad = g.Sum(x => x.Cantidad) })
                 .OrderByDescending(x => x.Cantidad)
-                .FirstOrDefaultAsync();
+                .FirstOrDefault();
 
             if (topServicioGroup != null)
             {
-                var serv = await _context.Servicios.AsNoTracking().FirstOrDefaultAsync(s => s.Id == topServicioGroup.ServicioId);
+                var serv = await _unitOfWork.Servicios.GetByIdAsync(topServicioGroup.ServicioId, ct);
                 if (serv != null)
                     nombreServicioTop = $"{serv.Nombre} ({topServicioGroup.Cantidad})";
             }
 
-            // 4. Ranking de Peluqueros y Peluquero Estrella
-            var rankingRaw = await _context.DetallesVenta
-                .Include(d => d.Venta)
-                .Where(d => d.Venta != null && d.Venta.Fecha >= inicio && d.Venta.Fecha <= fin && d.PeluqueroId.HasValue)
+            var rankingRaw = detallesActivos
+                .Where(d => d.PeluqueroId.HasValue && d.PeluqueroId.Value > 0)
                 .GroupBy(d => d.PeluqueroId!.Value)
                 .Select(g => new
                 {
@@ -91,30 +111,32 @@ namespace MiPeluqueria.Api.Services.Implementations
                     TotalFacturado = g.Sum(x => x.Subtotal)
                 })
                 .OrderByDescending(x => x.TotalFacturado)
-                .ToListAsync();
+                .ToList();
 
-            var peluquerosDict = await _context.Peluqueros
-                .AsNoTracking()
-                .ToDictionaryAsync(p => p.Id, p => $"{p.Nombre} {p.Apellido}".Trim());
+            var peluqueroIds = rankingRaw.Select(r => r.PeluqueroId).Distinct().ToList();
+            var peluquerosDict = peluqueroIds.Count > 0
+                ? await _unitOfWork.Peluqueros.GetByIdsDictionaryAsync(peluqueroIds, tracking: false, ct)
+                : new Dictionary<int, Peluquero>();
 
             var rankingPeluqueros = rankingRaw.Select(r => new RankingPeluqueroDto
             {
                 PeluqueroId = r.PeluqueroId,
-                NombrePeluquero = peluquerosDict.TryGetValue(r.PeluqueroId, out var nom) ? nom : $"Peluquero #{r.PeluqueroId}",
+                NombrePeluquero = peluquerosDict.TryGetValue(r.PeluqueroId, out var p)
+                    ? $"{p.Nombre} {p.Apellido}".Trim()
+                    : $"Peluquero #{r.PeluqueroId}",
                 ServiciosRealizados = r.ServiciosRealizados,
                 TotalFacturado = r.TotalFacturado
             }).ToList();
 
-            string nombrePeluqueroTop = rankingPeluqueros.Any()
-                ? $"{rankingPeluqueros.First().NombrePeluquero} (${rankingPeluqueros.First().TotalFacturado:N2})"
+            string nombrePeluqueroTop = rankingPeluqueros.Count > 0
+                ? $"{rankingPeluqueros[0].NombrePeluquero} (${rankingPeluqueros[0].TotalFacturado:N2})"
                 : "Sin datos";
 
-            // 5. Desglose de Ingresos por Medio de Pago
-            var pagosRaw = await _context.Pagos
-                .Include(p => p.Venta)
-                .Include(p => p.MedioPago)
-                .Where(p => p.Venta != null && p.Venta.Fecha >= inicio && p.Venta.Fecha <= fin)
-                .GroupBy(p => p.MedioPago != null ? p.MedioPago.Nombre : "Otro")
+            // 4. Desglose de Ingresos por Medio de Pago
+            var pagosRaw = ventasPeriodo
+                .SelectMany(v => v.Pagos)
+                .Where(p => !p.IsDeleted)
+                .GroupBy(p => p.MedioPago != null && !string.IsNullOrWhiteSpace(p.MedioPago.Nombre) ? p.MedioPago.Nombre : "Otro")
                 .Select(g => new IngresoPorMedioPagoDto
                 {
                     MedioPago = g.Key,
@@ -122,11 +144,11 @@ namespace MiPeluqueria.Api.Services.Implementations
                     CantidadOperaciones = g.Count()
                 })
                 .OrderByDescending(x => x.TotalRecaudado)
-                .ToListAsync();
+                .ToList();
 
-            // 6. Cantidad de productos en alerta de stock mínimo
-            int stockCriticoCount = await _context.Productos
-                .CountAsync(p => p.StockActual <= p.StockMinimoAlerta);
+            // 5. Clientes Nuevos del Período y Productos en Stock Crítico
+            int clientesNuevos = await _unitOfWork.Dashboard.CountNuevosClientesEnRangoAsync(inicio, fin, ct);
+            int stockCriticoCount = await _unitOfWork.Dashboard.CountProductosStockCriticoAsync(ct);
 
             var kpi = new DashboardKpiResponseDto
             {
@@ -139,6 +161,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 TurnosPendientesHoy = turnosHoy,
                 TasaCancelacionPorcentaje = tasaCancelacion,
                 TicketPromedio = ticketPromedio,
+                ClientesNuevosPeriodo = clientesNuevos,
                 ServicioMasVendido = nombreServicioTop,
                 PeluqueroEstrella = nombrePeluqueroTop,
                 ProductosEnStockCritico = stockCriticoCount,

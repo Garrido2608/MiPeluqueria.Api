@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Stock
 {
-    public class HistorialPrecioProducto : AuditableEntity
+    public class HistorialPrecioProducto : AuditableTenantEntity
     {
         [Required]
         public int ProductoId { get; set; }

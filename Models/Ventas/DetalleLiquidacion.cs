@@ -1,9 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Ventas
 {
-    public class DetalleLiquidacion : AuditableEntity
+    public class DetalleLiquidacion : AuditableTenantEntity
     {
         [Required]
         public int LiquidacionId { get; set; }

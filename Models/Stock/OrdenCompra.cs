@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Stock
 {
-    public class OrdenCompra : AuditableEntity
+    public class OrdenCompra : AuditableTenantEntity
     {
         [Required]
         public int ProveedorId { get; set; }
@@ -27,11 +27,14 @@ namespace MiPeluqueria.Api.Models.Stock
         public int UsuarioCreacionId { get; set; }
         public int? UsuarioRecepcionId { get; set; }
 
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         public Proveedor? Proveedor { get; set; }
         public ICollection<DetalleOrdenCompra> Detalles { get; set; } = new List<DetalleOrdenCompra>();
     }
 
-    public class DetalleOrdenCompra : AuditableEntity
+    public class DetalleOrdenCompra : AuditableTenantEntity
     {
         [Required]
         public int OrdenCompraId { get; set; }

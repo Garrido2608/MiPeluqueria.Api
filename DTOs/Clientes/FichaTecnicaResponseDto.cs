@@ -1,4 +1,4 @@
-﻿namespace MiPeluqueria.Api.DTOs.Clientes
+namespace MiPeluqueria.Api.DTOs.Clientes
 {
     public class FichaTecnicaResponseDto
     {
@@ -11,6 +11,7 @@
         public DateTime FechaRegistro { get; set; }
         public string FormulaAplicada { get; set; } = string.Empty;
         public string? Observaciones { get; set; }
+        public string? NotasSensibilidadAlergias { get; set; }
         public string? ProductosUtilizados { get; set; }
         public string? FotoResultadoUrl { get; set; }
     }

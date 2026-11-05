@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Seguridad
 {
-    public class RefreshToken : AuditableEntity
+    public class RefreshToken : AuditableTenantEntity
     {
         [Required]
         public int UsuarioId { get; set; }

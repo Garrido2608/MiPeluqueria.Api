@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
@@ -12,7 +12,10 @@ namespace MiPeluqueria.Api.DTOs.Ventas
         public int? TurnoId { get; set; }
         public int UsuarioId { get; set; }
         public DateTime Fecha { get; set; }
+        public decimal Subtotal { get; set; }
+        public decimal DescuentoSenaAplicado { get; set; }
         public decimal Total { get; set; }
+        public string? IdempotencyKey { get; set; }
         public List<VentaDetalleItemResponseDto> Detalles { get; set; } = new();
         public List<VentaPagoItemResponseDto> Pagos { get; set; } = new();
     }
@@ -36,5 +39,6 @@ namespace MiPeluqueria.Api.DTOs.Ventas
         public int MedioPagoId { get; set; }
         public string MedioPagoNombre { get; set; } = string.Empty;
         public decimal Importe { get; set; }
+        public string? ReferenciaOperacion { get; set; }
     }
 }

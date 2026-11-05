@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Turnos
 {
-    public class HistorialPrecioServicio : AuditableEntity
+    public class HistorialPrecioServicio : AuditableTenantEntity
     {
         [Required]
         public int ServicioId { get; set; }

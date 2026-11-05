@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Clientes;
@@ -8,15 +8,21 @@ using MiPeluqueria.Api.Models.Turnos;
 
 namespace MiPeluqueria.Api.Models.Ventas
 {
-    public class Venta : AuditableEntity
+    public class Venta : AuditableTenantEntity
     {
         [Required]
         public int SesionCajaId { get; set; }
         public int? ClienteId { get; set; }
         public int? TurnoId { get; set; } // Opcional: nulo si solo compró producto al paso
         public DateTime Fecha { get; set; } = DateTime.UtcNow;
+        public decimal Subtotal { get; set; }
+        public decimal DescuentoSenaAplicado { get; set; }
         public decimal Total { get; set; }
         public int UsuarioId { get; set; }
+        [StringLength(64)]
+        public string? IdempotencyKey { get; set; }
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
         public SesionCaja? SesionCaja { get; set; }
         public Cliente? Cliente { get; set; }
         public Turno? Turno { get; set; }

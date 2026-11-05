@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Clientes;
 using MiPeluqueria.Api.Models.Common;
@@ -8,10 +8,10 @@ using MiPeluqueria.Api.Models.Turnos;
 
 namespace MiPeluqueria.Api.Models.Seguridad
 {
-    public class Usuario : AuditableEntity
+    public class Usuario : AuditableTenantEntity
     {
         [Required]
-        public int RolId { get; set; }
+        public int RolId { get; set; } = 4;
 
         [Required]
         [StringLength(100)]
@@ -44,6 +44,9 @@ namespace MiPeluqueria.Api.Models.Seguridad
         public int? ClienteId { get; set; } // Vinculado si es cuenta de cliente
 
         public bool Activo { get; set; } = true;
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public Rol? Rol { get; set; }
         public Peluquero? Peluquero { get; set; }

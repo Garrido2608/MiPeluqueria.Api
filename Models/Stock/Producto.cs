@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using MiPeluqueria.Api.Models.Common;
 
 namespace MiPeluqueria.Api.Models.Stock
 {
-    public class Producto : AuditableEntity
+    public class Producto : AuditableTenantEntity
     {
         [Required]
         public int CategoriaId { get; set; }
@@ -24,6 +24,9 @@ namespace MiPeluqueria.Api.Models.Stock
         public int StockMinimoAlerta { get; set; } = 5;
 
         public bool EsParaVenta { get; set; } = true; // true = Reventa mostrador, false = Insumo de uso interno (tinturas, oxidantes)
+
+        [Timestamp]
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
         public CategoriaProducto? Categoria { get; set; }
         public Proveedor? Proveedor { get; set; }

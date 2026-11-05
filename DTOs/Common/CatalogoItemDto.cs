@@ -1,4 +1,4 @@
-﻿namespace MiPeluqueria.Api.DTOs.Common
+namespace MiPeluqueria.Api.DTOs.Common
 {
     public class CatalogoItemDto
     {
@@ -6,12 +6,21 @@
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
         public string? ExtraInfo { get; set; }
+        public bool? EsEfectivoFisico { get; set; }
     }
 
     public class CrearCatalogoItemDto
     {
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
+        public bool? EsEfectivoFisico { get; set; }
+    }
+
+    public class ActualizarCatalogoItemDto
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string? Descripcion { get; set; }
+        public bool? EsEfectivoFisico { get; set; }
     }
 
     public class CatalogosMaestrosResponseDto

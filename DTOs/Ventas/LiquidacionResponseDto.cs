@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace MiPeluqueria.Api.DTOs.Ventas
@@ -8,15 +8,19 @@ namespace MiPeluqueria.Api.DTOs.Ventas
         public int Id { get; set; }
         public int PeluqueroId { get; set; }
         public string PeluqueroNombre { get; set; } = string.Empty;
+        public DateTime FechaEmision { get; set; }
         public DateTime FechaDesde { get; set; }
         public DateTime FechaHasta { get; set; }
         public DateTime? FechaVencimiento { get; set; }
         public DateTime? FechaPago { get; set; }
         public decimal TotalServicios { get; set; }
         public decimal TotalProductos { get; set; }
+        public decimal Bonificaciones { get; set; }
+        public decimal Descuentos { get; set; }
         public decimal TotalPagar { get; set; }
         public int CantidadItemsLiquidados { get; set; }
         public string Estado { get; set; } = string.Empty;
+        public string? Observaciones { get; set; }
         public List<DetalleLiquidacionItemDto> Detalles { get; set; } = new();
     }
 
@@ -27,6 +31,7 @@ namespace MiPeluqueria.Api.DTOs.Ventas
         public int? TurnoId { get; set; }
         public string TipoItem { get; set; } = string.Empty;
         public int ItemId { get; set; }
+        public string ConceptoNombre { get; set; } = string.Empty;
         public decimal SubtotalVenta { get; set; }
         public decimal MontoComisionCalculado { get; set; }
         public DateTime? FechaVenta { get; set; }

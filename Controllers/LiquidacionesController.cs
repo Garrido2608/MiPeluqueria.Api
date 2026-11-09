@@ -1,14 +1,21 @@
-﻿using System;
+using System;
+using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Ventas;
+using MiPeluqueria.Api.Models.Ventas;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/liquidaciones")]
+    [Produces("application/json")]
+    [Authorize(Roles = "Administrador,SuperAdminSaaS")]
     public class LiquidacionesController : ControllerBase
     {
         private readonly ILiquidacionService _liquidacionService;
@@ -18,44 +25,75 @@ namespace MiPeluqueria.Api.Controllers
             _liquidacionService = liquidacionService;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int? peluqueroId = null, [FromQuery] DateTime? desde = null, [FromQuery] DateTime? hasta = null)
+        private int GetCurrentUserId()
         {
-            var res = await _liquidacionService.ObtenerTodasAsync(peluqueroId, desde, hasta);
+            var claim = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(claim, out int userId) ? userId : 1;
+        }
+
+        [HttpGet]
+        [ProducesResponseType(typeof(ApiResponse<PagedResult<LiquidacionResponseDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] PaginationFilterDto filter,
+            [FromQuery] int? peluqueroId = null,
+            [FromQuery] EstadoLiquidacionEnum? estado = null,
+            [FromQuery] DateTime? desde = null,
+            [FromQuery] DateTime? hasta = null,
+            CancellationToken ct = default)
+        {
+            if (desde.HasValue && !filter.FechaDesde.HasValue)
+                filter.FechaDesde = desde;
+
+            if (hasta.HasValue && !filter.FechaHasta.HasValue)
+                filter.FechaHasta = hasta;
+
+            var res = await _liquidacionService.ObtenerTodasAsync(filter, peluqueroId, estado, ct);
             return Ok(res);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        [HttpGet("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetById(int id, CancellationToken ct = default)
         {
-            var res = await _liquidacionService.ObtenerPorIdAsync(id);
+            var res = await _liquidacionService.ObtenerPorIdAsync(id, ct);
             return res.Success ? Ok(res) : NotFound(res);
         }
 
-        [HttpGet("peluquero/{peluqueroId}")]
-        public async Task<IActionResult> GetPorPeluquero(int peluqueroId)
-        {
-            var res = await _liquidacionService.ObtenerPorPeluqueroAsync(peluqueroId);
-            return Ok(res);
-        }
-
         [HttpPost("generar")]
-        [Authorize]
-        public async Task<IActionResult> Generar([FromBody] GenerarLiquidacionDto dto)
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Generar([FromBody] GenerarLiquidacionDto dto, CancellationToken ct = default)
         {
-            var res = await _liquidacionService.LiquidarPeriodoAsync(dto);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _liquidacionService.LiquidarPeriodoAsync(dto, GetCurrentUserId(), ct);
+            if (!res.Success)
+                return BadRequest(res);
+
+            return StatusCode(StatusCodes.Status201Created, res);
         }
 
-        [HttpPatch("{id}/pagar")]
-        [HttpPost("{id}/pagar")]
-        [Authorize]
-        public async Task<IActionResult> Pagar(int id, [FromQuery] int? sesionCajaId = null)
+        [HttpPost("{id:int}/pagar")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Pagar(
+            int id,
+            [FromQuery] int? sesionCajaId = null,
+            CancellationToken ct = default)
         {
-            var res = await _liquidacionService.RegistrarPagoLiquidacionAsync(id, sesionCajaId);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _liquidacionService.RegistrarPagoLiquidacionAsync(id, sesionCajaId, GetCurrentUserId(), ct);
+            return res.Success ? Ok(res) : BadRequest(res);
+        }
+
+        [HttpPost("{id:int}/anular")]
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<LiquidacionResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Anular(
+            int id,
+            [FromQuery] string motivo = "Anulación de liquidación",
+            CancellationToken ct = default)
+        {
+            var res = await _liquidacionService.AnularLiquidacionAsync(id, motivo, GetCurrentUserId(), ct);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
     }
 }

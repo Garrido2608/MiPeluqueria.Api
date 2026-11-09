@@ -1,12 +1,18 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Ventas;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/comisiones")]
+    [Produces("application/json")]
     [Authorize]
     public class ComisionesController : ControllerBase
     {
@@ -18,41 +24,46 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ComisionConfigDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAll([FromQuery] int? peluqueroId = null, CancellationToken ct = default)
         {
-            var result = await _comisionService.ObtenerTodasAsync();
-            return Ok(result);
-        }
-
-        [HttpGet("peluquero/{peluqueroId}")]
-        public async Task<IActionResult> GetByPeluquero(int peluqueroId)
-        {
-            var result = await _comisionService.ObtenerPorPeluqueroAsync(peluqueroId);
-            return result.Success ? Ok(result) : NotFound(result);
+            var res = peluqueroId.HasValue
+                ? await _comisionService.ObtenerPorPeluqueroAsync(peluqueroId.Value, ct)
+                : await _comisionService.ObtenerTodasAsync(ct);
+            return Ok(res);
         }
 
         [HttpPost]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> SaveConfig([FromBody] GuardarComisionConfigDto dto)
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        [ProducesResponseType(typeof(ApiResponse<ComisionConfigDto>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<ComisionConfigDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Crear([FromBody] GuardarComisionConfigDto dto, CancellationToken ct = default)
         {
-            var result = await _comisionService.GuardarConfiguracionAsync(dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var res = await _comisionService.GuardarConfiguracionAsync(dto, ct);
+            if (!res.Success)
+                return BadRequest(res);
+
+            return StatusCode(StatusCodes.Status201Created, res);
         }
 
-        [HttpPut("{id}")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> UpdateConfig(int id, [FromBody] GuardarComisionConfigDto dto)
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        [ProducesResponseType(typeof(ApiResponse<ComisionConfigDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<ComisionConfigDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Actualizar(int id, [FromBody] GuardarComisionConfigDto dto, CancellationToken ct = default)
         {
-            var result = await _comisionService.ActualizarConfiguracionAsync(id, dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var res = await _comisionService.ActualizarConfiguracionAsync(id, dto, ct);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Administrador")]
-        public async Task<IActionResult> DeleteConfig(int id)
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Administrador,SuperAdminSaaS")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Eliminar(int id, CancellationToken ct = default)
         {
-            var result = await _comisionService.EliminarConfiguracionAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            var res = await _comisionService.EliminarConfiguracionAsync(id, ct);
+            return res.Success ? Ok(res) : NotFound(res);
         }
     }
 }

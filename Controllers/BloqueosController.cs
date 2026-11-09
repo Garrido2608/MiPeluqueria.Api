@@ -1,13 +1,19 @@
-﻿using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/bloqueos")]
+    [Produces("application/json")]
+    [Authorize(Roles = "Administrador,Recepcionista,Cajero,Peluquero,SuperAdminSaaS")]
     public class BloqueosController : ControllerBase
     {
         private readonly IBloqueoHorarioService _bloqueoService;
@@ -17,26 +23,32 @@ namespace MiPeluqueria.Api.Controllers
             _bloqueoService = bloqueoService;
         }
 
-        [HttpGet("peluquero/{peluqueroId}")]
-        public async Task<IActionResult> GetPorPeluquero(int peluqueroId)
+        [HttpGet("peluquero/{peluqueroId:int}")]
+        [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<BloqueoHorarioResponseDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetPorPeluquero(int peluqueroId, CancellationToken ct = default)
         {
-            var res = await _bloqueoService.ObtenerPorPeluqueroAsync(peluqueroId);
+            var res = await _bloqueoService.ObtenerPorPeluqueroAsync(peluqueroId, ct);
             return Ok(res);
         }
 
         [HttpPost]
-        [Authorize]
-        public async Task<IActionResult> Crear([FromBody] BloqueoHorarioDto dto)
+        [ProducesResponseType(typeof(ApiResponse<BloqueoHorarioResponseDto>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<BloqueoHorarioResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Crear([FromBody] BloqueoHorarioDto dto, CancellationToken ct = default)
         {
-            var res = await _bloqueoService.CrearBloqueoAsync(dto);
-            return res.Success ? Ok(res) : BadRequest(res);
+            var res = await _bloqueoService.CrearBloqueoAsync(dto, ct);
+            if (!res.Success)
+                return BadRequest(res);
+
+            return StatusCode(StatusCodes.Status201Created, res);
         }
 
-        [HttpDelete("{id}")]
-        [Authorize]
-        public async Task<IActionResult> Eliminar(int id)
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Eliminar(int id, CancellationToken ct = default)
         {
-            var res = await _bloqueoService.EliminarBloqueoAsync(id);
+            var res = await _bloqueoService.EliminarBloqueoAsync(id, ct);
             return res.Success ? Ok(res) : NotFound(res);
         }
     }

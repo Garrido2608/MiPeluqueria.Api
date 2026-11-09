@@ -1,6 +1,332 @@
-@MiPeluqueria.Api_HostAddress = http://localhost:5211
+@baseUrl = http://localhost:5150/api
+@tenantId = 1
+@sucursalId = 1
 
-GET {{MiPeluqueria.Api_HostAddress}}/weatherforecast/
+# ==============================================================================
+# 0. HEALTHCHECK & PING DE INFRAESTRUCTURA
+# ==============================================================================
+GET http://localhost:5150/api/ping
 Accept: application/json
 
 ###
+
+# ==============================================================================
+# 1. LOGIN ADMINISTRADOR (CAPTURA AUTOMÁTICA DE TOKEN JWT Y REFRESH TOKEN)
+# ==============================================================================
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "usernameOrEmail": "admin@tesis.com",
+  "password": "Admin123!"
+}
+
+###
+@jwt = {{loginAdmin.response.body.data.token}}
+@refreshToken = {{loginAdmin.response.body.data.refreshToken}}
+
+# ==============================================================================
+# 1.B REFRESH TOKEN (ROTACIÓN DE SESIÓN JWT)
+# ==============================================================================
+POST {{baseUrl}}/auth/refresh-token
+Content-Type: application/json
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "token": "{{jwt}}",
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+
+# ==============================================================================
+# 2. CATÁLOGOS MAESTROS Y CONFIGURACIÓN DEL SALÓN
+# ==============================================================================
+GET {{baseUrl}}/catalogos/todos
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+###
+
+GET {{baseUrl}}/configuracion
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+###
+
+# ==============================================================================
+# 3. ALTA DE PROVEEDOR E INSUMO DE GABINETE (TINTURA) + STOCK INICIAL
+# ==============================================================================
+# @name crearProveedor
+POST {{baseUrl}}/proveedores
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "razonSocial": "L'Oréal Professionnel Argentina S.A.",
+  "cuit": "30-50001234-9",
+  "nombreContacto": "Carlos Gómez",
+  "telefono": "1140005000",
+  "email": "pedidos@loreal.com.ar",
+  "direccion": "Av. Libertador 1000, CABA"
+}
+
+###
+@proveedorId = {{crearProveedor.response.body.data.id}}
+
+# @name crearInsumo
+POST {{baseUrl}}/productos
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "nombre": "Tintura Majirel N° 7.1 (Pomo 60g)",
+  "descripcion": "Insumo de gabinete fraccionable por gramos",
+  "codigoBarra": "7790001112223",
+  "precioCosto": 4000.00,
+  "precioVenta": 8000.00,
+  "stockInicial": 100,
+  "stockMinimo": 20,
+  "categoriaId": 1,
+  "proveedorId": {{proveedorId}}
+}
+
+###
+@insumoId = {{crearInsumo.response.body.data.id}}
+
+# ==============================================================================
+# 4. CONFIGURAR RECETA TÉCNICA (SERVICIO 3 Consume 2 Unidades de Insumo)
+# ==============================================================================
+PUT {{baseUrl}}/recetas-servicio/3
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "servicioId": 3,
+  "insumos": [
+    {
+      "productoId": {{insumoId}},
+      "cantidadUnidadesDescontar": 2,
+      "cantidadMedidaEstandar": 2,
+      "unidadMedida": "Unidades / Porciones",
+      "descuentoAutomaticoAlCompletarTurno": true
+    }
+  ]
+}
+
+###
+
+# ==============================================================================
+# 5. CREAR REGLA DE COMISIÓN (40% GENERAL PARA PELUQUERO 1)
+# ==============================================================================
+POST {{baseUrl}}/comisiones
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "peluqueroId": 1,
+  "servicioId": null,
+  "porcentajeComision": 40.00,
+  "montoFijo": null
+}
+
+###
+
+# ==============================================================================
+# 6. PORTAL WEB PÚBLICO: RESERVAR TURNO CON SEÑA (TEST 06)
+# ==============================================================================
+# @name reservaWeb
+POST {{baseUrl}}/public/reservar
+Content-Type: application/json
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "nombreCliente": "Sofía",
+  "apellidoCliente": "Martínez",
+  "telefonoCliente": "3516007000",
+  "emailCliente": "sofia.martinez@cliente.com",
+  "peluqueroId": 1,
+  "fechaHoraInicio": "2026-11-18T14:00:00Z",
+  "serviciosIds": [1, 3],
+  "observaciones": "Reserva desde portal público"
+}
+
+###
+@turnoId = {{reservaWeb.response.body.data.turnoId}}
+
+# ==============================================================================
+# 7. WEBHOOK DE PASARELA: CONFIRMAR PAGO DE SEÑA DEL TURNO
+# ==============================================================================
+POST {{baseUrl}}/webhooks/pagos/mercadopago
+Content-Type: application/json
+x-signature: firma_hmac_calculada_en_produccion
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "action": "payment.updated",
+  "paymentId": "MP-PAY-99887766",
+  "externalReference": "TURNO-{{turnoId}}",
+  "status": "approved",
+  "transactionAmount": 11100.00
+}
+
+###
+
+# ==============================================================================
+# 8. CICLO DE VIDA DEL TURNO -> COMPLETADO (DISPARA DESCUENTO KARDEX TEST 04)
+# ==============================================================================
+PATCH {{baseUrl}}/turnos/{{turnoId}}/estado
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "nuevoEstadoId": 4,
+  "motivoCancelacionId": null
+}
+
+###
+
+# ==============================================================================
+# 9. APERTURA DE CAJA DIARIA ($10.000 INICIALES)
+# ==============================================================================
+# @name abrirCaja
+POST {{baseUrl}}/caja/abrir
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "montoInicial": 10000.00
+}
+
+###
+@sesionCajaId = {{abrirCaja.response.body.data.id}}
+
+# ==============================================================================
+# 10. POS: COBRAR TURNO EN CAJA CON SPLIT TENDER E IDEMPOTENCY KEY (TEST 03)
+# ==============================================================================
+# @name registrarVenta
+POST {{baseUrl}}/ventas
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+X-Idempotency-Key: pos-checkout-turno-{{turnoId}}-v1
+
+{
+  "sesionCajaId": {{sesionCajaId}},
+  "clienteId": 1,
+  "turnoId": {{turnoId}},
+  "idempotencyKey": "pos-checkout-turno-{{turnoId}}-v1",
+  "detalles": [
+    {
+      "tipoItem": 1,
+      "itemId": 1,
+      "peluqueroId": 1,
+      "cantidad": 1
+    },
+    {
+      "tipoItem": 1,
+      "itemId": 3,
+      "peluqueroId": 1,
+      "cantidad": 1
+    }
+  ],
+  "pagos": [
+    {
+      "medioPagoId": 1,
+      "importe": 15900.00,
+      "referenciaOperacion": null
+    },
+    {
+      "medioPagoId": 3,
+      "importe": 10000.00,
+      "referenciaOperacion": "MP-QR-554433"
+    }
+  ]
+}
+
+###
+@ventaId = {{registrarVenta.response.body.data.id}}
+
+# ==============================================================================
+# 11. GENERAR Y PAGAR LIQUIDACIÓN DE COMISIONES (TEST 05 - INTEGRACIÓN CON CAJA)
+# ==============================================================================
+# @name generarLiq
+POST {{baseUrl}}/liquidaciones/generar
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "peluqueroId": 1,
+  "fechaDesde": "2026-11-01T00:00:00Z",
+  "fechaHasta": "2026-11-30T23:59:59Z",
+  "bonificaciones": 0,
+  "descuentos": 0,
+  "observaciones": "Liquidación mensual de prueba BDD"
+}
+
+###
+@liquidacionId = {{generarLiq.response.body.data.id}}
+
+POST {{baseUrl}}/liquidaciones/{{liquidacionId}}/pagar?sesionCajaId={{sesionCajaId}}
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+###
+
+# ==============================================================================
+# 12. INTENTO DE ANULAR VENTA YA LIQUIDADA (DEBE RETORNAR 400 BAD REQUEST)
+# ==============================================================================
+POST {{baseUrl}}/ventas/{{ventaId}}/anular?motivo=IntentoDeFraudePostLiquidacion
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+###
+
+# ==============================================================================
+# 13. ARQUEO Y CIERRE DE CAJA AUDITADO
+# ==============================================================================
+POST {{baseUrl}}/caja/cerrar
+Content-Type: application/json
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}
+
+{
+  "montoFinalReal": 11100.00,
+  "observacionesCierre": "Cierre exacto verificado con efectivo inicial + cobro cash - pago comisión"
+}
+
+###
+
+# ==============================================================================
+# 14. DASHBOARD GERENCIAL: CONSULTA DE KPIS FINANCIEROS Y OPERATIVOS
+# ==============================================================================
+GET {{baseUrl}}/dashboard/kpis?fechaDesde=2026-11-01&fechaHasta=2026-11-30
+Authorization: Bearer {{jwt}}
+X-Tenant-Id: {{tenantId}}
+X-Sucursal-Id: {{sucursalId}}

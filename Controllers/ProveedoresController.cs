@@ -1,13 +1,18 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Stock;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    [Authorize]
+    [Route("api/proveedores")]
+    [Produces("application/json")]
+    [Authorize(Roles = "Administrador,Recepcionista,Cajero,SuperAdminSaaS")]
     public class ProveedoresController : ControllerBase
     {
         private readonly IProveedorService _proveedorService;
@@ -18,39 +23,50 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [ProducesResponseType(typeof(ApiResponse<PagedResult<ProveedorDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAll([FromQuery] PaginationFilterDto filter, CancellationToken ct = default)
         {
-            var result = await _proveedorService.GetAllAsync();
-            return Ok(result);
+            var res = await _proveedorService.GetPagedAsync(filter, ct);
+            return Ok(res);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
+        [HttpGet("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetById(int id, CancellationToken ct = default)
         {
-            var result = await _proveedorService.GetByIdAsync(id);
-            return result.Success ? Ok(result) : NotFound(result);
+            var res = await _proveedorService.GetByIdAsync(id, ct);
+            return res.Success ? Ok(res) : NotFound(res);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CrearProveedorDto dto)
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Create([FromBody] CrearProveedorDto dto, CancellationToken ct = default)
         {
-            var result = await _proveedorService.CreateAsync(dto);
-            if (!result.Success) return BadRequest(result);
-            return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result);
+            var res = await _proveedorService.CreateAsync(dto, ct);
+            if (!res.Success)
+                return BadRequest(res);
+
+            return CreatedAtAction(nameof(GetById), new { id = res.Data!.Id }, res);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] CrearProveedorDto dto)
+        [HttpPut("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<ProveedorDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Update(int id, [FromBody] ActualizarProveedorDto dto, CancellationToken ct = default)
         {
-            var result = await _proveedorService.UpdateAsync(id, dto);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var res = await _proveedorService.UpdateAsync(id, dto, ct);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> Delete(int id, CancellationToken ct = default)
         {
-            var result = await _proveedorService.DeleteAsync(id);
-            return result.Success ? Ok(result) : BadRequest(result);
+            var res = await _proveedorService.DeleteAsync(id, ct);
+            return res.Success ? Ok(res) : NotFound(res);
         }
     }
 }

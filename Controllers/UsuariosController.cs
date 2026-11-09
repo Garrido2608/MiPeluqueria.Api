@@ -1,54 +1,92 @@
-﻿using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Seguridad;
 using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Route("api/usuarios")]
+    [Produces("application/json")]
+    [Authorize(Roles = "Administrador,SuperAdminSaaS")]
     public class UsuariosController : ControllerBase
     {
-        private readonly IAuthService _authService;
+        private readonly IUsuarioService _usuarioService;
 
-        public UsuariosController(IAuthService authService)
+        public UsuariosController(IUsuarioService usuarioService)
         {
-            _authService = authService;
+            _usuarioService = usuarioService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<UsuarioResponseDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAll(CancellationToken ct = default)
         {
-            var res = await _authService.ObtenerUsuariosAsync();
+            var res = await _usuarioService.ObtenerTodosAsync(ct);
             return Ok(res);
         }
 
-        [HttpPut("{id}/estado")]
-        public async Task<IActionResult> ActualizarEstado(int id, [FromBody] ActualizarEstadoUsuarioDto dto)
+        [HttpGet("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetById(int id, CancellationToken ct = default)
         {
-            var res = await _authService.ActualizarEstadoUsuarioAsync(id, dto);
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _usuarioService.ObtenerPorIdAsync(id, ct);
+            return res.Success ? Ok(res) : NotFound(res);
         }
 
-        [HttpPost("{id}/desbloquear")]
-        public async Task<IActionResult> Desbloquear(int id)
+        [HttpPost]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CrearStaff([FromBody] CrearUsuarioStaffDto dto, CancellationToken ct = default)
         {
-            var res = await _authService.ActualizarEstadoUsuarioAsync(id, new ActualizarEstadoUsuarioDto
-            {
-                DesbloquearCuenta = true,
-                Activo = true
-            });
-            if (!res.Success) return BadRequest(res);
-            return Ok(res);
+            var res = await _usuarioService.CrearUsuarioStaffAsync(dto, ct);
+            if (!res.Success)
+                return BadRequest(res);
+
+            return CreatedAtAction(nameof(GetById), new { id = res.Data!.Id }, res);
+        }
+
+        [HttpPut("{id:int}/estado")]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CambiarEstado(int id, [FromBody] ActualizarEstadoUsuarioDto dto, CancellationToken ct = default)
+        {
+            var res = await _usuarioService.ActualizarEstadoAsync(id, dto, ct);
+            return res.Success ? Ok(res) : BadRequest(res);
+        }
+
+        [HttpPatch("{id:int}/rol")]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> CambiarRol(int id, [FromBody] CambiarRolUsuarioDto dto, CancellationToken ct = default)
+        {
+            var res = await _usuarioService.CambiarRolAsync(id, dto.RolId, ct);
+            return res.Success ? Ok(res) : BadRequest(res);
+        }
+
+        [HttpPost("{id:int}/desbloquear")]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UsuarioResponseDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> Desbloquear(int id, CancellationToken ct = default)
+        {
+            var res = await _usuarioService.DesbloquearUsuarioAsync(id, ct);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
         [HttpGet("historial-sesiones")]
-        public async Task<IActionResult> GetHistorialSesiones([FromQuery] int? usuarioId = null, [FromQuery] int top = 100)
+        [ProducesResponseType(typeof(ApiResponse<PagedResult<HistorialSesionResponseDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetHistorialSesiones(
+            [FromQuery] PaginationFilterDto filter,
+            [FromQuery] int? usuarioId = null,
+            CancellationToken ct = default)
         {
-            var res = await _authService.ObtenerHistorialSesionesAsync(usuarioId, top);
+            var res = await _usuarioService.ObtenerHistorialSesionesAsync(filter, usuarioId, ct);
             return Ok(res);
         }
     }

@@ -1,80 +1,44 @@
-﻿// filepath: Controllers/ConfiguracionSalonController.cs
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using MiPeluqueria.Api.DTOs.Common;
+using MiPeluqueria.Api.Services.Interfaces;
 
 namespace MiPeluqueria.Api.Controllers
 {
-    public class ConfiguracionSalonDto
-    {
-        public int Id { get; set; } = 1;
-        public string NombreComercial { get; set; } = "Mi Peluquería & Barbería SaaS";
-        public string NombreSalon { get; set; } = "Mi Peluquería & Barbería SaaS";
-        public string RazonSocial { get; set; } = "Estudio Capilar S.R.L.";
-        public string Cuit { get; set; } = "30-71548963-9";
-        public string Direccion { get; set; } = "Av. Colón 1250, Córdoba, Argentina";
-        public string Telefono { get; set; } = "+54 9 351 555-0199";
-        public string EmailContacto { get; set; } = "contacto@mipeluqueria.com.ar";
-        public string Moneda { get; set; } = "ARS";
-        public string MonedaIso { get; set; } = "ARS";
-        public string TimeZoneId { get; set; } = "America/Argentina/Cordoba";
-        public int IntervaloTurnosMinutos { get; set; } = 30;
-        public int MinutosToleranciaEspera { get; set; } = 15;
-        public int HorasAnticipacionCancelacion { get; set; } = 24;
-        public decimal PorcentajeSenaReserva { get; set; } = 0m;
-        public bool NotificacionesWhatsAppActivas { get; set; } = true;
-        public bool NotificacionesEmailActivas { get; set; } = true;
-        public string HorarioAtencionTexto { get; set; } = "Lunes a Sábados de 09:00 a 20:00 hs";
-    }
-
-    [Route("api/configuracion-salon")]
     [ApiController]
+    [Route("api/configuracion")]
+    [Produces("application/json")]
     public class ConfiguracionSalonController : ControllerBase
     {
-        private static ConfiguracionSalonDto _configActual = new();
+        private readonly IConfiguracionSalonService _configuracionService;
 
-        public ConfiguracionSalonController(IConfiguration configuration)
+        public ConfiguracionSalonController(IConfiguracionSalonService configuracionService)
         {
-            var nombre = configuration["SalonConfig:NombreComercial"];
-            if (!string.IsNullOrWhiteSpace(nombre))
-            {
-                _configActual.NombreComercial = nombre;
-                _configActual.NombreSalon = nombre;
-            }
+            _configuracionService = configuracionService;
         }
 
         [HttpGet]
         [AllowAnonymous]
-        public IActionResult ObtenerConfiguracion()
+        [ProducesResponseType(typeof(ApiResponse<ConfiguracionSalonDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetConfiguracion(CancellationToken ct = default)
         {
-            return Ok(ApiResponse<ConfiguracionSalonDto>.Exito(
-                _configActual,
-                "Configuración comercial del salón obtenida."
-            ));
+            var config = await _configuracionService.ObtenerConfiguracionAsync(ct);
+            return Ok(ApiResponse<ConfiguracionSalonDto>.Ok(config, "Configuración del salón obtenida correctamente."));
         }
 
         [HttpPut]
         [Authorize(Roles = "Administrador,SuperAdminSaaS")]
-        public IActionResult ActualizarConfiguracion([FromBody] ConfiguracionSalonDto dto)
+        [ProducesResponseType(typeof(ApiResponse<ConfiguracionSalonDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<ConfiguracionSalonDto>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ActualizarConfiguracion(
+            [FromBody] ActualizarConfiguracionSalonDto dto,
+            CancellationToken ct = default)
         {
-            if (dto == null)
-                return BadRequest(ApiResponse<ConfiguracionSalonDto>.Falla("Datos de configuración inválidos."));
-
-            dto.NombreSalon = string.IsNullOrWhiteSpace(dto.NombreComercial)
-                ? dto.NombreSalon
-                : dto.NombreComercial;
-
-            dto.MonedaIso = string.IsNullOrWhiteSpace(dto.Moneda)
-                ? dto.MonedaIso
-                : dto.Moneda;
-
-            _configActual = dto;
-
-            return Ok(ApiResponse<ConfiguracionSalonDto>.Exito(
-                _configActual,
-                "Configuración del salón actualizada correctamente."
-            ));
+            var actualizada = await _configuracionService.ActualizarConfiguracionAsync(dto, ct);
+            return Ok(ApiResponse<ConfiguracionSalonDto>.Ok(actualizada, "Configuración del salón actualizada exitosamente."));
         }
     }
 }

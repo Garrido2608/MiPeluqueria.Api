@@ -7,8 +7,8 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 5.1 - Middlewares, Integraciones (HMAC + SMTP Guard), Background Worker, Configuración ODS y Program.cs`
-* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 5.2 - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]`
+* **Última Tarea Completada:** `TAREA 5.2 - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]`
+* **Tarea Actual en Curso:** `DETENIDO EN HARD GATE 3 (EN ESPERA DE VALIDACIÓN HUMANA DEL BACKEND) -> Próxima: TAREA 6.1 - Infraestructura HTTP, Tipos TypeScript y Estado Global en Frontend`
 * **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias`
 * **Estado de Migración SQL Server:** `Esquema Fluent API y Seeding compilados y validados (DDL verificado sin FKs sombra).`
 * **Estado de Compilación Frontend (`npm run build`):** `En espera hasta superar HARD GATE 3`
@@ -22,9 +22,9 @@
 | Fecha / Tarea | Archivo `.md` Original Afectado | Especificación Original | Nuevo Valor / Cambio Implementado | Motivo Técnico / Autorización |
 | :--- | :--- | :--- | :--- | :--- |
 | *Inicial* | `03_DATA_MODEL.md` | `ITentantEntity.cs` | `ITenantEntity.cs` + `AuditableTenantEntity.cs` | Corrección de typo e inclusión de herencia universal (`TenantId`, `SucursalId`)[cite: 30, 35]. |
-| Tarea 5.1 | `02_ARCHITECTURE.md` (Sección 3.2, pasos 2 y 3) | Validación del par Tenant/Sucursal consultando `ApplicationDbContext.Sucursales` directo desde el middleware; caché solo con `SlidingExpiration = 10 min`. | Consulta vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync(...)`; caché válida con `SlidingExpiration = 10 min` + tope `AbsoluteExpirationRelativeToNow = 60 min`; resultados inválidos cacheados `1 min`. | Regla "0 DbContext directo" (`01` Sección 4.2). El tope absoluto impide que el tráfico continuo mantenga válida para siempre una sucursal desactivada (OWASP A01). **SPEC-SYNC aplicado en `02`.** |
-| Tarea 5.1 | `06_INTEGRATION_AND_ODD_PLAN.md` (Tarea 5.1, ítem 5) / `02_ARCHITECTURE.md` (árbol) | `Services/Background/RecordatorioTurnosBackgroundService.cs` | Se conserva la ruta física existente `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (la clase sí se llama `RecordatorioTurnosBackgroundService`, namespace `MiPeluqueria.Api.Services.Background`). | Solo cambia el nombre del archivo, no el contrato. No se renombró para no alterar rutas fuera de la tarea. **Pendiente de decisión del Arquitecto.** |
-| Tarea 5.1 | `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 2) | Sin valor por defecto especificado para `BackgroundJobs:CancelarReservasOnlineImpagas` si falta la clave. | Valor por defecto `false` si la clave no existe (el JSON la declara `true`). La expiración aplica **solo** a turnos con `RequiereSena && !SenaPagada` cuyo campo `Observaciones` empiece con `"[Reserva Online]"`. | `TurnoService.CreateAsync` marca `RequiereSena = true` también en los turnos cargados por el staff; sin este filtro el worker cancelaría turnos presenciales. |
+| Tarea 5.1 | `02_ARCHITECTURE.md` (Sección 3.2, pasos 2 y 3) | Validación del par Tenant/Sucursal consultando `ApplicationDbContext.Sucursales` directo desde el middleware; caché solo con `SlidingExpiration = 10 min`. | Consulta vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync(...)`; caché válida con `SlidingExpiration = 10 min` + tope `AbsoluteExpirationRelativeToNow = 60 min`; resultados inválidos cacheados `1 min`. | Regla "0 DbContext directo" (`01` Sección 4.2). El tope absoluto impide que el tráfico continuo mantenga válida para siempre una sucursal desactivada (OWASP A01). **Ratificado por el Arquitecto y SPEC-SYNC aplicado en `02`.** |
+| Tarea 5.1 / 5.2 | `06_INTEGRATION_AND_ODD_PLAN.md` (Tarea 5.1, ítem 5) / `02_ARCHITECTURE.md` (árbol) | `Services/Background/RecordatorioTurnosBackgroundService.cs` | Renombrado en Tarea 5.2 de `Services/BackGround/RecordatorioTurnoBackgroundService.cs` a `Services/Background/RecordatorioTurnosBackgroundService.cs` (1:1 con `02_ARCHITECTURE.md`). | **Resuelto en Tarea 5.2 por directiva expresa del Arquitecto.** |
+| Tarea 5.1 / 5.2 | `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 2) | Sin valor por defecto especificado para `BackgroundJobs:CancelarReservasOnlineImpagas` si falta la clave. | Valor por defecto `false` si la clave no existe (el JSON la declara `true`). La expiración aplica **solo** a turnos con `RequiereSena && !SenaPagada` cuyo campo `Observaciones` empiece con `"[Reserva Online]"`, prefijo que `PortalReservasController.ReservarTurnoPublico` sella automáticamente en Tarea 5.2. | `TurnoService.CreateAsync` marca `RequiereSena = true` también en los turnos cargados por el staff; el prefijo `"[Reserva Online]"` sincroniza el portal público con el worker. **Ratificado por el Arquitecto.** |
 
 ---
 
@@ -256,6 +256,18 @@
   - `SmtpEmailService.EnviarEmailAsync`: si `Smtp:Host` está vacío → `LogWarning` + `return false` sin crear `SmtpClient`. `Timeout = Smtp:TimeoutMilliseconds` (máximo y valor por defecto `5000`) + `CancellationTokenSource(timeout)`. Lee también `Port`, `EnableSsl`, `FromEmail` y `FromName`. Cualquier excepción → `LogWarning` + `false`.
   - `RecordatorioTurnosBackgroundService`: recorre las sucursales activas de tenants activos (`IUnitOfWork.SaaS.AsQueryable().IgnoreQueryFilters()`) y crea un scope DI por sucursal con `ITenantProvider.SetTenantContext(tenantId, sucursalId)`. Lee la config vía `IConfiguracionSalonService`, expira señas online a través de `ITurnoService.CambiarEstadoAsync` (con un motivo de cancelación válido del tenant) y calcula los recordatorios de 24h/2h en hora local del salón. Valores por defecto si faltan claves: intervalo `Math.Max(1, valor ?? 15)` min, expiración `Math.Max(1, valor ?? 30)` min.
   - `Program.cs`: registra `IGenericRepository<>` abierto, `IUnitOfWork`, 19 repositorios, `ITenantProvider`, 20 servicios de negocio, 3 integraciones y el worker. `AddRateLimiter` define la política `"StrictAuthOtpPolicy"` (ventana fija por IP; valores de `RateLimiting:StrictAuthOtpPolicy`, por defecto 5/1 min) y `OnRejected` responde `429` con `ApiResponse<object>.Fail`. `InvalidModelStateResponseFactory` responde `400` con `ApiResponse<object>.Fail("Error de validación de datos.", errors, fieldErrors)` y claves en camelCase. Orden del pipeline: `GlobalException → Swagger(dev) → HttpsRedirection → Cors → RateLimiter → Authentication → TenantResolution → Authorization → MapControllers`.
+* **Capa de Presentación HTTP Consolidada en Tarea 5.2 (22 Controladores en 21 archivos `.cs` + `MiPeluqueria.Api.http` - `[HARD GATE 3]`):**
+  - `AuthController` (`/api/auth`): `[EnableRateLimiting("StrictAuthOtpPolicy")]`, expone `POST login`, `POST refresh-token`, `POST registro`, `POST verificar-email`, `POST olvide-password`, `POST restablecer-password` (`[AllowAnonymous]`) y `POST cambiar-password` (`[Authorize]`).
+  - `UsuariosController` (`/api/usuarios`): inyecta `IUsuarioService`, protegido con `[Authorize(Roles = "Administrador,SuperAdminSaaS")]`, expone `GET`, `GET {id:int}`, `POST` (`CrearUsuarioStaffDto`), `PUT {id:int}/estado`, `PATCH {id:int}/rol`, `POST {id:int}/desbloquear` y `GET historial-sesiones` paginado.
+  - `CatalogosController` (`/api/catalogos`): `0 DbContext`, inyecta `ICatalogoService`, expone `GET todos`/`GET maestros`, `GET estados-turno`, `GET roles` (`Administrador,SuperAdminSaaS`) y CRUD completo (`GET`, `POST`, `PUT {id:int}`, `DELETE {id:int}`) para los 7 catálogos del salón (`tipos-cabello`, `tipos-rostro`, `categorias-servicio`, `especialidades`, `motivos-cancelacion`, `categorias-producto`, `medios-pago`).
+  - `ConfiguracionSalonController` (`/api/configuracion`): `0 DbContext` y `0 RAM estática`, inyecta `IConfiguracionSalonService`, expone `GET` (`[AllowAnonymous]`) y `PUT` (`[Authorize(Roles = "Administrador,SuperAdminSaaS")]`).
+  - `SucursalesController` (`/api/sucursales`) y `SuscripcionesController` (`/api/suscripciones`): `0 DbContext`, inyectan `ISaaSService`, protegidos con `[Authorize(Roles = "Administrador,SuperAdminSaaS")]` (`[AllowAnonymous]` en `GET /api/suscripciones/planes`).
+  - `ClientesController` (`/api/clientes`) y `FichasTecnicasController` (`/api/fichas-tecnicas` y `/api/fichastecnicas`): protegidos con `[Authorize(Roles = "Administrador,Recepcionista,Cajero,Peluquero,SuperAdminSaaS")]`, incluyen `GET` paginado en clientes, `GET {id:int}` y `PUT {id:int}` con `ActualizarFichaTecnicaDto` en fichas técnicas.
+  - `PeluquerosController` (`/api/peluqueros`), `ServiciosController` (`/api/servicios`), `RecetasServicioController` (`/api/recetas-servicio`) y `BloqueosController` (`/api/bloqueos`): protegidos según Matriz RBAC, usando `ActualizarPeluqueroDto` y `ActualizarServicioDto` en `PUT {id:int}` y extrayendo `UsuarioId` del claim JWT.
+  - `TurnosController` (`/api/turnos`): protegido con `[Authorize]`, expone `GET` paginado (`PaginationFilterDto`), `GET {id:int}`, `GET cliente/{clienteId:int}`, `GET disponibilidad`, `GET {id:int}/historial`, `POST`, `PUT {id:int}/reprogramar` (`ReprogramarTurnoDto`) y `PATCH {id:int}/estado`, propagando `UsuarioId` y `Rol` del claim JWT.
+  - `PortalReservasController` (`/api/public`) y `WebhooksController` (`/api/webhooks/pagos`): `0 DbContext` y `0 IUnitOfWork`, operando exclusivamente vía `IClienteService`, `ITurnoService`, `IServicioService`, `IPeluqueroService`, `IConfiguracionSalonService` e `IPaymentGatewayService`. Prefija `Observaciones` con `"[Reserva Online]"` en `POST /api/public/reservar` y habilita buffering (`[EnableRequestBuffering]`) en `WebhooksController` para validar `rawBody` con `HMAC-SHA256` e invocar `_turnoService.ProcesarPagoSenaWebhookAsync`.
+  - `ProductosController` (`/api/productos`), `ProveedoresController` (`/api/proveedores`) y `OrdenesCompraController` (`/api/ordenes-compra`): protegidos según Matriz RBAC, con `GET` paginados, `GET {id:int}/kardex` paginado y recepción de `ActualizarProductoDto` / `ActualizarProveedorDto`.
+  - `CajaController` (`/api/caja`), `VentasController` (`/api/ventas`), `ComisionesController` (`/api/comisiones`), `LiquidacionesController` (`/api/liquidaciones`) y `DashboardController` (`/api/dashboard`): extraen `UsuarioId` exclusivamente del claim JWT `ClaimTypes.NameIdentifier`, incluyen `GET /api/caja/{id:int}`, lectura de header `X-Idempotency-Key` en `POST /api/ventas` y `POST /api/liquidaciones/{id:int}/anular`.
 
 ---
 
@@ -635,14 +647,14 @@
 
 
 ### [TAREA 5.1] - Middlewares, Integraciones (HMAC + SMTP Guard), Background Worker, Configuración ODS y Program.cs
-- **Estado:** COMPLETADA (EN REVISIÓN HUMANA)
+- **Estado:** COMPLETADA (APROBADA POR EL ARQUITECTO)
 - **Archivos Creados:** Ninguno
 - **Archivos Modificados:**
   - `Middlewares/GlobalExceptionMiddleware.cs`
   - `Middlewares/TenantResolutionMiddleware.cs`
   - `Integrations/Payments/PaymentGatewayService.cs`
   - `Integrations/Email/SmtpEmailService.cs`
-  - `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (clase `RecordatorioTurnosBackgroundService`)
+  - `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (renombrado en Tarea 5.2 a `Services/Background/RecordatorioTurnosBackgroundService.cs`)
   - `appsettings.json`
   - `appsettings.Development.json`
   - `Program.cs`
@@ -658,6 +670,56 @@
   - **`appsettings.json` / `appsettings.Development.json`:** contrato completo de `09` Sección 1 (`Jwt`, `Cors`, `RateLimiting`, `Smtp`, `Payments`, `BackgroundJobs`, `SaaSLimits`). Se eliminó el comentario `// filepath:` inválido en JSON de `appsettings.Development.json` y se conservó su `Server=localhost`. La sintaxis de ambos se validó con `ConvertFrom-Json`.
   - **`Program.cs` (`[BUG-04]`):** `AddRateLimiter` + `UseRateLimiter` con la política `"StrictAuthOtpPolicy"` (5 req/min por IP, `429` con `ApiResponse`), `InvalidModelStateResponseFactory` con `FieldErrors`, registro reordenado de los 19 repositorios + 20 servicios, y orden de middlewares según `02` Sección 3.1 (corrige que `TenantResolution` corría **después** de `UseAuthorization`).
   - **Auditoría PowerShell:** `Select-String` sobre `Middlewares`, `Integrations/Email`, `Integrations/Payments`, `Services/BackGround` y `Services/Implementations` con el patrón `ApplicationDbContext|GetProperty|SetValue\(|SetOptionalProp|GetOptionalProp|System.Reflection` -> **0 coincidencias**.
-  - **Nota para Tarea 5.2:** `WebhooksController` hoy pasa `payload.ExternalReference` como `rawBody` y sigue llamando a `CambiarEstadoAsync` en lugar de `ProcesarPagoSenaWebhookAsync`. Además, `PortalReservasController` todavía inyecta `ApplicationDbContext`. Ambos se corrigen en la Tarea 5.2 (fuera del alcance de esta tarea).
 - **Sincronización de MD (Spec-Sync):** `02_ARCHITECTURE.md` Sección 3.2 actualizado (consulta vía `IUnitOfWork.SaaS` + políticas de caché). Desviaciones registradas en la Sección 2 de este Libro Mayor.
+- **Resultado dotnet build:** 0 Errores / 0 Advertencias.
+
+### [TAREA 5.2] - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]
+- **Estado:** COMPLETADA (DETENIDO EN HARD GATE 3 - EN ESPERA DE VALIDACIÓN HUMANA DEL BACKEND)
+- **Archivos Creados:**
+  - `Services/Background/RecordatorioTurnosBackgroundService.cs` (renombrado desde `Services/BackGround/RecordatorioTurnoBackgroundService.cs`)
+- **Archivos Modificados:**
+  - `Controllers/AuthController.cs`
+  - `Controllers/UsuariosController.cs`
+  - `Controllers/CatalogosController.cs`
+  - `Controllers/ClientesController.cs`
+  - `Controllers/FichasTecnicasController.cs`
+  - `Controllers/PeluquerosController.cs`
+  - `Controllers/ServiciosController.cs`
+  - `Controllers/RecetasController.cs`
+  - `Controllers/BloqueosController.cs`
+  - `Controllers/TurnosController.cs`
+  - `Controllers/PortalReservasController.cs` (`PortalReservasController` y `WebhooksController`)
+  - `Controllers/ProductosController.cs`
+  - `Controllers/ProveedoresController.cs`
+  - `Controllers/OrdenesCompraController.cs`
+  - `Controllers/CajaController.cs`
+  - `Controllers/VentasController.cs`
+  - `Controllers/ComisionesController.cs`
+  - `Controllers/LiquidacionesController.cs`
+  - `Controllers/ConfiguracionSalonController.cs`
+  - `Controllers/DashboardController.cs`
+  - `Controllers/SucursalesController.cs`
+  - `Controllers/SuscripcionesController.cs`
+  - `MiPeluqueria.Api.http`
+  - `07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:**
+  - `Services/BackGround/RecordatorioTurnoBackgroundService.cs` (movido a `Services/Background/RecordatorioTurnosBackgroundService.cs`)
+- **Cambios o Decisiones Especiales:**
+  - **Renombre 1:1 del Background Worker:** Se renombró el directorio y archivo a `Services/Background/RecordatorioTurnosBackgroundService.cs` para coincidir 1:1 con `02_ARCHITECTURE.md`.
+  - **Erradicación total de `ApplicationDbContext` y estado estático en Controladores:** Se eliminó el 100% de referencias a `ApplicationDbContext` (e `IUnitOfWork`) en `CatalogosController`, `ConfiguracionSalonController` (eliminando también la clase `ConfiguracionSalonDto` duplicada y la variable estática `_configActual`), `SucursalesController`, `SuscripcionesController` y `PortalReservasController`.
+  - **Blindaje de `PortalReservasController` y `WebhooksController`:**
+    - `PortalReservasController` opera exclusivamente mediante `IClienteService`, `ITurnoService`, `IServicioService`, `IPeluqueroService`, `IConfiguracionSalonService` e `IPaymentGatewayService`, sellando el prefijo `"[Reserva Online]"` en `Observaciones` al crear el turno en `POST /api/public/reservar`.
+    - `WebhooksController` incorpora `[EnableRequestBuffering]` (`IResourceFilter` sin Reflection) para habilitar `Request.EnableBuffering()` antes del Model Binding, leyendo el `rawBody` real del stream HTTP, verificando la firma criptográfica con `_paymentGateway.ValidarFirmaWebhook(proveedor, signature, rawBody)` y delegando la confirmación/compensación a `_turnoService.ProcesarPagoSenaWebhookAsync(turnoId, payload, proveedor, ct)`.
+  - **Completitud de Contratos y Matriz RBAC (`04_API_CONTRACTS.md`):**
+    - `AuthController`: agregado `POST /api/auth/refresh-token`.
+    - `UsuariosController`: migrado a `IUsuarioService` con `[Authorize(Roles = "Administrador,SuperAdminSaaS")]` y endpoints `GET`, `GET {id:int}`, `POST` (`CrearUsuarioStaffDto`), `PUT {id:int}/estado`, `PATCH {id:int}/rol`, `POST {id:int}/desbloquear` y `GET historial-sesiones` paginado.
+    - `CatalogosController`: expone el CRUD completo (`GET`, `POST`, `PUT {id:int}`, `DELETE {id:int}`) para los 7 catálogos del salón.
+    - `TurnosController`: agregados `PUT {id:int}/reprogramar`, paginación en `GET` y propagación del `rolEjecutor` desde `ClaimTypes.Role`.
+    - `CajaController`, `VentasController`, `LiquidacionesController`: extracción exclusiva de `UsuarioId` desde `ClaimTypes.NameIdentifier`, agregado `GET /api/caja/{id:int}`, lectura de header `X-Idempotency-Key` en `POST /api/ventas` y agregado `POST /api/liquidaciones/{id:int}/anular`.
+  - **Suite Ejecutable BDD (`MiPeluqueria.Api.http`):** Actualizada con los 14 pasos de prueba extremo a extremo (`"sesionCajaId"`, `"detalles"` e `"idempotencyKey"` en `POST /api/ventas`).
+  - **Auditorías PowerShell ejecutadas:**
+    1. `Select-String -Path .\Controllers\*.cs -Pattern "ApplicationDbContext"` -> **0 coincidencias**.
+    2. `Select-String -Path .\Controllers\*.cs, .\Services\**\*.cs, .\Middlewares\*.cs -Pattern "ApplicationDbContext"` -> **0 coincidencias**.
+    3. `Select-String -Path .\Controllers\*.cs, .\Services\**\*.cs, .\Repositories\**\*.cs, .\Middlewares\*.cs -Pattern "GetProperty|SetValue\(|SetOptionalProp|GetOptionalProp|System.Reflection"` -> **0 coincidencias**.
+- **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `02_ARCHITECTURE.md`, `04_API_CONTRACTS.md`, `06_INTEGRATION_AND_ODD_PLAN.md` y `08_TEST_PLANS_AND_ACCEPTANCE_CRITERIA.md`).
 - **Resultado dotnet build:** 0 Errores / 0 Advertencias.

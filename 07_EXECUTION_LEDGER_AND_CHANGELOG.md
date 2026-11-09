@@ -7,11 +7,11 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 5.2 - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]`
-* **Tarea Actual en Curso:** `DETENIDO EN HARD GATE 3 (EN ESPERA DE VALIDACIÓN HUMANA DEL BACKEND) -> Próxima: TAREA 6.1 - Infraestructura HTTP, Tipos TypeScript y Estado Global en Frontend`
-* **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias`
+* **Última Tarea Completada:** `TAREA 6.4 - Esquemas Zod, Hooks TanStack Query y Conexión de las 19 Pantallas (src/app/) [HARD GATE 4 - FIN DEL PROYECTO]`
+* **Tarea Actual en Curso:** `PROYECTO COMPLETADO AL 100% -> EN ESPERA DE REVISIÓN Y CIERRE FINAL HUMANO (HARD GATE 4)`
+* **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias (HARD GATE 3 APROBADO)`
 * **Estado de Migración SQL Server:** `Esquema Fluent API y Seeding compilados y validados (DDL verificado sin FKs sombra).`
-* **Estado de Compilación Frontend (`npm run build`):** `En espera hasta superar HARD GATE 3`
+* **Estado de Compilación Frontend (`tsc --noEmit` + `next build`):** `0 Errores de TypeScript / 0 Errores de Build de Producción (24 rutas generadas, 19 pantallas operativas, 0 any)`
 
 ---
 
@@ -268,6 +268,19 @@
   - `PortalReservasController` (`/api/public`) y `WebhooksController` (`/api/webhooks/pagos`): `0 DbContext` y `0 IUnitOfWork`, operando exclusivamente vía `IClienteService`, `ITurnoService`, `IServicioService`, `IPeluqueroService`, `IConfiguracionSalonService` e `IPaymentGatewayService`. Prefija `Observaciones` con `"[Reserva Online]"` en `POST /api/public/reservar` y habilita buffering (`[EnableRequestBuffering]`) en `WebhooksController` para validar `rawBody` con `HMAC-SHA256` e invocar `_turnoService.ProcesarPagoSenaWebhookAsync`.
   - `ProductosController` (`/api/productos`), `ProveedoresController` (`/api/proveedores`) y `OrdenesCompraController` (`/api/ordenes-compra`): protegidos según Matriz RBAC, con `GET` paginados, `GET {id:int}/kardex` paginado y recepción de `ActualizarProductoDto` / `ActualizarProveedorDto`.
   - `CajaController` (`/api/caja`), `VentasController` (`/api/ventas`), `ComisionesController` (`/api/comisiones`), `LiquidacionesController` (`/api/liquidaciones`) y `DashboardController` (`/api/dashboard`): extraen `UsuarioId` exclusivamente del claim JWT `ClaimTypes.NameIdentifier`, incluyen `GET /api/caja/{id:int}`, lectura de header `X-Idempotency-Key` en `POST /api/ventas` y `POST /api/liquidaciones/{id:int}/anular`.
+* **Cimientos Frontend Consolidados en Tarea 6.1 (`package.json`, `tsconfig.json`, `.env.local`, `src/app/layout.tsx`, `src/context/AppProviders.tsx`):**
+  - `mipeluqueria-saas-web/package.json`: stack comercial Pro instalado (`@tanstack/react-query@^5.59.0`, `react-hook-form@^7.53.0`, `zod@^3.23.8`, `@hookform/resolvers@^3.9.0`, `sonner@^1.5.0`, `date-fns@^4.1.0`, `recharts@^2.13.0`, `lucide-react@^0.454.0`, `clsx@^2.1.1`, `axios@^1.7.7`, `next@14.2.15`).
+  - `mipeluqueria-saas-web/.env.local` y `.env.example`: `NEXT_PUBLIC_API_URL=https://localhost:7132/api`, `NEXT_PUBLIC_DEFAULT_TENANT_ID=1`, `NEXT_PUBLIC_DEFAULT_SUCURSAL_ID=1`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=demo`, `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=mipeluqueria_preset`, `NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX`.
+  - `mipeluqueria-saas-web/src/context/AppProviders.tsx`: integra `QueryClientProvider` (`staleTime: 60s`, `retry: 1`, `refetchOnWindowFocus: false`), `<Toaster position="top-right" richColors closeButton expand />` (`sonner`), invalidación automática `queryClient.invalidateQueries()` en `switchSucursal`, limpieza `queryClient.clear()` en `logout`, y preserva todos los hooks de contexto existentes (`useAuth`, `useCatalogos`, `useCajaPos`, `useCookieConsent`).
+* **Infraestructura Cliente HTTP, Tipos y Servicios API Consolidados en Tareas 6.2 y 6.3 (`src/lib/`, `src/types/`, `src/services/`):**
+  - `src/lib/axios.ts`: exporta `apiClient`, `STORAGE_KEYS`, `ApiErrorPayload` y `withIdempotencyKey`, con inyección de `Authorization`, `X-Tenant-Id`, `X-Sucursal-Id`, `X-Idempotency-Key` y cola `isRefreshing` + `failedQueue` contra `POST /api/auth/refresh-token`.
+  - `src/lib/cloudinary.ts`: exporta `uploadImageToCloudinary`, `subirImagenCloudinary`, `isCloudinaryConfigured`, `validateImageFile` y `DEFAULT_FICHA_TECNICA_PLACEHOLDER_URL` con fallback defensivo (`toast.warning` en `sonner`).
+  - `src/types/` (8 módulos + `api.types.ts` Barrel File): `common.types.ts` (`ApiResponse<T>` con `fieldErrors` y `warnings`, `PagedResult<T>`, `PaginationFilterDto`, `ConfiguracionSalonDto`, `CatalogoItemDto`, `ActualizarCatalogoItemDto`, `TipoCatalogoSalon`), `seguridad.types.ts`, `clientes.types.ts`, `turnos.types.ts`, `public.types.ts`, `stock.types.ts`, `ventas.types.ts` y `saas.types.ts`.
+  - `src/services/` (8 módulos + `api.services.ts` Barrel File): `seguridad.service.ts` (`authService`, `usuariosService`), `common.service.ts` (`configuracionSalonService` contra `/api/configuracion`, `catalogosService` con CRUD de los 7 catálogos), `clientes.service.ts` (`clientesService`, `fichasTecnicasService`), `turnos.service.ts` (`turnosService`, `peluquerosService`, `bloqueosService`, `serviciosService`, `recetasServicioService`), `public.service.ts` (`portalPublicoService`), `stock.service.ts` (`productosService`, `proveedoresService`, `ordenesCompraService` contra `/api/ordenes-compra/{id}/recibir`), `ventas.service.ts` (`cajaService`, `ventasService`, `comisionesService`, `liquidacionesService`, `dashboardService`) y `saas.service.ts` (`sucursalesService`, `suscripcionesService`).
+* **Esquemas Zod, Hooks TanStack Query v5 y 19 Pantallas Consolidadas en Tarea 6.4 (`src/schemas/`, `src/hooks/`, `src/components/`, `src/app/` - `[HARD GATE 4]`):**
+  - `src/schemas/` (`auth.schema.ts`, `clientes.schema.ts`, `turnos.schema.ts`, `stock.schema.ts`, `ventas.schema.ts`, `common.schema.ts`, `index.ts`): espejan las reglas de `FluentValidation` del Backend (`passwordRegex`, teléfonos `7..25`, `duracionMinutos` `5..480`, `porcentajeComision` `0..100`, `precioVenta > precioCosto`, `stockActual` excluido de `actualizarProductoSchema`, validación de `idempotencyKey` UUID y equilibrio financiero $\sum \text{Pagos} = \text{TotalNeto}$ en `crearVentaPosSchema`).
+  - `src/hooks/` (`queryKeys.ts`, `useApiFeedback.ts`, `useDomainQueries.ts`, `index.ts`): matriz canónica de `Query Keys` (Sección 2 de `10`), `notifyApiSuccess` / `notifyApiError` / `useApiMutation` con inyección automática de `fieldErrors` en `react-hook-form`, disparo de `toast.warning(w, { duration: 8000 })` por cada elemento en `res.warnings`, e invalidación automática de queries ante `409 Conflict`.
+  - `src/app/` (19 pantallas operativas + páginas legales): reconstrucción íntegra de `recepcion/pos/page.tsx` (pre-carga por `?turnoId={id}`, descuento de `senaPagada`, multipago, `idempotencyKey` UUID v4 que se conserva ante fallos de red y rota tras `200 OK`, e impresión térmica en `PrintReceiptModal`) y `recepcion/clientes/page.tsx` (padrón paginado, insignia `esCumpleaneroDelMes` y Fichas Técnicas con subida Direct-to-Cloud a Cloudinary), separación física vs digital en `recepcion/caja/page.tsx`, reprogramación y `colorAgendaHex` en `recepcion/calendario/page.tsx`, gráficos `recharts` en `admin/dashboard/page.tsx`, `cuit` y `saldoResultante` en `admin/inventario/page.tsx`, anulación de liquidaciones pendientes en `admin/staff-liquidaciones/page.tsx`, y CRUD de los 7 catálogos + alta de staff + historial de sesiones paginado en `admin/configuracion-seguridad/page.tsx`.
 
 ---
 
@@ -674,7 +687,7 @@
 - **Resultado dotnet build:** 0 Errores / 0 Advertencias.
 
 ### [TAREA 5.2] - Refactorización de los 22 Controladores, Suite HTTP y Verificación BDD [HARD GATE 3]
-- **Estado:** COMPLETADA (DETENIDO EN HARD GATE 3 - EN ESPERA DE VALIDACIÓN HUMANA DEL BACKEND)
+- **Estado:** COMPLETADA (HARD GATE 3 APROBADO POR EL ARQUITECTO)
 - **Archivos Creados:**
   - `Services/Background/RecordatorioTurnosBackgroundService.cs` (renombrado desde `Services/BackGround/RecordatorioTurnoBackgroundService.cs`)
 - **Archivos Modificados:**
@@ -723,3 +736,131 @@
     3. `Select-String -Path .\Controllers\*.cs, .\Services\**\*.cs, .\Repositories\**\*.cs, .\Middlewares\*.cs -Pattern "GetProperty|SetValue\(|SetOptionalProp|GetOptionalProp|System.Reflection"` -> **0 coincidencias**.
 - **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `02_ARCHITECTURE.md`, `04_API_CONTRACTS.md`, `06_INTEGRATION_AND_ODD_PLAN.md` y `08_TEST_PLANS_AND_ACCEPTANCE_CRITERIA.md`).
 - **Resultado dotnet build:** 0 Errores / 0 Advertencias.
+
+### [TAREA 6.1] - Manifiesto package.json, Variables .env.local, Layout y Providers Globales
+- **Estado:** COMPLETADA (APROBADA POR EL ARQUITECTO)
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/package.json`
+  - `mipeluqueria-saas-web/package-lock.json`
+  - `mipeluqueria-saas-web/tsconfig.json`
+  - `mipeluqueria-saas-web/.env.local`
+  - `mipeluqueria-saas-web/.env.example`
+  - `mipeluqueria-saas-web/src/app/layout.tsx`
+  - `mipeluqueria-saas-web/src/context/AppProviders.tsx`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **`package.json` y `tsconfig.json`:** Se restauró el manifiesto con el stack Pro completo (`@tanstack/react-query@^5.59.0`, `react-hook-form@^7.53.0`, `zod@^3.23.8`, `@hookform/resolvers@^3.9.0`, `sonner@^1.5.0`, `date-fns@^4.1.0`, `recharts@^2.13.0`, `lucide-react@^0.454.0`, `clsx@^2.1.1`) y se limpió el comentario inválido `// filepath:` de `tsconfig.json` manteniendo `"strict": true` y `"paths": { "@/*": ["./src/*"] }`.
+  - **`.env.local` y `.env.example`:** Configuradas las variables públicas de la Sección 3 de `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (`NEXT_PUBLIC_API_URL=https://localhost:7132/api`, `NEXT_PUBLIC_DEFAULT_TENANT_ID=1`, `NEXT_PUBLIC_DEFAULT_SUCURSAL_ID=1`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=demo`, `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=mipeluqueria_preset`, `NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX`).
+  - **`src/app/layout.tsx` y `src/context/AppProviders.tsx`:** Se incorporó `QueryClientProvider` (con instancia estable en `useState`, `staleTime = 60s`, `retry = 1`, `refetchOnWindowFocus = false`), `<Toaster position="top-right" richColors closeButton expand />` de `sonner`, lectura de defaults desde `NEXT_PUBLIC_DEFAULT_TENANT_ID` / `NEXT_PUBLIC_DEFAULT_SUCURSAL_ID`, invalidación global `queryClient.invalidateQueries()` en `switchSucursal` y limpieza `queryClient.clear()` en `logout`.
+  - **Instalación y Verificación:** `npm --prefix mipeluqueria-saas-web install` (175 paquetes auditados) y `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit` con **0 errores**).
+- **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` y `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`).
+- **Resultado TypeScript (`tsc --noEmit`):** 0 Errores.
+
+### [TAREA 6.2] - Cliente HTTP Resiliente (axios.ts con Cola RefreshToken) y Helper Multimedia (cloudinary.ts)
+- **Estado:** COMPLETADA (APROBADA POR EL ARQUITECTO)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/src/lib/cloudinary.ts`
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/lib/axios.ts`
+  - `mipeluqueria-saas-web/src/lib/formatters.ts`
+  - `mipeluqueria-saas-web/src/middleware.ts`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **`src/lib/axios.ts`:**
+    - **Request Interceptor:** Inyecta automáticamente `Authorization: Bearer ${token}` (cuando existe sesión), `X-Tenant-Id` y `X-Sucursal-Id` (resolviendo prioridad `localStorage` -> `USER_SESSION` -> `NEXT_PUBLIC_DEFAULT_TENANT_ID` / `NEXT_PUBLIC_DEFAULT_SUCURSAL_ID` -> `'1'`), y soporta `idempotencyKey` en `AxiosRequestConfig` + helper `withIdempotencyKey(...)` para inyectar `X-Idempotency-Key`.
+    - **Response Interceptor (`isRefreshing` + `failedQueue`):** Implementa la cola de concurrencia para prevenir *Refresh Token Storm* ante respuestas `401 Unauthorized` fuera de endpoints de autenticación/webhooks. La primera petición marca `isRefreshing = true` e invoca una única vez `POST /api/auth/refresh-token` enviando `{ token, refreshToken }` junto con `X-Tenant-Id` y `X-Sucursal-Id`; las peticiones concurrentes aguardan en `failedQueue`. Si el refresh responde `200 OK`, persiste el nuevo par `token`/`refreshToken` y cookies (`mipeluqueria_token`, `mipeluqueria_role`), resuelve `failedQueue` y reintenta las peticiones originales; si falla, rechaza `failedQueue`, limpia la sesión y redirige a `/login`. Propaga además `fieldErrors`, `warnings`, `errors` y `statusCode` en `ApiErrorPayload`.
+  - **`src/lib/cloudinary.ts`:** Implementa subida Direct-to-Cloud (`uploadImageToCloudinary` y `subirImagenCloudinary`) con validación de MIME/tamaño (10 MB) y el fallback defensivo de la Sección 3 de `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md`: si `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` es `"demo"` o está vacío y la subida falla en entorno local, emite un `toast.warning` (`sonner`, `duration: 8000`) y retorna una URL manual o placeholder controlado (`DEFAULT_FICHA_TECNICA_PLACEHOLDER_URL`) sin bloquear el guardado de la `FichaTecnica`.
+  - **`src/lib/formatters.ts`:** Tipado estricto (`0 any`) y blindaje contra fechas inválidas (`Number.isNaN(date.getTime())`) en `formatCurrency`, `formatDateTime`, `formatDateOnly`, `formatTimeOnly`, `formatPercentage` y `calcularHorasHastaTurno`.
+  - **`src/middleware.ts`:** Protección de rutas por rol (`ROLE_ROUTE_MAP`) tipada con `RolNombreType`, permitiendo `SuperAdminSaaS` y `Administrador` en `/saas-admin` y redirigiendo accesos sin permiso a la ruta de inicio correspondiente al rol (`getDefaultHomeForRole`).
+  - **Auditorías ejecutadas:**
+    1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **0 Errores**.
+    2. `Select-String -Path .\mipeluqueria-saas-web\src\lib\*.ts, .\mipeluqueria-saas-web\src\middleware.ts -Pattern "\bany\b"` -> **0 coincidencias**.
+- **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `06_INTEGRATION_AND_ODD_PLAN.md`, `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` y `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`).
+- **Resultado TypeScript (`tsc --noEmit`):** 0 Errores.
+
+### [TAREA 6.3] - Modularización de Tipos TypeScript (src/types/) y Servicios API (src/services/) con Barrel Files
+- **Estado:** COMPLETADA (EN REVISIÓN HUMANA)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/src/types/common.types.ts`
+  - `mipeluqueria-saas-web/src/types/seguridad.types.ts`
+  - `mipeluqueria-saas-web/src/types/clientes.types.ts`
+  - `mipeluqueria-saas-web/src/types/turnos.types.ts`
+  - `mipeluqueria-saas-web/src/types/public.types.ts`
+  - `mipeluqueria-saas-web/src/types/stock.types.ts`
+  - `mipeluqueria-saas-web/src/types/ventas.types.ts`
+  - `mipeluqueria-saas-web/src/types/saas.types.ts`
+  - `mipeluqueria-saas-web/src/services/seguridad.service.ts`
+  - `mipeluqueria-saas-web/src/services/common.service.ts`
+  - `mipeluqueria-saas-web/src/services/clientes.service.ts`
+  - `mipeluqueria-saas-web/src/services/turnos.service.ts`
+  - `mipeluqueria-saas-web/src/services/public.service.ts`
+  - `mipeluqueria-saas-web/src/services/stock.service.ts`
+  - `mipeluqueria-saas-web/src/services/ventas.service.ts`
+  - `mipeluqueria-saas-web/src/services/saas.service.ts`
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/types/api.types.ts` (*Barrel File*)
+  - `mipeluqueria-saas-web/src/services/api.services.ts` (*Barrel File*)
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Modularización en 8 Dominios (`src/types/*.types.ts` + `api.types.ts`):** Se espejaron 1:1 contra el Backend .NET 8 `ApiResponse<T>` (con `fieldErrors?: Record<string, string[]>` y `warnings?: string[]`), `PagedResult<T>`, `PaginationFilterDto`, todos los `Actualizar*Dto` (`ActualizarCatalogoItemDto`, `ActualizarFichaTecnicaDto`, `ActualizarPeluqueroDto`, `ActualizarServicioDto`, `ActualizarProductoDto`, `ActualizarProveedorDto`), `ReprogramarTurnoDto`, `CrearUsuarioStaffDto`, `CambiarRolUsuarioDto`, `RefreshTokenRequestDto`, `DisponibilidadHorarioResponseDto` (`horariosDisponibles` y `slots`), `KardexItemResponseDto` (`saldoResultante`), `SesionCajaDto` (`montoFinalEsperado`, `totalVentasEfectivo`, `totalVentasDigital`, `observacionesCierre`), `VentaResponseDto` (`subtotal`, `descuentoSenaAplicado`, `idempotencyKey`), `LiquidacionDto` (`fechaEmision`, `bonificaciones`, `descuentos`, `observaciones`, `conceptoNombre`) y `DashboardKpisDto` (`ingresosPorMedioPago`, `rankingPeluqueros`).
+  - **Modularización de Servicios HTTP (`src/services/*.service.ts` + `api.services.ts`):**
+    - Se conectaron los 22 controladores corrigiendo rutas y métodos que antes discrepaban del Backend: `configuracionSalonService` contra `/api/configuracion`, `ordenesCompraService.recepcionar` contra `POST /api/ordenes-compra/{id}/recibir`, `usuariosService.cambiarRol` contra `PATCH /api/usuarios/{id}/rol`, `usuariosService.crearStaff` contra `POST /api/usuarios`, `comisionesService.getByPeluquero` contra `GET /api/comisiones?peluqueroId={id}` y `liquidacionesService.getPorPeluquero` contra `GET /api/liquidaciones?peluqueroId={id}`.
+    - Se agregaron todos los nuevos endpoints del contrato (`authService.refreshToken`, CRUD completo de los 7 catálogos en `catalogosService`, `turnosService.reprogramar`, `turnosService.getDisponibilidadCompleta`, `portalPublicoService.getDisponibilidadCompleta`, `cajaService.getById`, `ventasService.registrar` con `withIdempotencyKey`, `liquidacionesService.anular` y métodos `*Paged` que retornan `ApiResponse<PagedResult<TDto>>` junto con sus wrappers de compatibilidad).
+  - **Auditorías ejecutadas:**
+    1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **0 Errores**.
+    2. `Select-String -Path .\mipeluqueria-saas-web\src\types\*.ts, .\mipeluqueria-saas-web\src\services\*.ts -Pattern "\bany\b"` -> **0 coincidencias**.
+- **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `02_ARCHITECTURE.md`, `04_API_CONTRACTS.md`, `06_INTEGRATION_AND_ODD_PLAN.md` y `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`).
+- **Resultado TypeScript (`tsc --noEmit`):** 0 Errores.
+
+### [TAREA 6.4] - Esquemas Zod, Hooks TanStack Query y Conexión de las 19 Pantallas (src/app/) [HARD GATE 4 - FIN DEL PROYECTO]
+- **Estado:** COMPLETADA (PROYECTO FINALIZADO - EN ESPERA DE REVISIÓN FINAL HUMANA)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/src/schemas/auth.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/clientes.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/turnos.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/stock.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/ventas.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/common.schema.ts`
+  - `mipeluqueria-saas-web/src/schemas/index.ts`
+  - `mipeluqueria-saas-web/src/hooks/queryKeys.ts`
+  - `mipeluqueria-saas-web/src/hooks/useApiFeedback.ts`
+  - `mipeluqueria-saas-web/src/hooks/useDomainQueries.ts`
+  - `mipeluqueria-saas-web/src/hooks/index.ts`
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/components/ui/DesignSystem.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/pos/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/clientes/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/caja/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/calendario/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/peluquero/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/dashboard/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/inventario/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/staff-liquidaciones/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/configuracion-seguridad/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/diagnostico-api/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(public)/reservar/page.tsx`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Esquemas Zod (`src/schemas/*.ts`):** Se espejaron todas las reglas de `FluentValidation` del Backend (`loginSchema`, `registroClienteSchema`, `solicitarOtpSchema`, `restablecerPasswordOtpSchema`, `cambiarPasswordSchema`, `crearUsuarioStaffSchema`, `clienteSchema`, `fichaTecnicaSchema`, `peluqueroSchema`, `servicioSchema`, `configurarRecetaServicioSchema`, `crearTurnoSchema`, `reprogramarTurnoSchema`, `bloqueoHorarioSchema`, `crearProductoSchema`, `actualizarProductoSchema` sin `stockActual`, `movimientoStockSchema`, `proveedorSchema` con `cuit`, `crearOrdenCompraSchema`, `recepcionarOrdenCompraSchema`, `aperturaCajaSchema`, `movimientoCajaManualSchema`, `cierreCajaSchema`, `crearVentaPosSchema` con validación de equilibrio financiero y `idempotencyKey`, `guardarComisionConfigSchema`, `generarLiquidacionSchema`, `catalogoItemSchema`, `configuracionSalonSchema` y `crearSucursalSchema`).
+  - **Hooks TanStack Query v5 y Feedback Unificado (`src/hooks/*.ts`):**
+    - `queryKeys.ts`: implementa las 16+ claves jerárquicas canónicas de la Sección 2 de `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`.
+    - `useApiFeedback.ts`: centraliza el contrato de experiencia de usuario de la Sección 3 de `10`: `notifyApiSuccess` emite `toast.success(res.message)` e itera sobre `res.warnings` disparando `toast.warning(w, { duration: 8000 })`; `notifyApiError` y `useApiMutation` inyectan `fieldErrors` en `react-hook-form` (`setError`), invalidan automáticamente las queries afectadas ante un `409 Conflict` (`DbUpdateConcurrencyException`) y notifican `403 Forbidden` / `429 Too Many Requests`.
+    - `useDomainQueries.ts`: expone los hooks `useQuery` y `useMutation` tipados con invalidación cruzada automática para todos los dominios.
+  - **Reparación y Conexión de las 19 Pantallas (`src/app/`):**
+    - **`recepcion/pos/page.tsx`:** Reconstruido íntegramente (había sido sobrescrito en el repositorio original con una copia de `caja/page.tsx`), implementando pre-carga automática por `?turnoId={id}` (`GET /api/turnos/{id}`), visualización y deducción de `"Seña Online Abonada: -$X"` cuando `turno.senaPagada === true`, multipago con bloqueador visual hasta que $\text{Restante a Pagar} = \$0.00$, gestión de `idempotencyKey` (`crypto.randomUUID()`) que se preserva ante caídas de red y se regenera tras `200 OK`, comprobante térmico (`PrintReceiptModal`) y anulación de ventas de la sesión.
+    - **`recepcion/clientes/page.tsx`:** Reconstruido íntegramente (había sido sobrescrito con una copia de `admin/dashboard/page.tsx`), implementando el padrón paginado de clientes, insignia de `esCumpleaneroDelMes`, CRUD completo y modal de Fichas Técnicas Capilares con `notasSensibilidadAlergias` y subida Direct-to-Cloud a Cloudinary (`uploadImageToCloudinary`).
+    - **`recepcion/caja/page.tsx`:** Separación explícita en dos tarjetas (**1. Efectivo Físico Esperado en Cajón** leyendo `montoFinalEsperado` vs **2. Recaudación Digital Acumulada** leyendo `totalVentasDigital`), campo `observacionesCierre`, historial paginado e inspección bajo demanda (`GET /api/caja/{id}`).
+    - **`recepcion/calendario/page.tsx` y `peluquero/page.tsx`:** Borde lateral con `colorAgendaHex`, modal de reprogramación (`PUT /api/turnos/{id}/reprogramar`), subida de foto a Cloudinary en fichas técnicas y disparo de `toast.warning` ante alertas de insumos de gabinete (`res.warnings`).
+    - **`admin/dashboard/page.tsx`, `admin/inventario/page.tsx`, `admin/staff-liquidaciones/page.tsx`, `admin/configuracion-seguridad/page.tsx`, `admin/diagnostico-api/page.tsx` y `(public)/reservar/page.tsx`:** Gráficos `recharts` (`PieChart` para `ingresosPorMedioPago` y `BarChart` para `rankingPeluqueros`), `cuit` en proveedores y `saldoResultante` en el Kardex, botón de anulación de liquidaciones pendientes (`POST /api/liquidaciones/{id}/anular`), ABM completo de los 7 catálogos del salón + alta de staff (`POST /api/usuarios`) + historial de sesiones paginado, y consumo de `DisponibilidadHorarioResponseDto` en el portal público.
+  - **Auditorías de cierre ejecutadas:**
+    1. `npm --prefix mipeluqueria-saas-web run typecheck` (`npx tsc --noEmit`) -> **0 Errores**.
+    2. `Select-String -Path "mipeluqueria-saas-web\src\**\*.ts","mipeluqueria-saas-web\src\**\*.tsx" -Pattern "\bany\b"` -> **0 coincidencias**.
+    3. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **0 Errores** (24 rutas compiladas y empaquetadas para producción).
+- **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `04_API_CONTRACTS.md`, `05_BUSINESS_RULES.md`, `06_INTEGRATION_AND_ODD_PLAN.md`, `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` y `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`).
+- **Resultado Compilación y Build Frontend (`tsc --noEmit` + `next build`):** 0 Errores / 0 Advertencias.
+

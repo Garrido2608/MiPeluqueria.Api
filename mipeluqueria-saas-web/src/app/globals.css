@@ -1,0 +1,27 @@
+/* filepath: src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-editorial: #FAF8F5;
+  --text-primary: #18181B;
+  --accent-terracotta: #9A3412;
+  --slate-pos: #0F172A;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #F8FAFC;
+  color: #0F172A;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,106 @@
+name: MiPeluqueria SaaS CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Backend (.NET 8 + SQL Server 2022 + xUnit BDD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "CiTest_SqlPassword_2026!"
+          MSSQL_PID: "Developer"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "CiTest_SqlPassword_2026!" -C -Q "SELECT 1" || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "CiTest_SqlPassword_2026!" -Q "SELECT 1"'
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8.0.x
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore NuGet dependencies
+        run: dotnet restore MiPeluqueria.Api/MiPeluqueria.Api.sln
+
+      - name: Build solution (Release, zero warnings)
+        run: dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --configuration Release --warnaserror
+
+      - name: Run xUnit BDD, Contract & Observability Test Suite
+        env:
+          ConnectionStrings__DefaultConnection: "Server=127.0.0.1,1433;Database=MiPeluqueriaDB_Tests;User Id=sa;Password=CiTest_SqlPassword_2026!;TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=false;Pooling=true;Min Pool Size=1;Max Pool Size=100;Connect Timeout=30"
+        run: dotnet test MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj --no-build --configuration Release --verbosity normal
+
+  frontend-ci:
+    name: Frontend (Next.js 14 + TypeScript Strict + UI Boundary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "mipeluqueria-saas-web/package-lock.json"
+
+      - name: Install clean dependencies
+        run: npm --prefix mipeluqueria-saas-web ci
+
+      - name: TypeScript strict check (tsc --noEmit)
+        run: npm --prefix mipeluqueria-saas-web run typecheck
+
+      - name: Audit zero 'any' in src and zero domain imports in src/components/ui
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "1/2 Auditing '0 any' in mipeluqueria-saas-web/src..."
+          if grep -rnwE --include="*.ts" --include="*.tsx" "any" mipeluqueria-saas-web/src; then
+            echo "::error::Forbidden 'any' type detected in mipeluqueria-saas-web/src."
+            exit 1
+          fi
+          echo "PASS: 0 occurrences of 'any' in mipeluqueria-saas-web/src."
+
+          echo "2/2 Auditing domain-agnostic boundary in mipeluqueria-saas-web/src/components/ui..."
+          if grep -rnE --include="*.ts" --include="*.tsx" "services/|useDomainQueries|\.types" mipeluqueria-saas-web/src/components/ui; then
+            echo "::error::Forbidden domain import detected inside mipeluqueria-saas-web/src/components/ui."
+            exit 1
+          fi
+          echo "PASS: 0 domain imports in mipeluqueria-saas-web/src/components/ui."
+
+      - name: Production Next.js build
+        env:
+          NEXT_PUBLIC_API_URL: "https://localhost:7132/api"
+        run: npm --prefix mipeluqueria-saas-web run build

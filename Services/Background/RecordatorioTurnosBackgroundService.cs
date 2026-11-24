@@ -41,6 +41,16 @@ namespace MiPeluqueria.Api.Services.Background
         {
             _logger.LogInformation("[BACKGROUND WORKER] Motor Multi-Tenant de Recordatorios y Expiración de Señas iniciado.");
 
+            // Evitar contención con las consultas iniciales de arranque (/health/ready y primer login)
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -196,14 +206,22 @@ namespace MiPeluqueria.Api.Services.Background
             var desde24h = ahoraSalon.AddHours(2);
             var hasta24h = ahoraSalon.AddHours(24);
 
-            var turnosParaAviso24h = await uow.Turnos.AsQueryable()
-                .Include(t => t.Cliente)
-                .Include(t => t.Peluquero)
+            var idsParaAviso24h = await uow.Turnos.AsQueryable()
+                .AsNoTracking()
                 .Where(t => (t.EstadoId == (int)EstadoTurnoEnum.Confirmado || t.EstadoId == (int)EstadoTurnoEnum.Pendiente)
                          && t.FechaHoraInicio > desde24h
                          && t.FechaHoraInicio <= hasta24h
                          && (t.Observaciones == null || !t.Observaciones.Contains(TagRecordatorio24H)))
+                .Select(t => t.Id)
                 .ToListAsync(ct);
+
+            var turnosParaAviso24h = idsParaAviso24h.Count == 0
+                ? new List<Turno>()
+                : await uow.Turnos.AsQueryable()
+                    .Include(t => t.Cliente)
+                    .Include(t => t.Peluquero)
+                    .Where(t => idsParaAviso24h.Contains(t.Id))
+                    .ToListAsync(ct);
 
             foreach (var turno in turnosParaAviso24h)
             {
@@ -242,14 +260,22 @@ namespace MiPeluqueria.Api.Services.Background
             var desde2h = ahoraSalon.AddMinutes(10);
             var hasta2h = ahoraSalon.AddHours(2);
 
-            var turnosParaAviso2h = await uow.Turnos.AsQueryable()
-                .Include(t => t.Cliente)
-                .Include(t => t.Peluquero)
+            var idsParaAviso2h = await uow.Turnos.AsQueryable()
+                .AsNoTracking()
                 .Where(t => (t.EstadoId == (int)EstadoTurnoEnum.Confirmado || t.EstadoId == (int)EstadoTurnoEnum.Pendiente)
                          && t.FechaHoraInicio >= desde2h
                          && t.FechaHoraInicio <= hasta2h
                          && (t.Observaciones == null || !t.Observaciones.Contains(TagRecordatorio2H)))
+                .Select(t => t.Id)
                 .ToListAsync(ct);
+
+            var turnosParaAviso2h = idsParaAviso2h.Count == 0
+                ? new List<Turno>()
+                : await uow.Turnos.AsQueryable()
+                    .Include(t => t.Cliente)
+                    .Include(t => t.Peluquero)
+                    .Where(t => idsParaAviso2h.Contains(t.Id))
+                    .ToListAsync(ct);
 
             foreach (var turno in turnosParaAviso2h)
             {
@@ -323,13 +349,11 @@ namespace MiPeluqueria.Api.Services.Background
 
         private static DateTime ObtenerHoraLocalSalon(string? timeZoneId)
         {
-            TimeZoneInfo tz;
-            try
-            {
-                tz = TimeZoneInfo.FindSystemTimeZoneById(
-                    string.IsNullOrWhiteSpace(timeZoneId) ? "America/Argentina/Cordoba" : timeZoneId);
-            }
-            catch
+            string targetId = string.IsNullOrWhiteSpace(timeZoneId)
+                ? "America/Argentina/Cordoba"
+                : timeZoneId;
+
+            if (!TimeZoneInfo.TryFindSystemTimeZoneById(targetId, out var tz))
             {
                 tz = TimeZoneInfo.CreateCustomTimeZone("AR", TimeSpan.FromHours(-3), "Argentina", "Argentina");
             }

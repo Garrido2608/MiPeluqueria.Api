@@ -7,11 +7,11 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 7.7 - Barrido Global Frontend (PagedResult<T>, Null-Safety y Diagnóstico en Lotes)`
-* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.8 - Harness E2E con Playwright (Crawler 19 Rutas + 3 Flujos Críticos de Dinero) [HARD GATE 5C]`
-* **Estado de Compilación y Testing Backend (`dotnet test`):** `0 Errores / 0 Advertencias — 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP)`
-* **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal.`
-* **Estado de Compilación Frontend (`tsc --noEmit` + `next build` + Frontera UI):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any`
+* **Última Tarea Completada:** `TAREA 7.8 - Harness E2E con Playwright (Crawler 19 Rutas + 3 Flujos Críticos de Dinero + Login Único storageState) [HARD GATE 5C]`
+* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA EN HARD GATE 5C -> Próxima: TAREA 7.9 - Pipeline CI/CD (GitHub Actions) y Cierre Definitivo v1.0.0`
+* **Estado de Compilación y Testing Backend (`dotnet test`):** `0 Errores / 0 Advertencias — 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP en 17.92 s)`
+* **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal (AUTO_CLOSE OFF + min/max server memory 128/512 MB).`
+* **Estado de Compilación y E2E Frontend (`tsc --noEmit` + `next build` + Playwright E2E):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (setup + 19/19 rutas + 22/22 controladores + 3/3 Journeys en 37.6 s, 0 FAIL, 0 SKIP)`
 
 ---
 
@@ -1087,6 +1087,42 @@
   1. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0` errores (`TYPECHECK_EXIT=0`)**.
   2. `Select-String -Path "mipeluqueria-saas-web\src\**\*.ts","mipeluqueria-saas-web\src\**\*.tsx" -Pattern "\bany\b"` -> **`0` coincidencias (`EXACT_SELECT_STRING_ANY=0`)**.
   3. `npm --prefix mipeluqueria-saas-web run build` -> **`0` errores (`BUILD_EXIT=0`, `24/24` rutas compiladas para producción)**.
+
+### [TAREA 7.8] - Harness E2E con Playwright (Crawler 19 Rutas + 3 Flujos Críticos de Dinero + Login Único `storageState`) [HARD GATE 5C]
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA EN HARD GATE 5C)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/playwright.config.ts`
+  - `mipeluqueria-saas-web/e2e/auth.setup.ts`
+  - `mipeluqueria-saas-web/e2e/smoke-19-routes.spec.ts`
+  - `mipeluqueria-saas-web/e2e/critical-journeys.spec.ts`
+- **Archivos Modificados:**
+  - `.gitignore` (inclusión de `mipeluqueria-saas-web/e2e/.auth/`)
+  - `mipeluqueria-saas-web/package.json` (`@playwright/test` + script `test:e2e`)
+  - `MiPeluqueria.Api/Middlewares/TenantResolutionMiddleware.cs` (single-flight con `ConcurrentDictionary<string, SemaphoreSlim>` para eliminar cache stampede en `EsSucursalValidaYActivaAsync`)
+  - `MiPeluqueria.Api/Middlewares/GlobalExceptionMiddleware.cs` (manejo limpio HTTP `499` ante cancelaciones explícitas del cliente vía `context.RequestAborted`)
+  - `MiPeluqueria.Api/Services/Implementations/AuthService.cs` (evitar `UPDATE Usuarios` + `AuditLog` innecesarios cuando `IntentosFallidos == 0 && BloqueadoHasta == null` y consolidar `HistorialSesion` + `RefreshToken` en un único `CommitAsync()`)
+  - `MiPeluqueria.Api/Services/Background/RecordatorioTurnosBackgroundService.cs` (retardo inicial de `15 s` para evitar contención en arranque, pre-filtro ligero por IDs antes de `Include(Cliente).Include(Peluquero)` y reemplazo de `try-catch` por `TimeZoneInfo.TryFindSystemTimeZoneById`)
+  - `MiPeluqueria.Api/Repositories/Implementations/TurnoRepository.cs` (paginación `GetPagedAsync` por IDs sin `Include`s + carga de página con `.AsSingleQuery()`, eliminando el timeout de `20 s` en `PopulateSplitIncludeCollectionAsync`)
+  - `MiPeluqueria.Api/Program.cs` (`sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)` para evitar explosión cartesiana)
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Diagnóstico de Causa Raíz y Correcciones Aplicadas:**
+  - **Evidencia Real en Logs (`Logs/errors-20261124.json`):** El `500` de `30748.6597 ms` en `POST /api/auth/login` (`TenantResolutionMiddleware.cs:line 159`) correspondió a `SqlException (-2): Execution Timeout Expired` en `INSERT INTO [AuditLogs]` / `UPDATE [Usuarios]` (`AuthService.LoginAsync` ejecutaba `Update(user)` y dos `CommitAsync()` por login), seguido de otro timeout de `33188.872 ms` en `SELECT TOP(1) ... FROM [Usuarios]` y de `35028 ms` en `RecordatorioTurnosBackgroundService`.
+  - **Causa Raíz en SQL Server 2025 Express:** Ambas bases (`MiPeluqueriaDB` y `MiPeluqueriaDB_Tests`) tenían `AUTO_CLOSE = ON`, y la instancia SQL Server tenía `max server memory (MB) = 2147483647` sin cota, con el 75% de su memoria paginada a disco (`WorkingSet = 61.7 MB`, `9.6M` page faults), provocando stalls de `45.5 s` en consultas de 0 filas. Se configuró `AUTO_CLOSE OFF` en ambas bases y `min/max server memory = 128/512 MB` (reduciendo la consulta de `45.5 s` a `0 ms`).
+  - **Blindaje de Concurrencia y Rendimiento Backend:** Single-flight en `TenantResolutionMiddleware`, un único `CommitAsync()` sin lock de `Usuarios` en `AuthService.LoginAsync`, arranque diferido + pre-filtro por IDs en `RecordatorioTurnosBackgroundService`, y paginación por IDs + `AsSingleQuery()` en `TurnoRepository.GetPagedAsync` (erradicando el timeout de `20 s` en `GET /api/turnos` durante `/admin/diagnostico-api`).
+  - **Refactor Playwright a Login Único (`storageState`):** `e2e/auth.setup.ts` inicia sesión una única vez con `admin@tesis.com` / `Admin123!`, espera hidratación cliente y persiste `e2e/.auth/admin.json`. `playwright.config.ts` ejecuta el proyecto `setup` y encadena `chromium` con `storageState`, evitando múltiples logins contra `StrictAuthOtpPolicy` (5 req/min). **Journey 2 (`/reservar`)** corre explícitamente sin sesión (`test.use({ storageState: { cookies: [], origins: [] } })`). Se corrigieron exclusivamente los selectores estrictos (`inputByLabel` con `following-sibling::input[1]`, tarjetas `div.bg-white` en Caja, `CAJA CERRADA` exacto y `div.border-t` en POS) manteniendo intactas todas las aserciones y sensores `pageerror`/`console.error`/`HTTP >= 500` (Regla de Cercado).
+- **Sensores Determinísticos Ejecutados (HARD GATE 5C):**
+  1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --warnaserror` -> **`0 Errores / 0 Advertencias`**.
+  2. `dotnet test MiPeluqueria.Api.Tests --no-build --verbosity normal` -> **`35/35 PASS` (`0 FAILED, 0 SKIPPED`) en `17.92 s`**.
+  3. `npm --prefix mipeluqueria-saas-web run typecheck` + auditoría `\bany\b` (`src/**` + `e2e/**`) -> **`0 errores` / `0 ocurrencias de any`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` -> **`0 errores` (`24/24` rutas compiladas)**.
+  5. Servidores levantados (`GET https://localhost:7132/health/live` -> `200 Healthy`, `GET https://localhost:7132/health/ready` -> `200 Healthy`, `http://localhost:3000/login` -> `200`) + `npm --prefix mipeluqueria-saas-web run test:e2e`:
+     - `[setup] e2e/auth.setup.ts` -> **PASS (`2.7 s`)**
+     - `Journey 1 (Proveedores post-reload + Cliente CRM 360° + Ficha Técnica post-reload)` -> **PASS (`8.7 s`)**
+     - `Journey 3 (Flujo del Dinero: Caja $10.000 -> Turno -> POS Digital Idempotente -> Arqueo Físico Intacto -> Dashboard BI)` -> **PASS (`5.3 s`)**
+     - `Journey 2 (Portal Público /reservar sin sesión)` -> **PASS (`13.0 s`)**
+     - `Smoke Crawler E2E (19/19 pantallas SDD + /admin/diagnostico-api OK: 22/22, ERROR: 0)` -> **PASS (`5.2 s`)**
+     - **Total:** **`5 passed (37.6 s)`, `0 failed`, `0 skipped`**, **`0` errores `[ERR]` en stdout de Backend** y puertos `7132`/`3000` verificados limpios (`OPEN_PORTS=0`) tras el apagado.
 
 
 

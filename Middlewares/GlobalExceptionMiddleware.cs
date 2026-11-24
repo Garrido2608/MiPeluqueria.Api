@@ -28,6 +28,19 @@ namespace MiPeluqueria.Api.Middlewares
             {
                 await _next(context);
             }
+            catch (Exception ex) when (context.RequestAborted.IsCancellationRequested &&
+                                       (ex is OperationCanceledException || ex is Microsoft.Data.SqlClient.SqlException))
+            {
+                _logger.LogDebug(
+                    "Solicitud cancelada por el cliente [CorrelationId={CorrelationId}]: {Path}",
+                    context.TraceIdentifier,
+                    context.Request.Path.Value);
+
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = 499;
+                }
+            }
             catch (Exception ex)
             {
                 _logger.LogError(

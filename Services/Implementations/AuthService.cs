@@ -76,10 +76,22 @@ namespace MiPeluqueria.Api.Services.Implementations
                 return ApiResponse<AuthResponseDto>.Falla("Debe verificar su correo electrónico antes de iniciar sesión.");
             }
 
-            user.IntentosFallidos = 0;
-            user.BloqueadoHasta = null;
-            _uow.Usuarios.Update(user);
-            await RegistrarIntentoSesionAsync(user.Id, ip, dispositivo, true, MotivoFalloSesionEnum.Ninguno);
+            if (user.IntentosFallidos != 0 || user.BloqueadoHasta.HasValue)
+            {
+                user.IntentosFallidos = 0;
+                user.BloqueadoHasta = null;
+                _uow.Usuarios.Update(user);
+            }
+
+            await _uow.Usuarios.RegistrarHistorialSesionAsync(new HistorialSesion
+            {
+                UsuarioId = user.Id,
+                DireccionIP = ip,
+                Dispositivo = dispositivo,
+                Exitoso = true,
+                MotivoFallo = MotivoFalloSesionEnum.Ninguno,
+                FechaIntento = DateTime.UtcNow
+            });
 
             var (tokenString, expira) = GenerarJwtToken(user);
             var refreshTokenString = GenerarRefreshTokenSeguro();

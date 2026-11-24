@@ -67,6 +67,7 @@ try
             builder.Configuration.GetConnectionString("DefaultConnection"),
             sqlOptions =>
             {
+                sqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                 sqlOptions.EnableRetryOnFailure(
                     maxRetryCount: 5,
                     maxRetryDelay: TimeSpan.FromSeconds(10),

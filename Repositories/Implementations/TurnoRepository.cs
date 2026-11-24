@@ -96,57 +96,82 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             int? clienteId = null,
             CancellationToken ct = default)
         {
-            var query = _dbSet
+            int pageNumber = Math.Max(1, filter.PageNumber);
+            int pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
+            var baseQuery = _dbSet.AsNoTracking().AsQueryable();
+
+            if (fecha.HasValue)
+            {
+                var inicioDia = fecha.Value.Date;
+                var finDia = inicioDia.AddDays(1).AddTicks(-1);
+                baseQuery = baseQuery.Where(t => t.FechaHoraInicio >= inicioDia && t.FechaHoraInicio <= finDia);
+            }
+
+            if (filter.FechaDesde.HasValue)
+                baseQuery = baseQuery.Where(t => t.FechaHoraInicio >= filter.FechaDesde.Value);
+
+            if (filter.FechaHasta.HasValue)
+                baseQuery = baseQuery.Where(t => t.FechaHoraInicio <= filter.FechaHasta.Value);
+
+            if (peluqueroId.HasValue)
+                baseQuery = baseQuery.Where(t => t.PeluqueroId == peluqueroId.Value);
+
+            if (estadoId.HasValue)
+                baseQuery = baseQuery.Where(t => t.EstadoId == estadoId.Value);
+
+            if (clienteId.HasValue)
+                baseQuery = baseQuery.Where(t => t.ClienteId == clienteId.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var term = filter.Search.Trim();
+                baseQuery = baseQuery.Where(t =>
+                    (t.Cliente != null && (t.Cliente.Nombre.Contains(term) || t.Cliente.Apellido.Contains(term) || t.Cliente.Telefono.Contains(term))) ||
+                    (t.Peluquero != null && (t.Peluquero.Nombre.Contains(term) || t.Peluquero.Apellido.Contains(term))) ||
+                    (t.Observaciones != null && t.Observaciones.Contains(term)));
+            }
+
+            var orderedIdsQuery = filter.SortDescending
+                ? baseQuery.OrderByDescending(t => t.FechaHoraInicio).ThenByDescending(t => t.Id)
+                : baseQuery.OrderBy(t => t.FechaHoraInicio).ThenBy(t => t.Id);
+
+            var pageIds = await orderedIdsQuery
+                .Select(t => t.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            int totalRecords = (pageNumber == 1 && pageIds.Count < pageSize)
+                ? pageIds.Count
+                : await baseQuery.CountAsync(ct);
+
+            if (pageIds.Count == 0)
+            {
+                return (Array.Empty<Turno>(), totalRecords);
+            }
+
+            var itemsUnordered = await _dbSet
                 .AsNoTracking()
+                .AsSingleQuery()
                 .Include(t => t.Cliente)
                 .Include(t => t.Peluquero)
                 .Include(t => t.Estado)
                 .Include(t => t.MotivoCancelacion)
                 .Include(t => t.TurnoServicios)
                     .ThenInclude(ts => ts.Servicio)
-                .AsQueryable();
-
-            if (fecha.HasValue)
-            {
-                var inicioDia = fecha.Value.Date;
-                var finDia = inicioDia.AddDays(1).AddTicks(-1);
-                query = query.Where(t => t.FechaHoraInicio >= inicioDia && t.FechaHoraInicio <= finDia);
-            }
-
-            if (filter.FechaDesde.HasValue)
-                query = query.Where(t => t.FechaHoraInicio >= filter.FechaDesde.Value);
-
-            if (filter.FechaHasta.HasValue)
-                query = query.Where(t => t.FechaHoraInicio <= filter.FechaHasta.Value);
-
-            if (peluqueroId.HasValue)
-                query = query.Where(t => t.PeluqueroId == peluqueroId.Value);
-
-            if (estadoId.HasValue)
-                query = query.Where(t => t.EstadoId == estadoId.Value);
-
-            if (clienteId.HasValue)
-                query = query.Where(t => t.ClienteId == clienteId.Value);
-
-            if (!string.IsNullOrWhiteSpace(filter.Search))
-            {
-                var term = filter.Search.Trim().ToLower();
-                query = query.Where(t =>
-                    (t.Cliente != null && (t.Cliente.Nombre.ToLower().Contains(term) || t.Cliente.Apellido.ToLower().Contains(term) || t.Cliente.Telefono.Contains(term))) ||
-                    (t.Peluquero != null && (t.Peluquero.Nombre.ToLower().Contains(term) || t.Peluquero.Apellido.ToLower().Contains(term))) ||
-                    (t.Observaciones != null && t.Observaciones.ToLower().Contains(term)));
-            }
-
-            int totalRecords = await query.CountAsync(ct);
-
-            var orderedQuery = filter.SortDescending
-                ? query.OrderByDescending(t => t.FechaHoraInicio)
-                : query.OrderBy(t => t.FechaHoraInicio);
-
-            var items = await orderedQuery
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+                .Where(t => pageIds.Contains(t.Id))
                 .ToListAsync(ct);
+
+            var byId = itemsUnordered.ToDictionary(t => t.Id);
+            var items = new List<Turno>(pageIds.Count);
+            foreach (var id in pageIds)
+            {
+                if (byId.TryGetValue(id, out var turno))
+                {
+                    items.Add(turno);
+                }
+            }
 
             return (items, totalRecords);
         }

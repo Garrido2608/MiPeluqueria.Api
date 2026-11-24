@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -20,6 +22,7 @@ namespace MiPeluqueria.Api.Middlewares
         private static readonly TimeSpan DuracionCacheValidacion = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan TopeAbsolutoCacheValidacion = TimeSpan.FromMinutes(60);
         private static readonly TimeSpan DuracionCacheNegativa = TimeSpan.FromMinutes(1);
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> ValidacionLocks = new();
 
         private readonly RequestDelegate _next;
         private readonly IMemoryCache _cache;
@@ -130,23 +133,35 @@ namespace MiPeluqueria.Api.Middlewares
                 string cacheKey = $"SaaS_Valid_T{tenantId}_S{sucursalId}";
                 if (!_cache.TryGetValue(cacheKey, out bool esValida))
                 {
-                    esValida = await unitOfWork.SaaS.EsSucursalValidaYActivaAsync(
-                        tenantId,
-                        sucursalId,
-                        context.RequestAborted);
-
-                    var opcionesCache = esValida
-                        ? new MemoryCacheEntryOptions
+                    var keyLock = ValidacionLocks.GetOrAdd(cacheKey, static _ => new SemaphoreSlim(1, 1));
+                    await keyLock.WaitAsync(context.RequestAborted);
+                    try
+                    {
+                        if (!_cache.TryGetValue(cacheKey, out esValida))
                         {
-                            SlidingExpiration = DuracionCacheValidacion,
-                            AbsoluteExpirationRelativeToNow = TopeAbsolutoCacheValidacion
+                            esValida = await unitOfWork.SaaS.EsSucursalValidaYActivaAsync(
+                                tenantId,
+                                sucursalId,
+                                context.RequestAborted);
+
+                            var opcionesCache = esValida
+                                ? new MemoryCacheEntryOptions
+                                {
+                                    SlidingExpiration = DuracionCacheValidacion,
+                                    AbsoluteExpirationRelativeToNow = TopeAbsolutoCacheValidacion
+                                }
+                                : new MemoryCacheEntryOptions
+                                {
+                                    AbsoluteExpirationRelativeToNow = DuracionCacheNegativa
+                                };
+
+                            _cache.Set(cacheKey, esValida, opcionesCache);
                         }
-                        : new MemoryCacheEntryOptions
-                        {
-                            AbsoluteExpirationRelativeToNow = DuracionCacheNegativa
-                        };
-
-                    _cache.Set(cacheKey, esValida, opcionesCache);
+                    }
+                    finally
+                    {
+                        keyLock.Release();
+                    }
                 }
 
                 if (!esValida)

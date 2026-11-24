@@ -47,6 +47,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Email")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
@@ -65,46 +68,71 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Telefono")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<int?>("TipoCabelloId")
+                    b.Property<int>("TenantId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TipoCabelloId1")
+                    b.Property<int?>("TipoCabelloId")
                         .HasColumnType("int");
 
                     b.Property<int?>("TipoRostroId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TipoRostroId1")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
-
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Clientes_Email_Active")
-                        .HasFilter("[Email] IS NOT NULL AND [IsDeleted] = 0");
-
-                    b.HasIndex("Telefono")
-                        .HasDatabaseName("IX_Clientes_Telefono")
-                        .HasFilter("[IsDeleted] = 0");
 
                     b.HasIndex("TipoCabelloId");
 
-                    b.HasIndex("TipoCabelloId1");
-
                     b.HasIndex("TipoRostroId");
 
-                    b.HasIndex("TipoRostroId1");
+                    b.HasIndex("TenantId", "SucursalId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Clientes_Local_Email")
+                        .HasFilter("[Email] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "Telefono")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Clientes_Local_Telefono")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Clientes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Apellido = "Pérez",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "juan.perez@cliente.com",
+                            FechaNacimiento = new DateTime(1995, 5, 15, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FechaRegistro = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "Juan",
+                            SucursalId = 1,
+                            Telefono = "+5493516000001",
+                            TenantId = 1,
+                            TipoCabelloId = 1,
+                            TipoRostroId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Clientes.FichaTecnica", b =>
@@ -127,12 +155,20 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("DetalleFormulaTintura")
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FormulaAplicada")
+                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<DateTime>("Fecha")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("FotoResultadoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -141,7 +177,21 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("PeluqueroId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductosUtilizados")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
                         .HasColumnType("int");
 
                     b.Property<int?>("TurnoId")
@@ -150,14 +200,19 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
 
                     b.HasIndex("PeluqueroId");
 
                     b.HasIndex("TurnoId");
 
-                    b.HasIndex("ClienteId", "Fecha")
-                        .HasDatabaseName("IX_FichasTecnicas_ClienteId_Fecha");
+                    b.HasIndex("TenantId", "SucursalId", "ClienteId", "FechaRegistro")
+                        .HasDatabaseName("IX_FichasTecnicas_ClienteId_FechaRegistro");
 
                     b.ToTable("FichasTecnicas", (string)null);
                 });
@@ -179,6 +234,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Descripcion")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
@@ -191,12 +249,88 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("TiposCabello");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TiposCabello_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("TiposCabello", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cabello sin ondas ni rulos naturales",
+                            IsDeleted = false,
+                            Nombre = "Lacio",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cabello con ondas suaves en medios y puntas",
+                            IsDeleted = false,
+                            Nombre = "Ondulado",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cabello con rulos definidos",
+                            IsDeleted = false,
+                            Nombre = "Rizado",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cabello con rizo muy cerrado y alta porosidad",
+                            IsDeleted = false,
+                            Nombre = "Afro / Muy Rizado",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Fibra capilar delgada que requiere cuidado térmico",
+                            IsDeleted = false,
+                            Nombre = "Fino / Quebradizo",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Raíz con tendencia oleosa y puntas secas",
+                            IsDeleted = false,
+                            Nombre = "Graso / Mixto",
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Clientes.TipoRostro", b =>
@@ -216,6 +350,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Descripcion")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
@@ -228,12 +365,78 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("TiposRostro");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TiposRostro_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("TiposRostro", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Proporciones equilibradas y simétricas",
+                            IsDeleted = false,
+                            Nombre = "Ovalado",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Pómulos anchos y contornos suaves",
+                            IsDeleted = false,
+                            Nombre = "Redondo",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Mandíbula y frente marcadas del mismo ancho",
+                            IsDeleted = false,
+                            Nombre = "Cuadrado",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Mayor longitud vertical que ancho facial",
+                            IsDeleted = false,
+                            Nombre = "Alargado / Rectangular",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Pómulos destacados y mentón fino",
+                            IsDeleted = false,
+                            Nombre = "Corazón / Diamante",
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Common.AuditLog", b =>
@@ -263,6 +466,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("EntidadNombre")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -278,8 +484,17 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("UsuarioId")
                         .HasColumnType("int");
@@ -292,7 +507,7 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EntidadNombre", "ClavePrimaria", "FechaUtc")
+                    b.HasIndex("TenantId", "SucursalId", "EntidadNombre", "ClavePrimaria", "FechaUtc")
                         .HasDatabaseName("IX_AuditLogs_Entidad_Clave_Fecha");
 
                     b.ToTable("AuditLogs", (string)null);
@@ -320,6 +535,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Direccion")
                         .IsRequired()
                         .HasMaxLength(250)
@@ -329,6 +547,11 @@ namespace MiPeluqueria.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("HorarioAtencionTexto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("HorasAnticipacionCancelacion")
                         .HasColumnType("int");
@@ -349,6 +572,11 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(3)")
                         .HasDefaultValue("ARS");
 
+                    b.Property<string>("NombreComercial")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<string>("NombreSalon")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -361,6 +589,7 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("PorcentajeSenaReserva")
+                        .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("RazonSocial")
@@ -368,10 +597,16 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Telefono")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
 
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
@@ -383,9 +618,43 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "SucursalId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ConfiguracionSalon_Tenant_Sucursal")
+                        .HasFilter("[IsDeleted] = 0");
+
                     b.ToTable("ConfiguracionSalon", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Cuit = "30-71234567-9",
+                            Direccion = "Av. Colón 500, Córdoba",
+                            EmailContacto = "admin@tesis.com",
+                            HorarioAtencionTexto = "Lunes a Sábados de 09:00 a 20:00 hs",
+                            HorasAnticipacionCancelacion = 24,
+                            IntervaloTurnosMinutos = 30,
+                            IsDeleted = false,
+                            MinutosToleranciaEspera = 15,
+                            MonedaIso = "ARS",
+                            NombreComercial = "Mi Peluquería Central",
+                            NombreSalon = "Mi Peluquería Central",
+                            NotificacionesEmailActivas = true,
+                            NotificacionesWhatsAppActivas = true,
+                            PorcentajeSenaReserva = 0.00m,
+                            RazonSocial = "Mi Peluquería S.A.",
+                            SucursalId = 1,
+                            Telefono = "+54 9 351 000-0000",
+                            TenantId = 1,
+                            TimeZoneId = "America/Argentina/Cordoba"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.SaaS.PlanSuscripcion", b =>
@@ -408,6 +677,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IncluyePortalReservasOnline")
                         .HasColumnType("bit");
 
@@ -429,10 +701,14 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("PrecioMensualUsd")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -443,9 +719,9 @@ namespace MiPeluqueria.Api.Migrations
                         {
                             Id = 1,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IncluyePortalReservasOnline = true,
-                            IncluyeWhatsAppRecordatorios = true,
+                            IncluyeWhatsAppRecordatorios = false,
                             IsDeleted = false,
                             MaxPeluqueros = 3,
                             MaxSucursales = 1,
@@ -456,7 +732,7 @@ namespace MiPeluqueria.Api.Migrations
                         {
                             Id = 2,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IncluyePortalReservasOnline = true,
                             IncluyeWhatsAppRecordatorios = true,
                             IsDeleted = false,
@@ -469,7 +745,7 @@ namespace MiPeluqueria.Api.Migrations
                         {
                             Id = 3,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IncluyePortalReservasOnline = true,
                             IncluyeWhatsAppRecordatorios = true,
                             IsDeleted = false,
@@ -499,6 +775,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Direccion")
                         .IsRequired()
@@ -540,9 +819,15 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId");
+                    b.HasIndex("TenantId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Sucursales_Tenant_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Sucursales", (string)null);
 
@@ -551,7 +836,7 @@ namespace MiPeluqueria.Api.Migrations
                         {
                             Id = 1,
                             Activa = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Direccion = "Av. Colón 500, Córdoba",
                             EsCasaMatriz = true,
                             IsDeleted = false,
@@ -580,6 +865,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Estado")
                         .HasColumnType("int");
 
@@ -605,6 +893,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("PlanSuscripcionId");
@@ -617,10 +908,10 @@ namespace MiPeluqueria.Api.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Estado = 2,
-                            FechaInicio = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            FechaProximoVencimiento = new DateTime(2027, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FechaInicio = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FechaProximoVencimiento = new DateTime(2028, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             PlanSuscripcionId = 2,
                             TenantId = 1
@@ -646,6 +937,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("EmailPropietario")
                         .IsRequired()
@@ -677,6 +971,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SubdominioSlug")
@@ -691,7 +988,7 @@ namespace MiPeluqueria.Api.Migrations
                         {
                             Id = 1,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             EmailPropietario = "admin@tesis.com",
                             IdentificacionFiscal = "30-71234567-9",
                             IsDeleted = false,
@@ -718,6 +1015,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("DireccionIP")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -739,15 +1039,26 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int?>("MotivoFallo")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UsuarioId", "FechaIntento")
+                    b.HasIndex("UsuarioId");
+
+                    b.HasIndex("TenantId", "SucursalId", "UsuarioId", "FechaIntento")
                         .HasDatabaseName("IX_HistorialSesiones_UsuarioId_FechaIntento");
 
                     b.ToTable("HistorialSesiones", (string)null);
@@ -774,6 +1085,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime2");
 
@@ -795,6 +1109,12 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Token")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -802,6 +1122,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
@@ -834,6 +1157,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -845,43 +1171,51 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("Roles");
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Roles_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Roles", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Administrador"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Recepcionista"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Peluquero"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cliente"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cajero"
                         });
@@ -920,6 +1254,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -951,11 +1288,23 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("RolId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("RolId1")
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -966,20 +1315,18 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Usuarios_Email_Active")
-                        .HasFilter("[IsDeleted] = 0");
-
                     b.HasIndex("PeluqueroId");
 
                     b.HasIndex("RolId");
 
-                    b.HasIndex("RolId1");
-
-                    b.HasIndex("Username")
+                    b.HasIndex("TenantId", "SucursalId", "Email")
                         .IsUnique()
-                        .HasDatabaseName("UX_Usuarios_Username_Active")
+                        .HasDatabaseName("UX_Usuarios_Local_Email")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "Username")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Usuarios_Local_Username")
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Usuarios", (string)null);
@@ -990,13 +1337,16 @@ namespace MiPeluqueria.Api.Migrations
                             Id = 1,
                             AceptaTerminos = true,
                             Activo = true,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "admin@tesis.com",
                             EmailVerificado = true,
+                            FechaAceptacionTerminos = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IntentosFallidos = 0,
                             IsDeleted = false,
-                            PasswordHash = "$2a$11$0nN01jB5P169DXZgN/.hCeeNInhV/9tYkH.fK5v4a9jR1LqFkI5C6",
+                            PasswordHash = "$2a$11$r4llG6xDC0cihMfzpC0/sOKZSMe1jQTVy01fKSfCkcq70nhWJHVhK",
                             RolId = 1,
+                            SucursalId = 1,
+                            TenantId = 1,
                             Username = "admin"
                         });
                 });
@@ -1018,6 +1368,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1026,12 +1383,68 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("CategoriasProducto");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CategoriasProducto_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("CategoriasProducto", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Línea de lavado profesional y reventa",
+                            IsDeleted = false,
+                            Nombre = "Shampoos y Acondicionadores",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Pomadas, ceras mate, geles y lacas",
+                            IsDeleted = false,
+                            Nombre = "Fijación, Ceras y Styling",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Insumos técnicos de uso interno en salón",
+                            IsDeleted = false,
+                            Nombre = "Tinturas y Oxidantes (Gabinete)",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Máscaras nutritivas, óleos y ampollas capilares",
+                            IsDeleted = false,
+                            Nombre = "Tratamientos y Ampollas",
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Stock.DetalleOrdenCompra", b =>
@@ -1057,6 +1470,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1064,16 +1480,27 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("PrecioUnitarioCosto")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
 
                     b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1101,6 +1528,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("FechaCambio")
                         .HasColumnType("datetime2");
 
@@ -1112,22 +1542,35 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(250)");
 
                     b.Property<decimal>("PrecioCostoAnterior")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioCostoNuevo")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioVentaAnterior")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioVentaNuevo")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("UsuarioModificacionId")
                         .HasColumnType("int");
@@ -1159,6 +1602,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
 
@@ -1172,18 +1618,32 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("SaldoResultante")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TipoMovimiento")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("UsuarioId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductoId", "Fecha")
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("TenantId", "SucursalId", "ProductoId", "Fecha")
                         .HasDatabaseName("IX_MovimientosStock_Kardex_ProductoId_Fecha");
 
                     b.ToTable("MovimientosStock", (string)null);
@@ -1205,6 +1665,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("Estado")
                         .HasColumnType("int");
@@ -1229,11 +1692,27 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("ProveedorId")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("UsuarioCreacionId")
                         .HasColumnType("int");
@@ -1243,7 +1722,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProveedorId", "Estado", "FechaEmision")
+                    b.HasIndex("ProveedorId");
+
+                    b.HasIndex("TenantId", "SucursalId", "ProveedorId", "Estado", "FechaEmision")
                         .HasDatabaseName("IX_OrdenesCompra_Proveedor_Estado_Fecha");
 
                     b.ToTable("OrdenesCompra", (string)null);
@@ -1260,9 +1741,6 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("CategoriaId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CategoriaProductoId")
-                        .HasColumnType("int");
-
                     b.Property<string>("CodigoBarras")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1276,6 +1754,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("EsParaVenta")
                         .HasColumnType("bit");
 
@@ -1288,13 +1769,21 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<decimal>("PrecioCosto")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioVenta")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("ProveedorId")
                         .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("StockActual")
                         .HasColumnType("int");
@@ -1302,27 +1791,75 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("StockMinimoAlerta")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CategoriaId");
 
-                    b.HasIndex("CategoriaProductoId");
-
-                    b.HasIndex("CodigoBarras")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Productos_CodigoBarras_Active")
-                        .HasFilter("[CodigoBarras] IS NOT NULL AND [IsDeleted] = 0");
-
                     b.HasIndex("ProveedorId");
 
-                    b.HasIndex("StockActual", "StockMinimoAlerta")
+                    b.HasIndex("TenantId", "SucursalId", "CodigoBarras")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Productos_Local_CodigoBarras")
+                        .HasFilter("[CodigoBarras] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Productos_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "StockActual", "StockMinimoAlerta")
                         .HasDatabaseName("IX_Productos_StockCritico")
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Productos", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CategoriaId = 2,
+                            CodigoBarras = "7790001000011",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EsParaVenta = true,
+                            IsDeleted = false,
+                            Nombre = "Cera Modeladora Mate 100g",
+                            PrecioCosto = 4500.00m,
+                            PrecioVenta = 9500.00m,
+                            ProveedorId = 1,
+                            StockActual = 20,
+                            StockMinimoAlerta = 5,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CategoriaId = 3,
+                            CodigoBarras = "7790001000028",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EsParaVenta = false,
+                            IsDeleted = false,
+                            Nombre = "Pomo Tintura Profesional 60g (Insumo)",
+                            PrecioCosto = 3800.00m,
+                            PrecioVenta = 0.00m,
+                            ProveedorId = 1,
+                            StockActual = 15,
+                            StockMinimoAlerta = 5,
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Stock.Proveedor", b =>
@@ -1343,8 +1880,15 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Cuit")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Email")
                         .HasMaxLength(150)
@@ -1358,16 +1902,56 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Telefono")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "SucursalId", "Cuit")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Proveedores_Local_Cuit")
+                        .HasFilter("[Cuit] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "RazonSocial")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Proveedores_Local_RazonSocial")
+                        .HasFilter("[IsDeleted] = 0");
+
                     b.ToTable("Proveedores", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Contacto = "Laura Martínez",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Cuit = "30-70998877-1",
+                            Email = "ventas@distribuidoracapilar.com",
+                            IsDeleted = false,
+                            RazonSocial = "Distribuidora Capilar Córdoba S.R.L.",
+                            SucursalId = 1,
+                            Telefono = "+54 9 351 444-9900",
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.BloqueoHorario", b =>
@@ -1387,6 +1971,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("FechaFin")
                         .HasColumnType("datetime2");
 
@@ -1404,12 +1991,23 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("PeluqueroId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PeluqueroId", "FechaInicio", "FechaFin")
+                    b.HasIndex("PeluqueroId");
+
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "FechaInicio", "FechaFin")
                         .HasDatabaseName("IX_BloqueosHorario_PeluqueroId_Fechas");
 
                     b.ToTable("BloqueosHorario", (string)null);
@@ -1432,6 +2030,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1440,12 +2045,68 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("CategoriasServicio");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CategoriasServicio_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("CategoriasServicio", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Servicios de corte de cabello y arreglo de barba",
+                            IsDeleted = false,
+                            Nombre = "Cortes y Barbería",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Servicios técnicos de color y decoloración",
+                            IsDeleted = false,
+                            Nombre = "Colorimetría",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Recuperación y salud de la fibra capilar",
+                            IsDeleted = false,
+                            Nombre = "Tratamientos y Nutrición",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Modelado y acabado profesional",
+                            IsDeleted = false,
+                            Nombre = "Peinados y Styling",
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Especialidad", b =>
@@ -1465,6 +2126,13 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1473,12 +2141,78 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("Especialidades");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Especialidades_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("Especialidades", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cortes clásicos, modernos y diseño personalizado",
+                            IsDeleted = false,
+                            Nombre = "Corte y Estilismo",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Balayage, tintura global, reflejos y decoloración",
+                            IsDeleted = false,
+                            Nombre = "Colorimetría y Mechas",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Perfilado de barba con navaja y degradados",
+                            IsDeleted = false,
+                            Nombre = "Barbería Clásica y Fade",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Hidratación, nutrición, cauterización y keratina",
+                            IsDeleted = false,
+                            Nombre = "Tratamientos Capilares",
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Brushing, ondas y recogidos sociales",
+                            IsDeleted = false,
+                            Nombre = "Peinados y Eventos",
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.EstadoTurno", b =>
@@ -1498,6 +2232,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1509,50 +2246,58 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("EstadosTurno");
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_EstadosTurno_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("EstadosTurno", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Pendiente"
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Confirmado"
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "En Proceso"
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Completado"
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cancelado"
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "No Asistió"
                         });
@@ -1575,6 +2320,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("EstadoAnteriorId")
                         .HasColumnType("int");
 
@@ -1591,11 +2339,20 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TurnoId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("UsuarioId")
                         .HasColumnType("int");
@@ -1606,7 +2363,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasIndex("EstadoNuevoId");
 
-                    b.HasIndex("TurnoId", "FechaCambio")
+                    b.HasIndex("TurnoId");
+
+                    b.HasIndex("TenantId", "SucursalId", "TurnoId", "FechaCambio")
                         .HasDatabaseName("IX_HistorialEstadosTurno_TurnoId_FechaCambio");
 
                     b.ToTable("HistorialEstadosTurno", (string)null);
@@ -1629,6 +2388,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("FechaCambio")
                         .HasColumnType("datetime2");
 
@@ -1640,16 +2402,27 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(250)");
 
                     b.Property<decimal>("PrecioAnterior")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PrecioNuevo")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("ServicioId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("UsuarioModificacionId")
                         .HasColumnType("int");
@@ -1669,6 +2442,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1678,13 +2454,22 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int>("DiaSemana")
                         .HasColumnType("int");
 
                     b.Property<TimeSpan>("HoraFin")
                         .HasColumnType("time");
 
+                    b.Property<TimeSpan?>("HoraFinDescanso")
+                        .HasColumnType("time");
+
                     b.Property<TimeSpan>("HoraInicio")
+                        .HasColumnType("time");
+
+                    b.Property<TimeSpan?>("HoraInicioDescanso")
                         .HasColumnType("time");
 
                     b.Property<bool>("IsDeleted")
@@ -1693,15 +2478,118 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("PeluqueroId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PeluqueroId", "DiaSemana")
+                    b.HasIndex("PeluqueroId");
+
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "DiaSemana")
                         .HasDatabaseName("IX_HorariosLaborales_PeluqueroId_DiaSemana");
 
                     b.ToTable("HorariosLaborales", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 1,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 2,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 3,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 4,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 5,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DiaSemana = 6,
+                            HoraFin = new TimeSpan(0, 20, 0, 0, 0),
+                            HoraFinDescanso = new TimeSpan(0, 14, 0, 0, 0),
+                            HoraInicio = new TimeSpan(0, 9, 0, 0, 0),
+                            HoraInicioDescanso = new TimeSpan(0, 13, 0, 0, 0),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.MotivoCancelacion", b =>
@@ -1721,6 +2609,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -1729,41 +2620,63 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("MotivosCancelacion");
+                    b.HasIndex("TenantId", "SucursalId", "Descripcion")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MotivosCancelacion_Local_Descripcion")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("MotivosCancelacion", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Descripcion = "Cancelación con aviso previo del cliente",
-                            IsDeleted = false
+                            IsDeleted = false,
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Descripcion = "Ausencia o indisposición del profesional",
-                            IsDeleted = false
+                            IsDeleted = false,
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Descripcion = "Reprogramación solicitada por recepción",
-                            IsDeleted = false
+                            IsDeleted = false,
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Descripcion = "Fuerza mayor / Feriado / Corte de suministro",
-                            IsDeleted = false
+                            IsDeleted = false,
+                            SucursalId = 1,
+                            TenantId = 1
                         });
                 });
 
@@ -1799,6 +2712,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -1812,36 +2728,129 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Telefono")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("TenantId", "SucursalId", "Email")
                         .IsUnique()
-                        .HasDatabaseName("UX_Peluqueros_Email_Active")
+                        .HasDatabaseName("UX_Peluqueros_Local_Email")
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Peluqueros", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            Apellido = "Gómez",
+                            ColorAgendaHex = "#3B82F6",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "carlos.gomez@tesis.com",
+                            IsDeleted = false,
+                            Nombre = "Carlos",
+                            SucursalId = 1,
+                            Telefono = "+54 9 351 555-0101",
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.PeluqueroEspecialidad", b =>
                 {
-                    b.Property<int>("PeluqueroId")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
                         .HasColumnType("int");
 
                     b.Property<int>("EspecialidadId")
                         .HasColumnType("int");
 
-                    b.HasKey("PeluqueroId", "EspecialidadId");
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PeluqueroId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("EspecialidadId");
 
+                    b.HasIndex("PeluqueroId");
+
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "EspecialidadId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PeluqueroEspecialidades_Activa")
+                        .HasFilter("[IsDeleted] = 0");
+
                     b.ToTable("PeluqueroEspecialidades", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EspecialidadId = 1,
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            EspecialidadId = 3,
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Servicio", b =>
@@ -1858,9 +2867,6 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("CategoriaId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CategoriaServicioId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1869,6 +2875,9 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Descripcion")
                         .HasMaxLength(500)
@@ -1886,19 +2895,84 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("nvarchar(150)");
 
                     b.Property<decimal>("Precio")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("CategoriaServicioId");
+                    b.HasIndex("CategoriaId");
 
-                    b.HasIndex("CategoriaId", "Activo")
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Servicios_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "CategoriaId", "Activo")
                         .HasDatabaseName("IX_Servicios_CategoriaId_Activo");
 
                     b.ToTable("Servicios", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Activo = true,
+                            CategoriaId = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Corte personalizado con máquina y tijera, incluye lavado.",
+                            DuracionMinutos = 30,
+                            IsDeleted = false,
+                            Nombre = "Corte Clásico / Fade",
+                            Precio = 12000.00m,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Activo = true,
+                            CategoriaId = 2,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Aplicación de color completo con productos profesionales.",
+                            DuracionMinutos = 90,
+                            IsDeleted = false,
+                            Nombre = "Coloración Global / Tintura",
+                            Precio = 28000.00m,
+                            SucursalId = 1,
+                            TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Activo = true,
+                            CategoriaId = 3,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Baño de crema e hidratación profunda.",
+                            DuracionMinutos = 45,
+                            IsDeleted = false,
+                            Nombre = "Nutrición Capilar Intensiva",
+                            Precio = 18000.00m,
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.ServicioInsumoReceta", b =>
@@ -1910,6 +2984,7 @@ namespace MiPeluqueria.Api.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("CantidadMedidaEstandar")
+                        .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("CantidadUnidadesDescontar")
@@ -1924,6 +2999,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("DescuentoAutomaticoAlCompletarTurno")
                         .HasColumnType("bit");
 
@@ -1936,6 +3014,12 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("ServicioId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<string>("UnidadMedida")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1944,16 +3028,37 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProductoId");
 
-                    b.HasIndex("ServicioId", "ProductoId")
+                    b.HasIndex("ServicioId");
+
+                    b.HasIndex("TenantId", "SucursalId", "ServicioId", "ProductoId")
                         .IsUnique()
                         .HasDatabaseName("UX_ServiciosInsumosRecetas_Servicio_Producto")
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("ServiciosInsumosRecetas", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CantidadMedidaEstandar = 60.00m,
+                            CantidadUnidadesDescontar = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DescuentoAutomaticoAlCompletarTurno = true,
+                            IsDeleted = false,
+                            ProductoId = 2,
+                            ServicioId = 2,
+                            SucursalId = 1,
+                            TenantId = 1,
+                            UnidadMedida = "gr"
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Turno", b =>
@@ -1976,10 +3081,10 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("EstadoId")
+                    b.Property<int?>("DeletedByUserId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("EstadoTurnoId")
+                    b.Property<int>("EstadoId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("FechaHoraFin")
@@ -1988,10 +3093,18 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime>("FechaHoraInicio")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaPagoSena")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("MontoSena")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("MontoTotalEstimado")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("MotivoCancelacionId")
@@ -2004,21 +3117,48 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("PeluqueroId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ReferenciaPagoExterno")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("RequiereSena")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<bool>("SenaPagada")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
 
                     b.HasIndex("EstadoId");
 
-                    b.HasIndex("EstadoTurnoId");
-
                     b.HasIndex("MotivoCancelacionId");
 
-                    b.HasIndex("ClienteId", "FechaHoraInicio")
+                    b.HasIndex("PeluqueroId");
+
+                    b.HasIndex("TenantId", "SucursalId", "ClienteId", "FechaHoraInicio")
                         .HasDatabaseName("IX_Turnos_ClienteId_FechaHoraInicio");
 
-                    b.HasIndex("PeluqueroId", "FechaHoraInicio", "EstadoId")
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "FechaHoraInicio", "EstadoId")
                         .HasDatabaseName("IX_Turnos_Disponibilidad_Peluquero_Fecha_Estado")
                         .HasFilter("[IsDeleted] = 0");
 
@@ -2027,22 +3167,62 @@ namespace MiPeluqueria.Api.Migrations
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.TurnoServicio", b =>
                 {
-                    b.Property<int>("TurnoId")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<int>("ServicioId")
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUserId")
                         .HasColumnType("int");
 
                     b.Property<int>("DuracionMinutosHistorica")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("PrecioHistorico")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.HasKey("TurnoId", "ServicioId");
+                    b.Property<int>("ServicioId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TurnoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("ServicioId");
+
+                    b.HasIndex("TurnoId");
+
+                    b.HasIndex("TenantId", "SucursalId", "TurnoId", "ServicioId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TurnoServicios_Turno_Servicio")
+                        .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("TurnoServicios", (string)null);
                 });
@@ -2064,6 +3244,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -2071,27 +3254,53 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("PorcentajeServicio")
+                        .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<decimal>("PorcentajeVentaProducto")
+                        .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<int?>("ServicioId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("PeluqueroId");
 
                     b.HasIndex("ServicioId");
 
-                    b.HasIndex("PeluqueroId", "ServicioId")
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "ServicioId")
                         .IsUnique()
-                        .HasDatabaseName("UX_ComisionesConfig_Peluquero_Servicio")
+                        .HasDatabaseName("UX_ComisionesConfig_Local_Peluquero_Servicio")
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("ComisionesConfig", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            PeluqueroId = 1,
+                            PorcentajeServicio = 50.00m,
+                            PorcentajeVentaProducto = 10.00m,
+                            SucursalId = 1,
+                            TenantId = 1
+                        });
                 });
 
             modelBuilder.Entity("MiPeluqueria.Api.Models.Ventas.DetalleLiquidacion", b =>
@@ -2111,6 +3320,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("DetalleVentaId")
                         .HasColumnType("int");
 
@@ -2121,13 +3333,23 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("MontoComisionCalculado")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("TurnoId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -2156,6 +3378,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -2173,11 +3398,20 @@ namespace MiPeluqueria.Api.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<int>("TipoItem")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("VentaId")
                         .HasColumnType("int");
@@ -2197,6 +3431,10 @@ namespace MiPeluqueria.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("Bonificaciones")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -2206,10 +3444,20 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Descuentos")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("Estado")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("FechaDesde")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaEmision")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("FechaHasta")
@@ -2224,24 +3472,51 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int>("PeluqueroId")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("TotalPagar")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalProductos")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalServicios")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UsuarioLiquidacionId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PeluqueroId", "Estado", "FechaDesde")
+                    b.HasIndex("PeluqueroId");
+
+                    b.HasIndex("TenantId", "SucursalId", "PeluqueroId", "Estado", "FechaDesde")
                         .HasDatabaseName("IX_Liquidaciones_PeluqueroId_Estado_FechaDesde");
 
                     b.ToTable("Liquidaciones", (string)null);
@@ -2264,6 +3539,16 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("EsEfectivoFisico")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -2272,62 +3557,104 @@ namespace MiPeluqueria.Api.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.ToTable("MediosPago");
+                    b.HasIndex("TenantId", "SucursalId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MediosPago_Local_Nombre")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("MediosPago", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Dinero físico en cajón",
+                            EsEfectivoFisico = true,
                             IsDeleted = false,
-                            Nombre = "Efectivo"
+                            Nombre = "Efectivo",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cobro electrónico por terminal débito",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Tarjeta de Débito"
+                            Nombre = "Tarjeta de Débito",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Cobro electrónico por terminal crédito",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Tarjeta de Crédito"
+                            Nombre = "Tarjeta de Crédito",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Transferencia bancaria o CVU",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Transferencia / Alias"
+                            Nombre = "Transferencia / Alias",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Pago digital mediante QR Mercado Pago",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Mercado Pago QR"
+                            Nombre = "Mercado Pago QR",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 6,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "MODO u otra billetera digital",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Billetera Virtual (Otra)"
+                            Nombre = "Billetera Virtual (Otra)",
+                            SucursalId = 1,
+                            TenantId = 1
                         },
                         new
                         {
                             Id = 7,
-                            CreatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Descripcion = "Atención bonificada sin ingreso en caja",
+                            EsEfectivoFisico = false,
                             IsDeleted = false,
-                            Nombre = "Canje / Cortesía"
+                            Nombre = "Canje / Cortesía",
+                            SucursalId = 1,
+                            TenantId = 1
                         });
                 });
 
@@ -2353,6 +3680,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
 
@@ -2360,9 +3690,16 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("SesionCajaId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
                         .HasColumnType("int");
 
                     b.Property<string>("Tipo")
@@ -2373,9 +3710,14 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("SesionCajaId", "Fecha")
+                    b.HasIndex("SesionCajaId");
+
+                    b.HasIndex("TenantId", "SucursalId", "SesionCajaId", "Fecha")
                         .HasDatabaseName("IX_MovimientosCaja_SesionCajaId_Fecha");
 
                     b.ToTable("MovimientosCaja", (string)null);
@@ -2398,6 +3740,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Importe")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -2408,8 +3753,21 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<int>("MedioPagoId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ReferenciaOperacion")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("VentaId")
                         .HasColumnType("int");
@@ -2440,7 +3798,11 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("Diferencia")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("EstadoAbierta")
@@ -2456,16 +3818,54 @@ namespace MiPeluqueria.Api.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("MontoFinalEsperado")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal?>("MontoFinalReal")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("MontoInicial")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ObservacionesCierre")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalEgresosManuales")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalIngresosManuales")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalVentasDigital")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalVentasEfectivo")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("UsuarioAperturaId")
                         .HasColumnType("int");
@@ -2475,7 +3875,7 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EstadoAbierta", "FechaApertura")
+                    b.HasIndex("TenantId", "SucursalId", "EstadoAbierta", "FechaApertura")
                         .HasDatabaseName("IX_SesionesCaja_EstadoAbierta_FechaApertura");
 
                     b.ToTable("SesionesCaja", (string)null);
@@ -2501,16 +3901,44 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DeletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DescuentoSenaAplicado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<int>("SesionCajaId")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("SucursalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("TurnoId")
@@ -2519,6 +3947,9 @@ namespace MiPeluqueria.Api.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UpdatedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
 
@@ -2526,12 +3957,19 @@ namespace MiPeluqueria.Api.Migrations
 
                     b.HasIndex("ClienteId");
 
-                    b.HasIndex("Fecha")
-                        .HasDatabaseName("IX_Ventas_Fecha_Dashboard");
+                    b.HasIndex("SesionCajaId");
 
                     b.HasIndex("TurnoId");
 
-                    b.HasIndex("SesionCajaId", "Fecha")
+                    b.HasIndex("TenantId", "SucursalId", "Fecha")
+                        .HasDatabaseName("IX_Ventas_Fecha_Dashboard");
+
+                    b.HasIndex("TenantId", "SucursalId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Ventas_Local_IdempotencyKey")
+                        .HasFilter("[IdempotencyKey] IS NOT NULL AND [IsDeleted] = 0");
+
+                    b.HasIndex("TenantId", "SucursalId", "SesionCajaId", "Fecha")
                         .HasDatabaseName("IX_Ventas_SesionCajaId_Fecha");
 
                     b.ToTable("Ventas", (string)null);
@@ -2540,22 +3978,14 @@ namespace MiPeluqueria.Api.Migrations
             modelBuilder.Entity("MiPeluqueria.Api.Models.Clientes.Cliente", b =>
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoCabello", "TipoCabello")
-                        .WithMany()
+                        .WithMany("Clientes")
                         .HasForeignKey("TipoCabelloId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoCabello", null)
-                        .WithMany("Clientes")
-                        .HasForeignKey("TipoCabelloId1");
-
                     b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoRostro", "TipoRostro")
-                        .WithMany()
+                        .WithMany("Clientes")
                         .HasForeignKey("TipoRostroId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("MiPeluqueria.Api.Models.Clientes.TipoRostro", null)
-                        .WithMany("Clientes")
-                        .HasForeignKey("TipoRostroId1");
 
                     b.Navigation("TipoCabello");
 
@@ -2653,14 +4083,10 @@ namespace MiPeluqueria.Api.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("MiPeluqueria.Api.Models.Seguridad.Rol", "Rol")
-                        .WithMany()
+                        .WithMany("Usuarios")
                         .HasForeignKey("RolId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("MiPeluqueria.Api.Models.Seguridad.Rol", null)
-                        .WithMany("Usuarios")
-                        .HasForeignKey("RolId1");
 
                     b.Navigation("Cliente");
 
@@ -2724,14 +4150,10 @@ namespace MiPeluqueria.Api.Migrations
             modelBuilder.Entity("MiPeluqueria.Api.Models.Stock.Producto", b =>
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Stock.CategoriaProducto", "Categoria")
-                        .WithMany()
+                        .WithMany("Productos")
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("MiPeluqueria.Api.Models.Stock.CategoriaProducto", null)
-                        .WithMany("Productos")
-                        .HasForeignKey("CategoriaProductoId");
 
                     b.HasOne("MiPeluqueria.Api.Models.Stock.Proveedor", "Proveedor")
                         .WithMany("Productos")
@@ -2813,7 +4235,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Peluquero", "Peluquero")
                         .WithMany("PeluqueroEspecialidades")
                         .HasForeignKey("PeluqueroId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Especialidad");
@@ -2824,14 +4246,10 @@ namespace MiPeluqueria.Api.Migrations
             modelBuilder.Entity("MiPeluqueria.Api.Models.Turnos.Servicio", b =>
                 {
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.CategoriaServicio", "Categoria")
-                        .WithMany()
+                        .WithMany("Servicios")
                         .HasForeignKey("CategoriaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("MiPeluqueria.Api.Models.Turnos.CategoriaServicio", null)
-                        .WithMany("Servicios")
-                        .HasForeignKey("CategoriaServicioId");
 
                     b.Navigation("Categoria");
                 });
@@ -2864,14 +4282,10 @@ namespace MiPeluqueria.Api.Migrations
                         .IsRequired();
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.EstadoTurno", "Estado")
-                        .WithMany()
+                        .WithMany("Turnos")
                         .HasForeignKey("EstadoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("MiPeluqueria.Api.Models.Turnos.EstadoTurno", null)
-                        .WithMany("Turnos")
-                        .HasForeignKey("EstadoTurnoId");
 
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.MotivoCancelacion", "MotivoCancelacion")
                         .WithMany("TurnosCancelados")
@@ -2904,7 +4318,7 @@ namespace MiPeluqueria.Api.Migrations
                     b.HasOne("MiPeluqueria.Api.Models.Turnos.Turno", "Turno")
                         .WithMany("TurnoServicios")
                         .HasForeignKey("TurnoId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Servicio");

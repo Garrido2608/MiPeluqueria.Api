@@ -7,11 +7,11 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 7.6 - Kit UI Reutilizable Agnóstico + Error Boundaries + Telemetría Frontend`
-* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.7 - Barrido Global Frontend (PagedResult<T>, Null-Safety y Diagnóstico en Lotes)`
+* **Última Tarea Completada:** `TAREA 7.7 - Barrido Global Frontend (PagedResult<T>, Null-Safety y Diagnóstico en Lotes)`
+* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.8 - Harness E2E con Playwright (Crawler 19 Rutas + 3 Flujos Críticos de Dinero) [HARD GATE 5C]`
 * **Estado de Compilación y Testing Backend (`dotnet test`):** `0 Errores / 0 Advertencias — 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal.`
-* **Estado de Compilación Frontend (`tsc --noEmit` + Frontera UI):** `0 Errores de TypeScript / 0 imports de dominio en src/components/ui / 0 ocurrencias de any`
+* **Estado de Compilación Frontend (`tsc --noEmit` + `next build` + Frontera UI):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any`
 
 ---
 
@@ -1046,6 +1046,48 @@
   1. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0` errores (`EXIT 0`)**.
   2. `Select-String -Path "mipeluqueria-saas-web\src\components\ui\*.tsx" -Pattern "services/|useDomainQueries|clientes\.types|turnos\.types|ventas\.types|stock\.types|saas\.types"` -> **`0` coincidencias**.
   3. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**/*.{ts,tsx}` -> **`0` coincidencias**.
+
+### [TAREA 7.7] - Barrido Global Frontend (`PagedResult<T>`, Null-Safety y Diagnóstico en Lotes)
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/src/lib/apiHelpers.ts`
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/services/clientes.service.ts`
+  - `mipeluqueria-saas-web/src/services/common.service.ts`
+  - `mipeluqueria-saas-web/src/services/public.service.ts`
+  - `mipeluqueria-saas-web/src/services/saas.service.ts`
+  - `mipeluqueria-saas-web/src/services/seguridad.service.ts`
+  - `mipeluqueria-saas-web/src/services/stock.service.ts`
+  - `mipeluqueria-saas-web/src/services/turnos.service.ts`
+  - `mipeluqueria-saas-web/src/services/ventas.service.ts`
+  - `mipeluqueria-saas-web/src/hooks/useDomainQueries.ts`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/layout.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/clientes/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/calendario/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/pos/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/caja/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/peluquero/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/dashboard/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/inventario/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/servicios-recetas/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/staff-liquidaciones/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/configuracion-seguridad/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/diagnostico-api/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/saas-admin/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(public)/reservar/page.tsx`
+  - `mipeluqueria-saas-web/src/app/(public)/mi-cuenta/turnos/page.tsx`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Causa Raíz de Desfase `PagedResult<T>` Resuelta (`src/lib/apiHelpers.ts`):** El DTO `PagedResult<T>` de .NET 8 serializa `{ data: T[], totalRecords: number, pageNumber, pageSize, totalPages }`, mientras el Frontend esperaba `{ items: T[], totalCount: number }`, lo que provocaba `clientes === undefined` (`Cannot read properties of undefined (reading 'length')` en `recepcion/clientes/page.tsx:374`) y listas vacías al recargar Proveedores, Productos, Kardex, Órdenes de Compra, Turnos, Historial de Caja, Ventas de Sesión, Liquidaciones e Historial de Sesiones. Se crearon `extractPagedItems<T>`, `extractPaginationMeta` y `toNormalizedPagedResult<T>` soportando ambas estructuras y arreglos planos, retornando siempre `T[]` seguro.
+  - **Blindaje de los 8 Servicios y `useDomainQueries.ts`:** Todos los endpoints paginados y de colección desempaquetan con `toNormalizedPagedResult<T>` y `extractPagedItems<T>`.
+  - **Null-Safety Integral y Adopción de `<AsyncStateGuard />` / `<PaginationBar />`:** Se eliminaron accesos desprotegidos a `.length`/`.map()`/`.filter()`, se cerraron bloques `try...finally` sin `catch` que podían causar `unhandledrejection`, y se estandarizaron los estados de carga, error (con `X-Correlation-Id` y reintento) y colección vacía en las pantallas principales.
+  - **Consola de Diagnóstico en Lotes (`admin/diagnostico-api/page.tsx`):** Refactorizada para ejecutar los 22 controladores en lotes controlados de **4 requests en paralelo** (`BATCH_SIZE = 4`) con progreso en vivo, clasificación de forma de payload (`PagedResult` / `Array` / `Object`) y tarjeta superior de Health Checks consumiendo `GET /health/live` y `GET /health/ready` sobre el host raíz sin `/api`.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0` errores (`TYPECHECK_EXIT=0`)**.
+  2. `Select-String -Path "mipeluqueria-saas-web\src\**\*.ts","mipeluqueria-saas-web\src\**\*.tsx" -Pattern "\bany\b"` -> **`0` coincidencias (`EXACT_SELECT_STRING_ANY=0`)**.
+  3. `npm --prefix mipeluqueria-saas-web run build` -> **`0` errores (`BUILD_EXIT=0`, `24/24` rutas compiladas para producción)**.
+
 
 
 

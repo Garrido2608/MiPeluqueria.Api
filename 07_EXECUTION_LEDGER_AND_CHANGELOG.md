@@ -7,11 +7,12 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 7.8 - Harness E2E con Playwright (Crawler 19 Rutas + 3 Flujos Críticos de Dinero + Login Único storageState) [HARD GATE 5C]`
-* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA EN HARD GATE 5C -> Próxima: TAREA 7.9 - Pipeline CI/CD (GitHub Actions) y Cierre Definitivo v1.0.0`
-* **Estado de Compilación y Testing Backend (`dotnet test`):** `0 Errores / 0 Advertencias — 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP en 17.92 s)`
+* **Estado Global de Ingeniería:** `ETAPA 7 COMPLETADA AL 100% — RELEASE CANDIDATE v1.0.0`
+* **Última Tarea Completada:** `TAREA 7.9 - Pipeline CI/CD (GitHub Actions) y Cierre Definitivo Etapa 7 — v1.0.0`
+* **Tarea Actual en Curso:** `NINGUNA — CICLO COMPLETO ETAPAS 1 A 7 FINALIZADO Y AUDITADO (v1.0.0)`
+* **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP en 17.92 s)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal (AUTO_CLOSE OFF + min/max server memory 128/512 MB).`
-* **Estado de Compilación y E2E Frontend (`tsc --noEmit` + `next build` + Playwright E2E):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (setup + 19/19 rutas + 22/22 controladores + 3/3 Journeys en 37.6 s, 0 FAIL, 0 SKIP)`
+* **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (setup + 19/19 rutas + 22/22 controladores + 3/3 Journeys en 37.6 s, 0 FAIL, 0 SKIP) / Pipeline .github/workflows/ci.yml validado (backend-ci + frontend-ci en paralelo)`
 
 ---
 
@@ -1124,10 +1125,35 @@
      - `Smoke Crawler E2E (19/19 pantallas SDD + /admin/diagnostico-api OK: 22/22, ERROR: 0)` -> **PASS (`5.2 s`)**
      - **Total:** **`5 passed (37.6 s)`, `0 failed`, `0 skipped`**, **`0` errores `[ERR]` en stdout de Backend** y puertos `7132`/`3000` verificados limpios (`OPEN_PORTS=0`) tras el apagado.
 
+### [TAREA 7.9] - Pipeline CI/CD (GitHub Actions) y Cierre Definitivo Etapa 7 — Release Candidate `v1.0.0`
+- **Estado:** COMPLETADA — **ETAPA 7 CERRADA AL 100% (`v1.0.0`)**
+- **Archivos Creados:**
+  - `.github/workflows/ci.yml`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api.Tests/CustomWebApplicationFactory.cs` (`TestConnectionString` prioriza `Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")` para soportar el contenedor SQL Server 2022 en `ubuntu-latest` conservando el fallback local `Trusted_Connection=True` hacia `MiPeluqueriaDB_Tests`)
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Pipeline de Integración Continua (`.github/workflows/ci.yml`):** Disparado en `push` y `pull_request` sobre `develop` y `main`, con cancelación automática de corridas redundantes (`concurrency`), permisos mínimos (`contents: read`) y 2 jobs independientes en paralelo:
+    1. **`backend-ci` (`ubuntu-latest`):** Aprovisiona contenedor de servicio `mcr.microsoft.com/mssql/server:2022-latest` (`ACCEPT_EULA: "Y"`, `MSSQL_PID: "Developer"`, puerto `1433` y healthcheck nativo `sqlcmd`), instala `.NET 8.0.x` (`actions/setup-dotnet@v4`), restaura dependencias (`dotnet restore MiPeluqueria.Api/MiPeluqueria.Api.sln`), compila con tolerancia cero a advertencias (`dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --configuration Release --warnaserror`) y ejecuta la suite cercada (`dotnet test MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj --no-build --configuration Release --verbosity normal`) inyectando `ConnectionStrings__DefaultConnection` hacia `MiPeluqueriaDB_Tests`.
+    2. **`frontend-ci` (`ubuntu-latest`):** Configura Node.js `20` (`actions/setup-node@v4` con cache `npm` sobre `mipeluqueria-saas-web/package-lock.json`), ejecuta `npm --prefix mipeluqueria-saas-web ci`, `npm --prefix mipeluqueria-saas-web run typecheck`, auditoría determinista en Bash verificando `0` ocurrencias de `\bany\b` en `mipeluqueria-saas-web/src` y `0` imports de dominio (`services/`, `useDomainQueries`, `*.types`) en `mipeluqueria-saas-web/src/components/ui`, y finalmente compila la aplicación productiva (`npm --prefix mipeluqueria-saas-web run build` con `NEXT_PUBLIC_API_URL=https://localhost:7132/api`).
+- **Tabla Consolidada de Métricas Reales Verificadas — Release Candidate `v1.0.0`:**
 
+| Dimensión / Sensor Determinístico | Comando / Herramienta | Resultado Real Verificado | Umbral / Meta SDD |
+| :--- | :--- | :--- | :--- |
+| **Compilación Solución Backend (.NET 8)** | `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --warnaserror` | **`0 Errores / 0 Advertencias`** | `0 Errores / 0 Advertencias` |
+| **Sonda Runtime Secuencial Backend** | `node scripts/probe-api-22.mjs` | **`22/22` controladores `200 OK`** (`27 ms` prom. en caliente, máx. `75 ms`) | `22/22` `200 OK` y `< 500 ms` en caliente |
+| **Suite Integración & Contratos Backend** | `dotnet test MiPeluqueria.Api.Tests` | **`35/35 PASS` en `17.92 s`** (`10` BDD + `22` Contratos + `3` Observabilidad, `0 FAIL`, `0 SKIP`) | `100% PASS / 0 FAIL / 0 SKIP` |
+| **Observabilidad, Correlación & Salud** | Serilog JSON (`CompactJsonFormatter`) + `/health/live` & `/health/ready` + `/api/telemetry/client-errors` | **Activos (`200 Healthy` / `202 Accepted`)**, `X-Correlation-Id` end-to-end, Zero-PII y **`0` errores en Serilog** | Logs estructurados Zero-PII + Health `200` |
+| **Tipado Estricto & Build Frontend (Next.js 14)** | `npm run typecheck` + `npm run build` | **`0 Errores` TypeScript / `24/24` rutas compiladas / `0 any`** | `0 Errores` y `0 any` |
+| **Frontera Agnóstica Design System UI** | Auditoría sobre `mipeluqueria-saas-web/src/components/ui/*` | **`0` imports de dominio** (`services/`, `useDomainQueries`, `*.types`) + JSDoc completo | `0` dependencias de negocio |
+| **Harness E2E Frontend + Backend Vivo** | `npm --prefix mipeluqueria-saas-web run test:e2e` (Playwright Chromium) | **`5/5 PASS` en `37.6 s`** (`auth.setup` + `19/19` rutas SDD + `22/22` consola API + `3/3` Journeys críticos, `0 FAIL`, `0 SKIP`) | `19/19` rutas + `3/3` Journeys verdes |
+| **Pipeline CI/CD Automatizado** | `.github/workflows/ci.yml` (`yaml.parseDocument` strict) | **YAML válido (`0` errores / `0` warnings)** — `backend-ci` + `frontend-ci` en paralelo | Sintaxis válida y gates bloqueantes |
 
-
-
-
-
+- **Sensores Determinísticos Ejecutados (Cierre Tarea 7.9):**
+  1. Validación sintáctica estricta YAML (`yaml.parseDocument` con `strict: true` sobre `.github/workflows/ci.yml`) -> **`YAML_PARSE_OK` (`0` errores, `0` warnings)**.
+  2. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --warnaserror -m:1` -> **`0 Errores / 0 Advertencias` (`EXIT 0`)**.
+  3. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0 Errores` (`EXIT 0`)**.
+  4. Auditoría `Select-String` en `src/**/*.{ts,tsx}` y `src/components/ui/*` -> **`AUDIT_ANY_COUNT=0 | AUDIT_UI_DOMAIN_IMPORTS=0`**.
+  5. Verificación de limpieza de entorno -> **`0` puertos colgados (`7132`/`3000` libres) y `0` archivos temporales sueltos**.
 

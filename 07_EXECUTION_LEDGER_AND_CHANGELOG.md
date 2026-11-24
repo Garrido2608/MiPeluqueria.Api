@@ -7,11 +7,11 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 7.2 - Sonda Runtime de 22 Controladores + Erradicación de los 5 Timeouts`
-* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.3 - Observabilidad Backend (Serilog JSON + CorrelationId + Health Checks + Telemetría + Auditoría try-catch)`
-* **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias (22/22 Controladores verificados en 200 OK — promedio 27 ms en caliente)`
-* **Estado de Migración SQL Server:** `Migración 20261124003822_MultiTenantFinal impactada y validada en vivo sobre MiPeluqueriaDB.`
-* **Estado de Compilación Frontend (`tsc --noEmit` + `next build`):** `0 Errores de TypeScript / 0 Errores de Build de Producción (24 rutas generadas, 19 pantallas operativas, 0 any)`
+* **Última Tarea Completada:** `TAREA 7.6 - Kit UI Reutilizable Agnóstico + Error Boundaries + Telemetría Frontend`
+* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.7 - Barrido Global Frontend (PagedResult<T>, Null-Safety y Diagnóstico en Lotes)`
+* **Estado de Compilación y Testing Backend (`dotnet test`):** `0 Errores / 0 Advertencias — 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP)`
+* **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal.`
+* **Estado de Compilación Frontend (`tsc --noEmit` + Frontera UI):** `0 Errores de TypeScript / 0 imports de dominio en src/components/ui / 0 ocurrencias de any`
 
 ---
 
@@ -286,6 +286,11 @@
   - `src/schemas/` (`auth.schema.ts`, `clientes.schema.ts`, `turnos.schema.ts`, `stock.schema.ts`, `ventas.schema.ts`, `common.schema.ts`, `index.ts`): espejan las reglas de `FluentValidation` del Backend (`passwordRegex`, teléfonos `7..25`, `duracionMinutos` `5..480`, `porcentajeComision` `0..100`, `precioVenta > precioCosto`, `stockActual` excluido de `actualizarProductoSchema`, validación de `idempotencyKey` UUID y equilibrio financiero $\sum \text{Pagos} = \text{TotalNeto}$ en `crearVentaPosSchema`).
   - `src/hooks/` (`queryKeys.ts`, `useApiFeedback.ts`, `useDomainQueries.ts`, `index.ts`): matriz canónica de `Query Keys` (Sección 2 de `10`), `notifyApiSuccess` / `notifyApiError` / `useApiMutation` con inyección automática de `fieldErrors` en `react-hook-form`, disparo de `toast.warning(w, { duration: 8000 })` por cada elemento en `res.warnings`, e invalidación automática de queries ante `409 Conflict`.
   - `src/app/` (19 pantallas operativas + páginas legales): reconstrucción íntegra de `recepcion/pos/page.tsx` (pre-carga por `?turnoId={id}`, descuento de `senaPagada`, multipago, `idempotencyKey` UUID v4 que se conserva ante fallos de red y rota tras `200 OK`, e impresión térmica en `PrintReceiptModal`) y `recepcion/clientes/page.tsx` (padrón paginado, insignia `esCumpleaneroDelMes` y Fichas Técnicas con subida Direct-to-Cloud a Cloudinary), separación física vs digital en `recepcion/caja/page.tsx`, reprogramación y `colorAgendaHex` en `recepcion/calendario/page.tsx`, gráficos `recharts` en `admin/dashboard/page.tsx`, `cuit` y `saldoResultante` en `admin/inventario/page.tsx`, anulación de liquidaciones pendientes en `admin/staff-liquidaciones/page.tsx`, y CRUD de los 7 catálogos + alta de staff + historial de sesiones paginado en `admin/configuracion-seguridad/page.tsx`.
+* **Observabilidad Backend, Health Checks y Telemetría Consolidados en Tarea 7.3 (`CorrelationIdMiddleware`, `TelemetryController`, `Program.cs` - `[HARD GATE 5A]`):**
+  - `CorrelationIdMiddleware`: lee/valida `X-Correlation-Id` (`<= 64` chars alfanuméricos/`-`/`_`/`.`, o genera UUID), asigna `HttpContext.TraceIdentifier`, enriquece `LogContext` e `IDiagnosticContext` con `CorrelationId` y sella el header de respuesta `X-Correlation-Id`.
+  - `TenantResolutionMiddleware.InvokeAsync(HttpContext context, ITenantProvider tenantProvider, IUnitOfWork unitOfWork, IDiagnosticContext diagnosticContext)`: omite `/health*` y `/swagger*`, y enriquece `LogContext` e `IDiagnosticContext` con `TenantId`, `SucursalId` y `UserId` (Zero-PII).
+  - `ClientErrorReportDto` (`DTOs/Common/ClientErrorReportDto.cs`) y `TelemetryController` (`POST /api/telemetry/client-errors`): `[AllowAnonymous]`, protegido con política Rate Limiting `"ClientTelemetryPolicy"` (30 req/min por IP) y `[RequestSizeLimit(4096)]`, redacta automáticamente JWTs, emails y pares clave-valor sensibles antes de emitir `[FRONTEND_ERROR]` / `[FRONTEND_WARN]` en Serilog con `Source = "Frontend"`, retornando `202 Accepted` con `ApiResponse<object>`.
+  - `Program.cs`: Bootstrap Logger Serilog con `try / catch (Log.Fatal) / finally (Log.CloseAndFlush)`, `Directory.SetCurrentDirectory(builder.Environment.ContentRootPath)`, `UseSerilogRequestLogging`, `AddHealthChecks().AddDbContextCheck<ApplicationDbContext>("sqlserver_db")`, `MapHealthChecks("/health/live")` (`Predicate = _ => false`) y `MapHealthChecks("/health/ready")`, más `public partial class Program { }` para `WebApplicationFactory<Program>`.
 
 ---
 
@@ -929,6 +934,122 @@
   1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.csproj` -> **0 Errores / 0 Advertencias**.
   2. `node scripts/probe-api-22.mjs` (1ra corrida post-arranque): **22/22 `200 OK`**, promedio `79 ms`, máximo `188 ms`.
   3. `node scripts/probe-api-22.mjs` (2da corrida en caliente post-JIT): **22/22 `200 OK`**, **22/22 `< 500 ms`**, promedio **`27 ms`**, máximo **`75 ms`** (`Clientes: 23 ms`, `FichasTecnicas: 15 ms`, `RecetasServicio: 18 ms`, `Productos: 21 ms`, `Proveedores: 37 ms`).
+
+### [TAREA 7.3] - Observabilidad Backend (Serilog JSON + CorrelationId + Health Checks + Telemetría + Auditoría try-catch) [HARD GATE 5A]
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA EN HARD GATE 5A)
+- **Archivos Creados:**
+  - `MiPeluqueria.Api/Middlewares/CorrelationIdMiddleware.cs`
+  - `MiPeluqueria.Api/DTOs/Common/ClientErrorReportDto.cs`
+  - `MiPeluqueria.Api/Controllers/TelemetryController.cs`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api/MiPeluqueria.Api.csproj`
+  - `MiPeluqueria.Api/Program.cs`
+  - `MiPeluqueria.Api/appsettings.json`
+  - `MiPeluqueria.Api/appsettings.Development.json`
+  - `MiPeluqueria.Api/Middlewares/GlobalExceptionMiddleware.cs`
+  - `MiPeluqueria.Api/Middlewares/TenantResolutionMiddleware.cs`
+  - `MiPeluqueria.Api/Services/Implementations/AuthService.cs`
+  - `MiPeluqueria.Api/Services/Implementations/DashboardService.cs`
+  - `MiPeluqueria.Api/Services/Implementations/TurnoService.cs`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Serilog Estructurado y Sinks Rotativos Diarios:** Se instalaron `Serilog.AspNetCore` (`8.0.3`), `Serilog.Formatting.Compact` (`3.0.0`), `Serilog.Sinks.File` (`6.0.0`) y `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` (`8.0.8`). Se configuraron en `appsettings.json` y `appsettings.Development.json` los 3 sinks: Consola, `Logs/app-.log` (`Information`, 14 días) y `Logs/errors-.json` (`Warning+` con `CompactJsonFormatter`, 30 días), fijando `Directory.SetCurrentDirectory(builder.Environment.ContentRootPath)` en `Program.cs` para garantizar que los archivos se escriban siempre dentro de `MiPeluqueria.Api/Logs/`.
+  - **Estabilidad del Pool SQL Server (`MultipleActiveResultSets=false`):** Gracias al nuevo sink `Logs/errors-.json`, se detectó que `MultipleActiveResultSets=true` provocaba bloqueos intermitentes de 14s en la fase `[Post-Login]` (`TdsParserStateObject.ReadSniSyncOverAsync` en `CompleteLogin`) al negociar sesiones SMUX durante el arranque concurrente. Se ajustó `MultipleActiveResultSets=false;Pooling=true;Min Pool Size=1;Max Pool Size=100;Connect Timeout=30` en `DefaultConnection` (dado que el sistema tiene 0 lazy loading y 0 data readers anidados).
+  - **Trazabilidad y Health Checks:**
+    - `CorrelationIdMiddleware` propaga `X-Correlation-Id` en `HttpContext.TraceIdentifier`, `LogContext`, `IDiagnosticContext` y el header de respuesta (expuesto además en CORS `WithExposedHeaders("X-Correlation-Id")`).
+    - `TenantResolutionMiddleware` exime `/health*` y `/swagger*` del bloqueo multi-tenant e inyecta `TenantId`, `SucursalId` y `UserId` en `LogContext` e `IDiagnosticContext`.
+    - Mapeados `GET /health/live` (`Predicate = _ => false`) y `GET /health/ready` (`AddDbContextCheck<ApplicationDbContext>`).
+  - **Telemetría Frontend Zero-PII (`POST /api/telemetry/client-errors`):** `TelemetryController` valida `<= 4 KB`, sanitiza patrones de JWT, emails y secretos con expresiones regulares compiladas, registra el evento con `Source = "Frontend"` en Serilog y responde `202 Accepted`.
+  - **Auditoría `try-catch` y `public partial class Program`:** Confirmados **0 bloques `try-catch`** en los 23 controladores. En `AuthService.cs` se eliminaron 2 bloques `try-catch` vacíos redundantes alrededor de `_emailService` (ya encapsulados en `SmtpEmailService`), y en `DashboardService.cs` y `TurnoService.cs` se reemplazó `try { TimeZoneInfo.FindSystemTimeZoneById(...) } catch` por `TimeZoneInfo.TryFindSystemTimeZoneById(...)` nativo de .NET 8. Se expuso `public partial class Program { }` al final de `Program.cs`.
+- **Sincronización de MD (Spec-Sync):** Completada previamente en Tarea 7.1 (`01`, `02`, `04`, `09`).
+- **Sensor Determinístico Ejecutado (HARD GATE 5A):**
+  1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.csproj` -> **0 Errores / 0 Advertencias**.
+  2. `GET /health/live` -> **`200 OK` (`Healthy`)** con header `X-Correlation-Id: corr-health-live-73`.
+  3. `GET /health/ready` -> **`200 OK` (`Healthy`)** con header `X-Correlation-Id: 9a1b00b5-4c86-44ea-a43e-0b0dfdb9c826`.
+  4. `POST /api/telemetry/client-errors` -> **`202 Accepted`** con `{"success":true,"message":"Reporte de error registrado.","data":{"accepted":true,"correlationId":"fe-crash-corr-20261124-001","source":"Frontend"}}`.
+  5. Verificación física de `MiPeluqueria.Api/Logs/errors-20261124.json` -> línea JSON válida con `"Source":"Frontend"`, `"CorrelationId":"fe-crash-corr-20261124-001"`, `"TenantId":1`, `"SucursalId":1`.
+  6. `node scripts/probe-api-22.mjs` -> **22/22 `200 OK`**, **22/22 `< 500 ms`** (promedio `128 ms`, máx `472 ms`).
+
+### [TAREA 7.4] - Proyecto MiPeluqueria.Api.Tests + Tests BDD 01 al 05 y Contract Tests 01–11 (Cercados)
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA)
+- **Archivos Creados:**
+  - `MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj`
+  - `MiPeluqueria.Api.Tests/CustomWebApplicationFactory.cs`
+  - `MiPeluqueria.Api.Tests/BddTests01To05.cs`
+  - `MiPeluqueria.Api.Tests/ContractTests01To11.cs`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api/MiPeluqueria.Api.sln`
+  - `MiPeluqueria.Api/Program.cs` (resolución de rutas relativas de Serilog contra `ContentRootPath` sin mutar `Directory.GetCurrentDirectory`, preservando `MvcTestingAppManifest.json` en `WebApplicationFactory`)
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **`CustomWebApplicationFactory` y Base de Datos Aislada (`MiPeluqueriaDB_Tests`):** Configura `ApplicationDbContext` exclusivamente contra `MiPeluqueriaDB_Tests` (con guardia de seguridad que lanza excepción si el nombre difiere), aplica las migraciones reales de EF Core en `CreateHost` y ejecuta limpieza SQL determinista de datos transaccionales preservando el Seeding maestro.
+  - **Tests BDD 01 al 05 Cercados (`BddTests01To05.cs`):**
+    1. `Test01_MultiTenantIsolation_And_CrossSucursalCache_403`: Verifica `403 Forbidden` ante `X-Sucursal-Id: 999` y prioridad absoluta del claim JWT `TenantId = 1` sobre el header malicioso `X-Tenant-Id: 2`.
+    2. `Test02_RateLimiting_429_And_RoleEscalationBlocked_RolId4`: Verifica que `POST /api/auth/registro` enviando `rolId: 1` persista `RolId = 4` (Cliente) en SQL Server, y que la 6ta petición consecutiva a `POST /api/auth/login` retorne `429 Too Many Requests`.
+    3. `Test03_ZeroReflection_Turnos_HorariosDescanso_FichasTecnicas`: Verifica persistencia del descanso `13:00-14:00` excluyendo `"13:00"` y `"13:30"` en `/api/turnos/disponibilidad`, sellado exacto de `precioHistorico = 12000.00` y `duracionMinutosHistorica = 30` en `GET /api/turnos/{id}`, y persistencia íntegra de `formulaAplicada`, `observaciones`, `notasSensibilidadAlergias`, `productosUtilizados` y `fotoResultadoUrl` en `GET /api/fichastecnicas/cliente/1`.
+    4. `Test04_ConfiguracionSalon_PersistsInSqlServer`: Verifica que `PUT /api/configuracion` persista en SQL Server e invalide la caché en `GET /api/configuracion`.
+    5. `Test05_SerializableTurnos_And_RowVersion_409Conflict`: Verifica prevención de doble reserva simultánea bajo `IsolationLevel.Serializable` y respuesta `409 Conflict` ante colisión de `RowVersion` (`DbUpdateConcurrencyException`).
+  - **Contract Tests 01 al 11 (`ContractTests01To11.cs`):** Validan `200 OK` y deserialización tipada `ApiResponse<T>` en los primeros 11 controladores (`Auth`, `Usuarios`, `Catalogos`, `Clientes`, `FichasTecnicas`, `Peluqueros`, `Servicios`, `RecetasServicio`, `Bloqueos`, `Turnos`, `PortalReservas`).
+- **Sensor Determinístico Ejecutado:**
+  - `dotnet test MiPeluqueria.Api.Tests --no-build --verbosity normal` -> **16/16 PASS (`100% PASS, 0 FAILED, 0 SKIPPED`)** en `15.91 s`.
+
+### [TAREA 7.5] - Tests BDD 06 al 10 + Contract Tests 12–22 + Observabilidad Tests (Cercados) [HARD GATE 5B]
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA EN HARD GATE 5B)
+- **Archivos Creados:**
+  - `MiPeluqueria.Api.Tests/BddTests06To10.cs`
+  - `MiPeluqueria.Api.Tests/ContractTests12To22.cs`
+  - `MiPeluqueria.Api.Tests/ObservabilityTests.cs`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api.Tests/CustomWebApplicationFactory.cs` (ampliación de limpieza determinista para `ComisionesConfig`, `Productos`, `Peluqueros` de test)
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Tests BDD 06 al 10 Cercados (`BddTests06To10.cs`) — 0 modificaciones necesarias en producción:**
+    1. `Test06_WebhookHmacSha256_And_DeathCrossCompensation`: Firma inválida rechazada (`401`), firma `HMAC-SHA256` válida en Escenario A reactiva turno cancelado a `Confirmado (2)` con `SenaPagada = true`, `ReferenciaPagoExterno` e historial `5 -> 2`; Escenario B con slot ocupado mantiene `Cancelado (5)`, marca `SenaPagada = true` (`5000.00`), agrega alerta crítica en `Observaciones` y retorna `200 OK`.
+    2. `Test07_PosIdempotencyKey_SenaDeduction_PhysicalVsDigitalCash`: Caja abierta con `$10.000`, servicio `$20.000` con seña abonada `$5.000`, cobro POS digital `$15.000` con `X-Idempotency-Key` -> `Subtotal = 20000`, `DescuentoSenaAplicado = 5000`, `Total = 15000`, herencia de `PeluqueroId = 1`, turno en `Completado (4)`, reenvío idempotente retorna misma venta sin duplicar, y `GET /api/caja/estado-actual` confirma `totalVentasDigital = 15000`, `totalVentasEfectivo = 0` y `montoFinalEsperado = 10000`.
+    3. `Test08_GabineteConsumption_NonBlockingWarnings_And_Kardex`: Receta de `2` unid. con stock `1` descuenta hasta `0`, devuelve `200 OK` con `Warnings`, segunda invocación es idempotente (`data == 0`) y `GET /api/productos/{id}/kardex` devuelve `PagedResult` con `saldoResultante = 0`.
+    4. `Test09_CommissionHierarchy_And_AccountingVoidProtection`: Jerarquía `60%` específica (`$6.000`) + `40%` general (`$4.000`) = `$10.000`, rechazo `400 Bad Request` al anular venta en liquidación activa o caja cerrada, y `POST /api/liquidaciones/{id}/anular` marca `DetallesLiquidacion.IsDeleted = true`.
+    5. `Test10_BloqueosOverlapWarnings_And_SmtpFailSafe`: Bloqueo `15:00-18:00` solapado con turno `16:00` guarda con `Warnings` detallados; `POST /api/auth/olvide-password` con `Smtp:Host = ""` completa `< 5000 ms` devolviendo `200 OK` y `Warnings`.
+  - **Contract Tests 12 al 22 (`ContractTests12To22.cs`):** Validan `200 OK` y `ApiResponse<T>` / `PagedResult<T>` en `Productos`, `Proveedores`, `OrdenesCompra`, `Caja`, `Ventas`, `Comisiones`, `Liquidaciones`, `ConfiguracionSalon` (`/api/configuracion`), `Dashboard`, `Sucursales` y `Suscripciones`.
+  - **Observability Tests (`ObservabilityTests.cs`):** Validan `GET /health/live` (`200 Healthy` + `X-Correlation-Id`), `GET /health/ready` (`200 Healthy`) y `POST /api/telemetry/client-errors` (`202 Accepted` con redacción Zero-PII verificada en log `[REDACTED_EMAIL]`).
+- **Sensor Determinístico Ejecutado (HARD GATE 5B):**
+  - `dotnet build MiPeluqueria.Api.Tests` -> **0 Errores / 0 Advertencias**.
+  - `dotnet test MiPeluqueria.Api.Tests --no-build --verbosity normal` -> **35/35 PASS (`100% PASS, 0 FAILED, 0 SKIPPED`)**.
+
+### [TAREA 7.6] - Kit UI Reutilizable Agnóstico + Error Boundaries + Telemetría Frontend
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA)
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/src/lib/errorLogger.ts`
+  - `mipeluqueria-saas-web/src/app/error.tsx`
+  - `mipeluqueria-saas-web/src/app/(dashboard)/error.tsx`
+  - `mipeluqueria-saas-web/src/app/global-error.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/ErrorFallbackCard.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/AsyncStateGuard.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/DataTable.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/PaginationBar.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/ConfirmModal.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/index.ts`
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/lib/axios.ts`
+  - `mipeluqueria-saas-web/src/context/AppProviders.tsx`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Telemetría Zero-PII (`src/lib/errorLogger.ts`):** `reportClientError` envía reportes inesperados hacia `${NEXT_PUBLIC_API_URL}/telemetry/client-errors` priorizando `navigator.sendBeacon` con fallback a `fetch(..., { keepalive: true })`, redactando JWTs/emails/credenciales antes de serializar, truncando stack traces (`<= 2400` caracteres, payload `< 4 KB`) y aplicando cortocircuito anti-bucle (ventana de deduplicación de `10s`, exclusión explícita de `/telemetry/client-errors` y cero reintentos).
+  - **Propagación de `X-Correlation-Id` (`src/lib/axios.ts`):** Generación de UUID v4 (`crypto.randomUUID` con fallback seguro) en cada request saliente y extracción de `X-Correlation-Id` de respuesta hacia `ApiErrorPayload.correlationId`.
+  - **Listeners Globales (`src/context/AppProviders.tsx`):** Registro con cleanup en `useEffect` para `window.error` y `window.unhandledrejection` (ignorando rechazos HTTP de negocio `< 500` ya gestionados por TanStack Query / `sonner` y reportando `>= 500` o errores nativos de ejecución).
+  - **Error Boundaries Jerárquicos (`app/error.tsx`, `app/(dashboard)/error.tsx`, `app/global-error.tsx`):** Captura aislada en App Router (`'use client'`) delegando a `reportClientError` y renderizando `ErrorFallbackCard` con opción `reset()` sin tumbar el Sidebar en `(dashboard)` e incluyendo `<html>`/`<body>` propios en `global-error.tsx`.
+  - **Kit UI 100% Agnóstico de Dominio (`src/components/ui/*`):** `ErrorFallbackCard`, `AsyncStateGuard`, `DataTable<T>`, `PaginationBar`, `ConfirmModal` y Barrel File `index.ts` documentados con JSDoc (`@param`, `@example`), composables (`children`, `className`, genéricos `<T>`) y con `0` dependencias hacia servicios, hooks o tipos de negocio.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0` errores (`EXIT 0`)**.
+  2. `Select-String -Path "mipeluqueria-saas-web\src\components\ui\*.tsx" -Pattern "services/|useDomainQueries|clientes\.types|turnos\.types|ventas\.types|stock\.types|saas\.types"` -> **`0` coincidencias**.
+  3. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**/*.{ts,tsx}` -> **`0` coincidencias**.
+
+
+
+
 
 
 

@@ -30,7 +30,11 @@ namespace MiPeluqueria.Api.Middlewares
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Excepción capturada por GlobalExceptionMiddleware: {Message}", ex.Message);
+                _logger.LogError(
+                    ex,
+                    "Excepción capturada por GlobalExceptionMiddleware [CorrelationId={CorrelationId}]: {Message}",
+                    context.TraceIdentifier,
+                    ex.Message);
                 await HandleExceptionAsync(context, ex);
             }
         }

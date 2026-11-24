@@ -1,11 +1,14 @@
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using MiPeluqueria.Api.Exceptions;
 using MiPeluqueria.Api.Repositories.Interfaces;
 using MiPeluqueria.Api.Services.Interfaces;
+using Serilog;
+using Serilog.Context;
 
 namespace MiPeluqueria.Api.Middlewares
 {
@@ -30,9 +33,14 @@ namespace MiPeluqueria.Api.Middlewares
         public async Task InvokeAsync(
             HttpContext context,
             ITenantProvider tenantProvider,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IDiagnosticContext diagnosticContext)
         {
-            if (HttpMethods.IsOptions(context.Request.Method))
+            string requestPath = context.Request.Path.Value ?? string.Empty;
+
+            if (HttpMethods.IsOptions(context.Request.Method) ||
+                requestPath.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+                requestPath.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
             {
                 await _next(context);
                 return;
@@ -40,11 +48,19 @@ namespace MiPeluqueria.Api.Middlewares
 
             int tenantId = 1;
             int sucursalId = 1;
+            int? userId = null;
 
             bool isAuthenticated = context.User.Identity?.IsAuthenticated == true;
 
             if (isAuthenticated)
             {
+                string? userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                    ?? context.User.FindFirst("sub")?.Value;
+                if (int.TryParse(userIdClaim, out int parsedUserId) && parsedUserId > 0)
+                {
+                    userId = parsedUserId;
+                }
+
                 var tenantClaim = context.User.Claims
                     .FirstOrDefault(c => string.Equals(c.Type, "TenantId", StringComparison.OrdinalIgnoreCase))
                     ?.Value;
@@ -100,38 +116,48 @@ namespace MiPeluqueria.Api.Middlewares
                 }
             }
 
-            string cacheKey = $"SaaS_Valid_T{tenantId}_S{sucursalId}";
-            if (!_cache.TryGetValue(cacheKey, out bool esValida))
+            diagnosticContext.Set("TenantId", tenantId);
+            diagnosticContext.Set("SucursalId", sucursalId);
+            if (userId.HasValue)
             {
-                esValida = await unitOfWork.SaaS.EsSucursalValidaYActivaAsync(
-                    tenantId,
-                    sucursalId,
-                    context.RequestAborted);
-
-                var opcionesCache = esValida
-                    ? new MemoryCacheEntryOptions
-                    {
-                        SlidingExpiration = DuracionCacheValidacion,
-                        // Tope absoluto: evita que el tráfico continuo mantenga viva para siempre
-                        // la validación de una sucursal que luego fue desactivada.
-                        AbsoluteExpirationRelativeToNow = TopeAbsolutoCacheValidacion
-                    }
-                    : new MemoryCacheEntryOptions
-                    {
-                        AbsoluteExpirationRelativeToNow = DuracionCacheNegativa
-                    };
-
-                _cache.Set(cacheKey, esValida, opcionesCache);
+                diagnosticContext.Set("UserId", userId.Value);
             }
 
-            if (!esValida)
+            using (LogContext.PushProperty("TenantId", tenantId))
+            using (LogContext.PushProperty("SucursalId", sucursalId))
+            using (LogContext.PushProperty("UserId", userId))
             {
-                throw new ForbiddenAccessException(MensajeSucursalInvalida);
+                string cacheKey = $"SaaS_Valid_T{tenantId}_S{sucursalId}";
+                if (!_cache.TryGetValue(cacheKey, out bool esValida))
+                {
+                    esValida = await unitOfWork.SaaS.EsSucursalValidaYActivaAsync(
+                        tenantId,
+                        sucursalId,
+                        context.RequestAborted);
+
+                    var opcionesCache = esValida
+                        ? new MemoryCacheEntryOptions
+                        {
+                            SlidingExpiration = DuracionCacheValidacion,
+                            AbsoluteExpirationRelativeToNow = TopeAbsolutoCacheValidacion
+                        }
+                        : new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = DuracionCacheNegativa
+                        };
+
+                    _cache.Set(cacheKey, esValida, opcionesCache);
+                }
+
+                if (!esValida)
+                {
+                    throw new ForbiddenAccessException(MensajeSucursalInvalida);
+                }
+
+                tenantProvider.SetTenantContext(tenantId, sucursalId);
+
+                await _next(context);
             }
-
-            tenantProvider.SetTenantContext(tenantId, sucursalId);
-
-            await _next(context);
         }
 
         private static bool TryReadHeaderOrQuery(

@@ -40,12 +40,7 @@ namespace MiPeluqueria.Api.Services.Implementations
                 ? config.TimeZoneId
                 : "America/Argentina/Cordoba";
 
-            TimeZoneInfo tz;
-            try
-            {
-                tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-            }
-            catch
+            if (!TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out TimeZoneInfo? tz) || tz == null)
             {
                 tz = TimeZoneInfo.CreateCustomTimeZone("AR", TimeSpan.FromHours(-3), "Argentina", "Argentina");
             }

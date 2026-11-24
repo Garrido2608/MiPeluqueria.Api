@@ -197,17 +197,10 @@ namespace MiPeluqueria.Api.Services.Implementations
             await _uow.CommitAsync();
 
             var warnings = new List<string>();
-            try
+            bool enviado = await _emailService.EnviarCodigoOtpAsync(nuevo.Email, nuevo.Username, codigoOtp, "Verificación de Cuenta");
+            if (!enviado)
             {
-                bool enviado = await _emailService.EnviarCodigoOtpAsync(nuevo.Email, nuevo.Username, codigoOtp, "Verificación de Cuenta");
-                if (!enviado)
-                {
-                    warnings.Add("El usuario fue creado exitosamente, pero no se pudo enviar el correo de verificación en este momento.");
-                }
-            }
-            catch
-            {
-                warnings.Add("El usuario fue creado exitosamente, pero ocurrió una falla al contactar el servidor de correo electrónico.");
+                warnings.Add("El usuario fue creado exitosamente, pero no se pudo enviar el correo de verificación en este momento.");
             }
 
             var usuarioCreado = await _uow.Usuarios.GetByIdWithRolAsync(nuevo.Id) ?? nuevo;
@@ -275,17 +268,10 @@ namespace MiPeluqueria.Api.Services.Implementations
             await _uow.CommitAsync();
 
             var warnings = new List<string>();
-            try
+            bool enviado = await _emailService.EnviarCodigoOtpAsync(user.Email, user.Username, otp, "Recuperación de Contraseña");
+            if (!enviado)
             {
-                bool enviado = await _emailService.EnviarCodigoOtpAsync(user.Email, user.Username, otp, "Recuperación de Contraseña");
-                if (!enviado)
-                {
-                    warnings.Add("El código fue generado, pero no se pudo despachar el correo electrónico en este momento.");
-                }
-            }
-            catch
-            {
-                warnings.Add("El código fue generado, pero el servidor SMTP no se encuentra disponible en este momento.");
+                warnings.Add("El código fue generado, pero no se pudo despachar el correo electrónico en este momento.");
             }
 
             return ApiResponse<bool>.Ok(

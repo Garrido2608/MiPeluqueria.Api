@@ -792,13 +792,8 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         private static DateTime ObtenerHoraLocalSalon(string? timeZoneId)
         {
-            TimeZoneInfo tz;
-            try
-            {
-                tz = TimeZoneInfo.FindSystemTimeZoneById(
-                    string.IsNullOrWhiteSpace(timeZoneId) ? "America/Argentina/Cordoba" : timeZoneId);
-            }
-            catch
+            string id = string.IsNullOrWhiteSpace(timeZoneId) ? "America/Argentina/Cordoba" : timeZoneId;
+            if (!TimeZoneInfo.TryFindSystemTimeZoneById(id, out TimeZoneInfo? tz) || tz == null)
             {
                 tz = TimeZoneInfo.CreateCustomTimeZone("AR", TimeSpan.FromHours(-3), "Argentina", "Argentina");
             }

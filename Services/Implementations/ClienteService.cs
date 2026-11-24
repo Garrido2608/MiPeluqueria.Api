@@ -42,7 +42,8 @@ namespace MiPeluqueria.Api.Services.Implementations
             PaginationFilterDto filter,
             CancellationToken ct = default)
         {
-            var (items, totalRecords) = await _unitOfWork.Clientes.GetPagedAsync(filter, ct);
+            var effectiveFilter = filter ?? new PaginationFilterDto();
+            var (items, totalRecords) = await _unitOfWork.Clientes.GetPagedAsync(effectiveFilter, ct);
             var dtos = _mapper.Map<List<ClienteResponseDto>>(items);
 
             var mesActual = DateTime.UtcNow.Month;
@@ -55,16 +56,16 @@ namespace MiPeluqueria.Api.Services.Implementations
             {
                 Data = dtos,
                 TotalRecords = totalRecords,
-                PageNumber = filter.PageNumber,
-                PageSize = filter.PageSize
+                PageNumber = effectiveFilter.PageNumber,
+                PageSize = effectiveFilter.PageSize
             };
 
             return ApiResponse<PagedResult<ClienteResponseDto>>.Exito(pagedResult, "Clientes obtenidos con éxito.");
         }
 
-        public async Task<ApiResponse<ClienteResponseDto>> ObtenerPorIdAsync(int id)
+        public async Task<ApiResponse<ClienteResponseDto>> ObtenerPorIdAsync(int id, CancellationToken ct = default)
         {
-            var cliente = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id);
+            var cliente = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id, tracking: false, ct);
             if (cliente == null)
                 return ApiResponse<ClienteResponseDto>.Falla($"No se encontró el cliente con ID {id}.");
 
@@ -74,9 +75,9 @@ namespace MiPeluqueria.Api.Services.Implementations
             return ApiResponse<ClienteResponseDto>.Exito(dto, "Cliente obtenido con éxito.");
         }
 
-        public async Task<ApiResponse<ClienteResponseDto>> CrearClienteAsync(ClienteRequestDto dto)
+        public async Task<ApiResponse<ClienteResponseDto>> CrearClienteAsync(ClienteRequestDto dto, CancellationToken ct = default)
         {
-            if (!string.IsNullOrWhiteSpace(dto.Email) && await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim()))
+            if (!string.IsNullOrWhiteSpace(dto.Email) && await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim(), null, ct))
                 return ApiResponse<ClienteResponseDto>.Falla("Ya existe un cliente registrado con ese correo electrónico en este salón.");
 
             var cliente = _mapper.Map<Cliente>(dto);
@@ -87,23 +88,23 @@ namespace MiPeluqueria.Api.Services.Implementations
             cliente.FechaRegistro = DateTime.UtcNow;
             cliente.Activo = true;
 
-            await _unitOfWork.Clientes.AddAsync(cliente);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.Clientes.AddAsync(cliente, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
 
-            var creado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(cliente.Id);
+            var creado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(cliente.Id, tracking: false, ct);
             var response = _mapper.Map<ClienteResponseDto>(creado ?? cliente);
 
             return ApiResponse<ClienteResponseDto>.Exito(response, "Cliente registrado correctamente.");
         }
 
-        public async Task<ApiResponse<ClienteResponseDto>> ActualizarClienteAsync(int id, ClienteRequestDto dto)
+        public async Task<ApiResponse<ClienteResponseDto>> ActualizarClienteAsync(int id, ClienteRequestDto dto, CancellationToken ct = default)
         {
-            var clienteExistente = await _unitOfWork.Clientes.GetByIdAsync(id);
+            var clienteExistente = await _unitOfWork.Clientes.GetByIdAsync(id, ct);
             if (clienteExistente == null)
                 return ApiResponse<ClienteResponseDto>.Falla($"No se encontró el cliente con ID {id}.");
 
             if (!string.IsNullOrWhiteSpace(dto.Email) &&
-                await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim(), excludeId: id))
+                await _unitOfWork.Clientes.ExistsEmailAsync(dto.Email.Trim(), excludeId: id, ct))
             {
                 return ApiResponse<ClienteResponseDto>.Falla("Ya existe otro cliente registrado con ese correo electrónico en este salón.");
             }
@@ -116,23 +117,23 @@ namespace MiPeluqueria.Api.Services.Implementations
             clienteExistente.TipoCabelloId = dto.TipoCabelloId;
             clienteExistente.TipoRostroId = dto.TipoRostroId;
 
-            await _unitOfWork.Clientes.UpdateAsync(clienteExistente);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.Clientes.UpdateAsync(clienteExistente, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
 
-            var actualizado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id);
+            var actualizado = await _unitOfWork.Clientes.GetByIdWithDetailsAsync(id, tracking: false, ct);
             var response = _mapper.Map<ClienteResponseDto>(actualizado ?? clienteExistente);
 
             return ApiResponse<ClienteResponseDto>.Exito(response, "Cliente actualizado correctamente.");
         }
 
-        public async Task<ApiResponse<bool>> EliminarClienteAsync(int id)
+        public async Task<ApiResponse<bool>> EliminarClienteAsync(int id, CancellationToken ct = default)
         {
-            var existe = await _unitOfWork.Clientes.GetByIdAsync(id);
+            var existe = await _unitOfWork.Clientes.GetByIdAsync(id, ct);
             if (existe == null)
                 return ApiResponse<bool>.Falla($"No se encontró el cliente con ID {id}.");
 
-            await _unitOfWork.Clientes.DeleteAsync(id);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.Clientes.DeleteAsync(id, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
 
             return ApiResponse<bool>.Exito(true, "Cliente dado de baja exitosamente (Soft Delete).");
         }

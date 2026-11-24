@@ -45,37 +45,40 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             int? proveedorId = null,
             CancellationToken ct = default)
         {
-            var query = _dbSet
-                .AsNoTracking()
-                .Include(p => p.Categoria)
-                .Include(p => p.Proveedor)
-                .AsQueryable();
+            int pageNumber = Math.Max(1, filter.PageNumber);
+            int pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
+            var baseQuery = _dbSet.AsNoTracking().AsQueryable();
 
             if (soloBajoStock)
-                query = query.Where(p => p.StockActual <= p.StockMinimoAlerta);
+                baseQuery = baseQuery.Where(p => p.StockActual <= p.StockMinimoAlerta);
 
             if (categoriaId.HasValue)
-                query = query.Where(p => p.CategoriaId == categoriaId.Value);
+                baseQuery = baseQuery.Where(p => p.CategoriaId == categoriaId.Value);
 
             if (proveedorId.HasValue)
-                query = query.Where(p => p.ProveedorId == proveedorId.Value);
+                baseQuery = baseQuery.Where(p => p.ProveedorId == proveedorId.Value);
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var term = filter.Search.Trim().ToLower();
-                query = query.Where(p =>
-                    p.Nombre.ToLower().Contains(term) ||
-                    (p.CodigoBarras != null && p.CodigoBarras.ToLower().Contains(term)) ||
-                    (p.Categoria != null && p.Categoria.Nombre.ToLower().Contains(term)));
+                var term = filter.Search.Trim();
+                baseQuery = baseQuery.Where(p =>
+                    p.Nombre.Contains(term) ||
+                    (p.CodigoBarras != null && p.CodigoBarras.Contains(term)) ||
+                    (p.Categoria != null && p.Categoria.Nombre.Contains(term)));
             }
 
-            int totalRecords = await query.CountAsync(ct);
-
-            var items = await query
+            var items = await baseQuery
+                .Include(p => p.Categoria)
+                .Include(p => p.Proveedor)
                 .OrderBy(p => p.Nombre)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
+
+            int totalRecords = (pageNumber == 1 && items.Count < pageSize)
+                ? items.Count
+                : await baseQuery.CountAsync(ct);
 
             return (items, totalRecords);
         }
@@ -111,10 +114,12 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             if (string.IsNullOrWhiteSpace(codigoBarra))
                 return false;
 
-            var norm = codigoBarra.Trim().ToLower();
-            return await _dbSet.AnyAsync(
-                p => p.CodigoBarras != null && p.CodigoBarras.ToLower() == norm && (!excludeId.HasValue || p.Id != excludeId.Value),
-                ct);
+            var norm = codigoBarra.Trim();
+            return await _dbSet
+                .AsNoTracking()
+                .AnyAsync(
+                    p => p.CodigoBarras != null && p.CodigoBarras == norm && (!excludeId.HasValue || p.Id != excludeId.Value),
+                    ct);
         }
 
         public async Task RegistrarMovimientoAsync(MovimientoStock movimiento, CancellationToken ct = default)
@@ -131,31 +136,36 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             PaginationFilterDto filter,
             CancellationToken ct = default)
         {
-            var query = _context.MovimientosStock
+            int pageNumber = Math.Max(1, filter.PageNumber);
+            int pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
+            var baseQuery = _context.MovimientosStock
                 .AsNoTracking()
-                .Include(m => m.Producto)
                 .Where(m => m.ProductoId == productoId);
 
             if (filter.FechaDesde.HasValue)
-                query = query.Where(m => m.Fecha >= filter.FechaDesde.Value);
+                baseQuery = baseQuery.Where(m => m.Fecha >= filter.FechaDesde.Value);
 
             if (filter.FechaHasta.HasValue)
-                query = query.Where(m => m.Fecha <= filter.FechaHasta.Value);
+                baseQuery = baseQuery.Where(m => m.Fecha <= filter.FechaHasta.Value);
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var term = filter.Search.Trim().ToLower();
-                query = query.Where(m => m.Motivo != null && m.Motivo.ToLower().Contains(term));
+                var term = filter.Search.Trim();
+                baseQuery = baseQuery.Where(m => m.Motivo != null && m.Motivo.Contains(term));
             }
 
-            int totalRecords = await query.CountAsync(ct);
-
-            var items = await query
+            var items = await baseQuery
+                .Include(m => m.Producto)
                 .OrderByDescending(m => m.Fecha)
                 .ThenByDescending(m => m.Id)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
+
+            int totalRecords = (pageNumber == 1 && items.Count < pageSize)
+                ? items.Count
+                : await baseQuery.CountAsync(ct);
 
             return (items, totalRecords);
         }

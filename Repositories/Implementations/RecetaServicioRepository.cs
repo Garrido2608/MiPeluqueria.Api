@@ -76,6 +76,7 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             string marcadorExacto = $"Turno #{turnoId}";
 
             return await _context.MovimientosStock
+                .AsNoTracking()
                 .AnyAsync(m => m.TipoMovimiento == TipoMovimientoStockEnum.ConsumoInternoSalon
                             && m.Motivo != null
                             && (m.Motivo.Contains(marcadorEspacio)

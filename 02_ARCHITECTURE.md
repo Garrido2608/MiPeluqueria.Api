@@ -45,7 +45,8 @@ MiPeluqueria.Api/
 │   ├── ConfiguracionSalonController.cs           # Inyecta IConfiguracionSalonService (Eliminada RAM estática)
 │   ├── DashboardController.cs                    # Inyecta IDashboardService ([Authorize(Roles = "Administrador,SuperAdminSaaS")])
 │   ├── SucursalesController.cs                   # Inyecta ISaaSService (Eliminado DbContext directo)
-│   └── SuscripcionesController.cs                # Inyecta ISaaSService (Eliminado DbContext directo)
+│   ├── SuscripcionesController.cs                # Inyecta ISaaSService (Eliminado DbContext directo)
+│   └── TelemetryController.cs                    # [ETAPA 7] Ingesta Zero-PII POST /api/telemetry/client-errors -> Serilog
 │
 ├── Services/                                     # CAPA DE APLICACIÓN Y LÓGICA DE NEGOCIO (Solo inyecta IUnitOfWork)
 │   ├── Background/
@@ -127,6 +128,7 @@ MiPeluqueria.Api/
 ├── Mappings/
 │   └── MappingProfile.cs
 ├── Middlewares/
+│   ├── CorrelationIdMiddleware.cs                # [ETAPA 7] Propaga X-Correlation-Id en LogContext e IDiagnosticContext
 │   ├── GlobalExceptionMiddleware.cs
 │   └── TenantResolutionMiddleware.cs
 ├── Integrations/
@@ -255,6 +257,8 @@ namespace MiPeluqueria.Api.Repositories.Interfaces
 ```csharp
 var app = builder.Build();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -269,6 +273,9 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 app.MapControllers();
 
 app.Run();
@@ -354,6 +361,7 @@ mipeluqueria-saas-web/
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

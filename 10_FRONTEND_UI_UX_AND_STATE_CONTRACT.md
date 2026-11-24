@@ -1,4 +1,4 @@
-﻿# 10 - ARQUITECTURA DE ESTADO FRONTEND, INTERCEPTORES RESILIENTES Y MAPEO DE LAS 19 PANTALLAS (CAPA 10 SDD)
+# 10 - ARQUITECTURA DE ESTADO FRONTEND, INTERCEPTORES RESILIENTES Y MAPEO DE LAS 19 PANTALLAS (CAPA 10 SDD)
 **Proyecto:** `mipeluqueria-saas-web` (Next.js 14 App Router + TypeScript Strict + TanStack Query v5 + RHF/Zod + Sonner)
 **Documentos Padres Vinculados:** `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `04_API_CONTRACTS.md`, `05_BUSINESS_RULES.md`
 **Estándar de Ingeniería:** TanStack Query v5 Deterministic Cache Matrix & OWASP ASVS Frontend Security
@@ -30,7 +30,7 @@ Queda prohibido usar strings sueltos en `useQuery`. Toda clave en `src/hooks/` d
 | Dominio | Query Key Estándar | Endpoint Vinculado | `staleTime` | Eventos que Disparan `invalidateQueries` |
 | :--- | :--- | :--- | :--- | :--- |
 | **Catálogos** | `['catalogos', tenantId, sucursalId]` | `GET /api/catalogos/todos` | `30 min` | `POST/PUT/DELETE /api/catalogos/{tipo}` |
-| **Config Salón** | `['configuracion-salon', tenantId, sucursalId]` | `GET /api/configuracion-salon` | `30 min` | `PUT /api/configuracion-salon` |
+| **Config Salón** | `['configuracion-salon', tenantId, sucursalId]` | `GET /api/configuracion` | `30 min` | `PUT /api/configuracion` |
 | **Clientes** | `['clientes', tenantId, sucursalId, filter]` | `GET /api/clientes` | `1 min` | `POST/PUT/DELETE /api/clientes` |
 | **Fichas Técnicas** | `['fichas-tecnicas', clienteId]` | `GET /api/fichastecnicas/cliente/{clienteId}` | `1 min` | `POST/PUT/DELETE /api/fichastecnicas` |
 | **Staff / Horarios** | `['peluqueros', tenantId, sucursalId]` | `GET /api/peluqueros` y `/horarios` | `5 min` | `POST/PUT/DELETE /api/peluqueros`, `PUT /horarios` |
@@ -93,6 +93,17 @@ Todo custom hook de mutación (`useMutation`) debe procesar el contrato `ApiResp
 15. **`/admin/inventario/page.tsx`:** Pestañas conectadas a `/api/productos` (`ActualizarProductoDto` en `PUT`), `/api/productos/{id}/kardex` (mostrando `saldoResultante`), `/api/productos/movimiento-stock`, `/api/proveedores` (`ActualizarProveedorDto` en `PUT`, incluyendo `cuit`) y `/api/ordenes-compra` (alta y recepción).
 16. **`/admin/servicios-recetas/page.tsx`:** Consume `/api/servicios` (`ActualizarServicioDto` en `PUT`), `/api/catalogos/categorias-servicio` y `/api/recetas-servicio` (`GET servicio/{servicioId}` y `PUT`).
 17. **`/admin/staff-liquidaciones/page.tsx`:** Consume `/api/peluqueros` (`ActualizarPeluqueroDto` en `PUT`), `/api/peluqueros/{id}/horarios` (enviando `horaInicioDescanso`, `horaFinDescanso` y `activo`), `/api/comisiones` y `/api/liquidaciones` (`generar`, `pagar` y `POST /api/liquidaciones/{id}/anular`).
-18. **`/admin/configuracion-seguridad/page.tsx`:** Formulario completo conectado a `GET/PUT /api/configuracion-salon` (`ConfiguracionSalonDto`), CRUD de los 7 catálogos en `/api/catalogos/{tipo}` (`ActualizarCatalogoItemDto` con `esEfectivoFisico` en medios de pago) y `/api/usuarios` (incluyendo `GET /api/usuarios/historial-sesiones` paginado).
-19. **`/admin/diagnostico-api/page.tsx`** y **`/saas-admin/page.tsx`:** Diagnóstico de salud de la API y administración Multi-Tenant conectada a `/api/sucursales` y `/api/suscripciones` (`ISaaSService`).
- 
+18. **`/admin/configuracion-seguridad/page.tsx`:** Formulario completo conectado a `GET/PUT /api/configuracion` (`ConfiguracionSalonDto`), CRUD de los 7 catálogos en `/api/catalogos/{tipo}` (`ActualizarCatalogoItemDto` con `esEfectivoFisico` en medios de pago) y `/api/usuarios` (incluyendo `GET /api/usuarios/historial-sesiones` paginado).
+19. **`/admin/diagnostico-api/page.tsx`** y **`/saas-admin/page.tsx`:** Diagnóstico de salud de la API (`/health/live`, `/health/ready` y los 22 controladores en lotes paralelos) y administración Multi-Tenant conectada a `/api/sucursales` y `/api/suscripciones` (`ISaaSService`).
+
+---
+
+## 5. RESILIENCIA CON ERROR BOUNDARIES, TELEMETRÍA ZERO-PII Y FRONTERA DE COMPONENTES REUTILIZABLES (`src/components/ui/`)
+
+1. **Error Boundaries Oficiales (Next.js 14 App Router) y Telemetría (`errorLogger.ts`):**
+   * El proyecto debe implementar `src/app/error.tsx`, `src/app/(dashboard)/error.tsx` y `src/app/global-error.tsx`.
+   * Ante cualquier excepción de renderizado o promesa no controlada, el boundary captura el error, muestra una tarjeta de recuperación (`ErrorFallbackCard`) con botón de reintento (`reset()`) y despacha de forma no bloqueante (`navigator.sendBeacon` o `fetch` con cortocircuito anti-bucle) un `ClientErrorReportDto` hacia `POST /api/telemetry/client-errors` correlacionado por el último `X-Correlation-Id` recibido, **sin incluir PII, contraseñas ni tokens JWT**.
+2. **Frontera Estricta de Reutilización en `src/components/ui/` (0 Imports de Dominio):**
+   * Todo componente ubicado en `src/components/ui/` (`DesignSystem.tsx`, `AsyncStateGuard.tsx`, `ErrorFallbackCard.tsx`, `DataTable.tsx`, `PaginationBar.tsx`, `ConfirmModal.tsx`, `PrintReceiptModal.tsx`) debe ser **100% agnóstico del dominio de peluquería**.
+   * **Prohibición verificable por sensor:** Ningún archivo en `src/components/ui/*.tsx` puede importar desde `src/services/*`, `src/hooks/useDomainQueries` ni módulos de tipos de negocio (`clientes.types`, `turnos.types`, `ventas.types`, `stock.types`, `seguridad.types`, `saas.types`, `public.types`).
+   * Todo componente UI base debe diseñarse por composición (`children`, `className`, tipos genéricos `<T>`) y documentarse con bloques JSDoc (`@param`, `@example`).

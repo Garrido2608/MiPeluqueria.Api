@@ -29,20 +29,24 @@ namespace MiPeluqueria.Api.Services.Implementations
             return ApiResponse<FichaTecnicaResponseDto>.Ok(MapToDto(ficha));
         }
 
-        public async Task<ApiResponse<IEnumerable<FichaTecnicaResponseDto>>> ObtenerHistorialClienteAsync(int clienteId)
+        public async Task<ApiResponse<IEnumerable<FichaTecnicaResponseDto>>> ObtenerHistorialClienteAsync(
+            int clienteId,
+            CancellationToken ct = default)
         {
-            var fichas = await _uow.FichasTecnicas.GetByClienteIdAsync(clienteId);
+            var fichas = await _uow.FichasTecnicas.GetByClienteIdAsync(clienteId, ct);
             var response = fichas.Select(MapToDto).ToList();
             return ApiResponse<IEnumerable<FichaTecnicaResponseDto>>.Ok(response);
         }
 
-        public async Task<ApiResponse<FichaTecnicaResponseDto>> CrearFichaAsync(CrearFichaTecnicaDto dto)
+        public async Task<ApiResponse<FichaTecnicaResponseDto>> CrearFichaAsync(
+            CrearFichaTecnicaDto dto,
+            CancellationToken ct = default)
         {
-            var cliente = await _uow.Clientes.GetByIdAsync(dto.ClienteId);
+            var cliente = await _uow.Clientes.GetByIdAsync(dto.ClienteId, ct);
             if (cliente == null)
                 return ApiResponse<FichaTecnicaResponseDto>.Fail("El cliente especificado no existe.");
 
-            var peluquero = await _uow.Peluqueros.GetByIdAsync(dto.PeluqueroId);
+            var peluquero = await _uow.Peluqueros.GetByIdAsync(dto.PeluqueroId, ct);
             if (peluquero == null)
                 return ApiResponse<FichaTecnicaResponseDto>.Fail("El profesional especificado no existe.");
 
@@ -59,10 +63,10 @@ namespace MiPeluqueria.Api.Services.Implementations
                 FotoResultadoUrl = string.IsNullOrWhiteSpace(dto.FotoResultadoUrl) ? null : dto.FotoResultadoUrl.Trim()
             };
 
-            await _uow.FichasTecnicas.AddAsync(ficha);
-            await _uow.SaveChangesAsync();
+            await _uow.FichasTecnicas.AddAsync(ficha, ct);
+            await _uow.SaveChangesAsync(ct);
 
-            var creada = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(ficha.Id) ?? ficha;
+            var creada = await _uow.FichasTecnicas.GetByIdWithDetailsAsync(ficha.Id, ct) ?? ficha;
             creada.Cliente ??= cliente;
             creada.Peluquero ??= peluquero;
 
@@ -115,14 +119,14 @@ namespace MiPeluqueria.Api.Services.Implementations
             });
         }
 
-        public async Task<ApiResponse<bool>> EliminarFichaAsync(int id)
+        public async Task<ApiResponse<bool>> EliminarFichaAsync(int id, CancellationToken ct = default)
         {
-            var ficha = await _uow.FichasTecnicas.GetByIdAsync(id);
+            var ficha = await _uow.FichasTecnicas.GetByIdAsync(id, ct);
             if (ficha == null)
                 return ApiResponse<bool>.Fail("La ficha técnica solicitada no existe.");
 
             _uow.FichasTecnicas.Delete(ficha);
-            await _uow.SaveChangesAsync();
+            await _uow.SaveChangesAsync(ct);
 
             return ApiResponse<bool>.Ok(true, "Ficha técnica eliminada correctamente.");
         }

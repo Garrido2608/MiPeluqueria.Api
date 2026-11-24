@@ -33,9 +33,9 @@ namespace MiPeluqueria.Api.Controllers
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetById(int id, CancellationToken ct = default)
         {
-            var result = await _clienteService.ObtenerPorIdAsync(id);
+            var result = await _clienteService.ObtenerPorIdAsync(id, ct);
             if (!result.Success)
                 return NotFound(result);
 
@@ -45,9 +45,9 @@ namespace MiPeluqueria.Api.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Create([FromBody] ClienteRequestDto dto)
+        public async Task<IActionResult> Create([FromBody] ClienteRequestDto dto, CancellationToken ct = default)
         {
-            var result = await _clienteService.CrearClienteAsync(dto);
+            var result = await _clienteService.CrearClienteAsync(dto, ct);
             if (!result.Success)
                 return BadRequest(result);
 
@@ -57,9 +57,9 @@ namespace MiPeluqueria.Api.Controllers
         [HttpPut("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<ClienteResponseDto>), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Update(int id, [FromBody] ClienteRequestDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] ClienteRequestDto dto, CancellationToken ct = default)
         {
-            var result = await _clienteService.ActualizarClienteAsync(id, dto);
+            var result = await _clienteService.ActualizarClienteAsync(id, dto, ct);
             if (!result.Success)
                 return BadRequest(result);
 
@@ -69,9 +69,9 @@ namespace MiPeluqueria.Api.Controllers
         [HttpDelete("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete(int id, CancellationToken ct = default)
         {
-            var result = await _clienteService.EliminarClienteAsync(id);
+            var result = await _clienteService.EliminarClienteAsync(id, ct);
             if (!result.Success)
                 return NotFound(result);
 

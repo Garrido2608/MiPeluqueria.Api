@@ -35,18 +35,18 @@ namespace MiPeluqueria.Api.Controllers
 
         [HttpGet("cliente/{clienteId:int}")]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<FichaTecnicaResponseDto>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetPorCliente(int clienteId)
+        public async Task<IActionResult> GetPorCliente(int clienteId, CancellationToken ct = default)
         {
-            var res = await _fichaService.ObtenerHistorialClienteAsync(clienteId);
+            var res = await _fichaService.ObtenerHistorialClienteAsync(clienteId, ct);
             return Ok(res);
         }
 
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<FichaTecnicaResponseDto>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<FichaTecnicaResponseDto>), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> Crear([FromBody] CrearFichaTecnicaDto dto)
+        public async Task<IActionResult> Crear([FromBody] CrearFichaTecnicaDto dto, CancellationToken ct = default)
         {
-            var res = await _fichaService.CrearFichaAsync(dto);
+            var res = await _fichaService.CrearFichaAsync(dto, ct);
             if (!res.Success)
                 return BadRequest(res);
 
@@ -65,9 +65,9 @@ namespace MiPeluqueria.Api.Controllers
         [HttpDelete("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Eliminar(int id)
+        public async Task<IActionResult> Eliminar(int id, CancellationToken ct = default)
         {
-            var res = await _fichaService.EliminarFichaAsync(id);
+            var res = await _fichaService.EliminarFichaAsync(id, ct);
             return res.Success ? Ok(res) : NotFound(res);
         }
     }

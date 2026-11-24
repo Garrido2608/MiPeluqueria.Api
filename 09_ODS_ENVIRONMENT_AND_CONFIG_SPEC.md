@@ -1,4 +1,4 @@
-﻿# 09 - ESPECIFICACIÓN OPERATIVA DE DATOS (ODS), CONFIGURACIÓN, SECRETOS Y RUNBOOK SQL (CAPA 9 SDD)
+# 09 - ESPECIFICACIÓN OPERATIVA DE DATOS (ODS), CONFIGURACIÓN, SECRETOS Y RUNBOOK SQL (CAPA 9 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)
 **Documentos Padres Vinculados:** `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `03_DATA_MODEL.md`, `06_INTEGRATION_AND_ODD_PLAN.md`
 **Estándar de Ingeniería:** Twelve-Factor App (Config & Admin Processes) + .NET 8 Resilient Options Pattern
@@ -71,9 +71,55 @@ Todo servicio de infraestructura o negocio (`AuthService`, `SmtpEmailService`, `
   "SaaSLimits": {
     "MaxPeluquerosSeguridadPorSucursal": 50,
     "MaxSucursalesSeguridadPorTenant": 20
+  },
+  "Serilog": {
+    "Using": [
+      "Serilog.Sinks.Console",
+      "Serilog.Sinks.File",
+      "Serilog.Formatting.Compact"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "Microsoft.AspNetCore": "Warning",
+        "Microsoft.EntityFrameworkCore.Database.Command": "Warning",
+        "System": "Warning"
+      }
+    },
+    "Enrich": [
+      "FromLogContext"
+    ],
+    "WriteTo": [
+      {
+        "Name": "Console"
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "Logs/app-.log",
+          "rollingInterval": "Day",
+          "retainedFileCountLimit": 14,
+          "restrictedToMinimumLevel": "Information",
+          "shared": true
+        }
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "Logs/errors-.json",
+          "rollingInterval": "Day",
+          "retainedFileCountLimit": 30,
+          "restrictedToMinimumLevel": "Warning",
+          "formatter": "Serilog.Formatting.Compact.CompactJsonFormatter, Serilog.Formatting.Compact",
+          "shared": true
+        }
+      }
+    ]
   }
 }
-(Nota operativa: En appsettings.Development.json, la cadena DefaultConnection debe preservar el nombre de instancia SQL Server que ya tenga configurado el entorno local del desarrollador, ej. Server=radaed;... o Server=localhost;...).
+```
+*(Nota operativa: En `appsettings.Development.json`, la cadena `DefaultConnection` debe preservar el nombre de instancia SQL Server que ya tenga configurado el entorno local del desarrollador, ej. `Server=radaed;...` o `Server=localhost;...`).*
 
 2. REGLAS DE CORTOCIRCUITO DEFENSIVO ANTE SECRETOS EXTERNOS VACÍOS EN DESARROLLO
 Para evitar excepciones en tiempo de ejecución cuando el proyecto se ejecuta localmente sin servidor SMTP externo ni cuenta real de MercadoPago/Stripe conectada:

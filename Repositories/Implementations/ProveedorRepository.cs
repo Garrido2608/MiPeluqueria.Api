@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -28,25 +29,30 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             PaginationFilterDto filter,
             CancellationToken ct = default)
         {
+            int pageNumber = Math.Max(1, filter.PageNumber);
+            int pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
             var query = _dbSet.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var term = filter.Search.Trim().ToLower();
+                var term = filter.Search.Trim();
                 query = query.Where(p =>
-                    p.RazonSocial.ToLower().Contains(term) ||
-                    (p.Cuit != null && p.Cuit.ToLower().Contains(term)) ||
-                    (p.Contacto != null && p.Contacto.ToLower().Contains(term)) ||
-                    (p.Email != null && p.Email.ToLower().Contains(term)));
+                    p.RazonSocial.Contains(term) ||
+                    (p.Cuit != null && p.Cuit.Contains(term)) ||
+                    (p.Contacto != null && p.Contacto.Contains(term)) ||
+                    (p.Email != null && p.Email.Contains(term)));
             }
-
-            int totalRecords = await query.CountAsync(ct);
 
             var items = await query
                 .OrderBy(p => p.RazonSocial)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
+
+            int totalRecords = (pageNumber == 1 && items.Count < pageSize)
+                ? items.Count
+                : await query.CountAsync(ct);
 
             return (items, totalRecords);
         }
@@ -56,9 +62,10 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             if (string.IsNullOrWhiteSpace(razonSocial))
                 return false;
 
-            var normalized = razonSocial.Trim().ToLower();
+            var normalized = razonSocial.Trim();
             return await _dbSet
-                .AnyAsync(p => p.RazonSocial.ToLower() == normalized && (!excludeId.HasValue || p.Id != excludeId.Value), ct);
+                .AsNoTracking()
+                .AnyAsync(p => p.RazonSocial == normalized && (!excludeId.HasValue || p.Id != excludeId.Value), ct);
         }
 
         public async Task<bool> ExistsByCuitAsync(string cuit, int? excludeId = null, CancellationToken ct = default)
@@ -66,9 +73,10 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             if (string.IsNullOrWhiteSpace(cuit))
                 return false;
 
-            var normalized = cuit.Trim().ToLower();
+            var normalized = cuit.Trim();
             return await _dbSet
-                .AnyAsync(p => p.Cuit != null && p.Cuit.ToLower() == normalized && (!excludeId.HasValue || p.Id != excludeId.Value), ct);
+                .AsNoTracking()
+                .AnyAsync(p => p.Cuit != null && p.Cuit == normalized && (!excludeId.HasValue || p.Id != excludeId.Value), ct);
         }
 
         public async Task<Dictionary<int, int>> GetCantidadProductosPorProveedorAsync(

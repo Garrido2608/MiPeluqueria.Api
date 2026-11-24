@@ -7,10 +7,10 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Última Tarea Completada:** `TAREA 6.4 - Esquemas Zod, Hooks TanStack Query y Conexión de las 19 Pantallas (src/app/) [HARD GATE 4 - FIN DEL PROYECTO]`
-* **Tarea Actual en Curso:** `PROYECTO COMPLETADO AL 100% -> EN ESPERA DE REVISIÓN Y CIERRE FINAL HUMANO (HARD GATE 4)`
-* **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias (HARD GATE 3 APROBADO)`
-* **Estado de Migración SQL Server:** `Esquema Fluent API y Seeding compilados y validados (DDL verificado sin FKs sombra).`
+* **Última Tarea Completada:** `TAREA 7.2 - Sonda Runtime de 22 Controladores + Erradicación de los 5 Timeouts`
+* **Tarea Actual en Curso:** `EN ESPERA DE REVISIÓN HUMANA -> Próxima: TAREA 7.3 - Observabilidad Backend (Serilog JSON + CorrelationId + Health Checks + Telemetría + Auditoría try-catch)`
+* **Estado de Compilación Backend (`dotnet build`):** `0 Errores / 0 Advertencias (22/22 Controladores verificados en 200 OK — promedio 27 ms en caliente)`
+* **Estado de Migración SQL Server:** `Migración 20261124003822_MultiTenantFinal impactada y validada en vivo sobre MiPeluqueriaDB.`
 * **Estado de Compilación Frontend (`tsc --noEmit` + `next build`):** `0 Errores de TypeScript / 0 Errores de Build de Producción (24 rutas generadas, 19 pantallas operativas, 0 any)`
 
 ---
@@ -25,6 +25,11 @@
 | Tarea 5.1 | `02_ARCHITECTURE.md` (Sección 3.2, pasos 2 y 3) | Validación del par Tenant/Sucursal consultando `ApplicationDbContext.Sucursales` directo desde el middleware; caché solo con `SlidingExpiration = 10 min`. | Consulta vía `IUnitOfWork.SaaS.EsSucursalValidaYActivaAsync(...)`; caché válida con `SlidingExpiration = 10 min` + tope `AbsoluteExpirationRelativeToNow = 60 min`; resultados inválidos cacheados `1 min`. | Regla "0 DbContext directo" (`01` Sección 4.2). El tope absoluto impide que el tráfico continuo mantenga válida para siempre una sucursal desactivada (OWASP A01). **Ratificado por el Arquitecto y SPEC-SYNC aplicado en `02`.** |
 | Tarea 5.1 / 5.2 | `06_INTEGRATION_AND_ODD_PLAN.md` (Tarea 5.1, ítem 5) / `02_ARCHITECTURE.md` (árbol) | `Services/Background/RecordatorioTurnosBackgroundService.cs` | Renombrado en Tarea 5.2 de `Services/BackGround/RecordatorioTurnoBackgroundService.cs` a `Services/Background/RecordatorioTurnosBackgroundService.cs` (1:1 con `02_ARCHITECTURE.md`). | **Resuelto en Tarea 5.2 por directiva expresa del Arquitecto.** |
 | Tarea 5.1 / 5.2 | `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 2) | Sin valor por defecto especificado para `BackgroundJobs:CancelarReservasOnlineImpagas` si falta la clave. | Valor por defecto `false` si la clave no existe (el JSON la declara `true`). La expiración aplica **solo** a turnos con `RequiereSena && !SenaPagada` cuyo campo `Observaciones` empiece con `"[Reserva Online]"`, prefijo que `PortalReservasController.ReservarTurnoPublico` sella automáticamente en Tarea 5.2. | `TurnoService.CreateAsync` marca `RequiereSena = true` también en los turnos cargados por el staff; el prefijo `"[Reserva Online]"` sincroniza el portal público con el worker. **Ratificado por el Arquitecto.** |
+| Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Sección 2.1) | Único proyecto `.csproj` sin proyectos adicionales. | Se autoriza exclusivamente el proyecto satélite de pruebas `MiPeluqueria.Api.Tests.csproj` (xUnit + `WebApplicationFactory<Program>`), manteniendo intacto el monolito modular de producción `MiPeluqueria.Api.csproj`. | Habilitar la suite BDD automatizada y cercada de la Etapa 7 sin dividir el código de producción. **Ratificado en `11_QA_HARDENING_OBSERVABILITY_AND_REUSABILITY_PLAN.md`.** |
+| Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Secciones 2.3 y 5.1), `02_ARCHITECTURE.md` (Sección 5.2) | Stack NuGet y `package.json` base sin librerías de observabilidad estructurada ni testing E2E. | Inclusión oficial de `Serilog.AspNetCore`, `Serilog.Formatting.Compact`, `Serilog.Sinks.File`, `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore`, `xunit`, `Microsoft.AspNetCore.Mvc.Testing`, `FluentAssertions` y `@playwright/test`. | Observabilidad Zero-PII en JSON, Health Checks de liveness/readiness y suites automatizadas xUnit + Playwright E2E. |
+| Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Sección 4.4), `04_API_CONTRACTS.md`, `08_TEST_PLANS_AND_ACCEPTANCE_CRITERIA.md` (Test 04 y Sec. 3), `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md` (Sec. 2 y 4.5) | Referencias residuales a `/api/configuracion-salon` en la documentación. | Unificación documental en **`/api/configuracion`** para coincidir 1:1 con `[Route("api/configuracion")]` compilado en `ConfiguracionSalonController.cs` y consumido en `common.service.ts`. | Eliminar cualquier contradicción documental entre los archivos `01`, `04`, `08`, `10` y el código real compilado. |
+| Tarea 7.1 | `02_ARCHITECTURE.md` (Secciones 1.1 y 3.1) | Pipeline HTTP iniciando en `GlobalExceptionMiddleware` y terminando en `MapControllers()`. | Orden actualizado: `CorrelationIdMiddleware -> UseSerilogRequestLogging() -> GlobalExceptionMiddleware -> Swagger(dev) -> HttpsRedirection -> Cors -> RateLimiter -> Authentication -> TenantResolutionMiddleware -> Authorization -> MapHealthChecks("/health/live") + MapHealthChecks("/health/ready") -> MapControllers()`. | Trazabilidad por `X-Correlation-Id` de punta a punta y sondas de salud desacopladas del bloqueo multi-tenant. |
+| Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Sección 5.1), `04_API_CONTRACTS.md` (Secciones 2, 3.2 y 4), `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 1), `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md` (Sección 5) | Sin contrato de ingesta de telemetría frontend, sección `Serilog` en JSON ni frontera formal de agnosticismo en `src/components/ui/`. | Contrato `POST /api/telemetry/client-errors` (`ClientErrorReportDto <= 4 KB`, Zero-PII, `202 Accepted`), bloque `"Serilog"` en `09`, Error Boundaries (`error.tsx`, `(dashboard)/error.tsx`, `global-error.tsx`) y regla de **0 imports de dominio** en `src/components/ui/*.tsx`. | Convergencia de errores Frontend/Backend en `Logs/errors-YYYYMMDD.json` y reutilización pura del Design System. |
 
 ---
 
@@ -205,8 +210,8 @@
   - `ICatalogoService`: `ObtenerTodosLosCatalogosAsync` (caché Multi-Tenant `$"SaaS_Catalogos_T{tenantId}_S{sucursalId}"`) y CRUD tipado completo (`Obtener*Async`, `Crear*Async(CrearCatalogoItemDto)`, `Actualizar*Async(int id, ActualizarCatalogoItemDto)`, `Eliminar*Async(int id)`) para los 7 catálogos del salón (`TiposCabello`, `TiposRostro`, `CategoriasServicio`, `Especialidades`, `MotivosCancelacion`, `CategoriasProducto`, `MediosPago` con `EsEfectivoFisico`), más `ObtenerEstadosTurnoAsync` y `ObtenerRolesAsync` (`0 DbContext`, `0 Reflection`).
   - `IConfiguracionSalonService`: `ObtenerConfiguracionAsync`, `ActualizarConfiguracionAsync(ConfiguracionSalonDto, CancellationToken)` y `ActualizarConfiguracionAsync(ActualizarConfiguracionSalonDto, CancellationToken)` con caché Multi-Tenant `$"SaaS_Config_T{tenantId}_S{sucursalId}"`.
   - `ISaaSService`: `ObtenerSucursalesAsync`, `CrearSucursalAsync` (valida tope anti-abuso de 20 sucursales e invalida caché `$"SaaS_Valid_T{tenantId}_S{nueva.Id}"`), `ObtenerPlanesActivosAsync`, `ObtenerMiSuscripcionAsync`, `CambiarPlanAsync`.
-  - `IClienteService`: `ObtenerTodosAsync(PaginationFilterDto filter, CancellationToken ct = default)`, `ObtenerTodosAsync(int pageNumber = 1, int pageSize = 15, string? search = null)`, `ObtenerPorIdAsync`, `CrearClienteAsync`, `ActualizarClienteAsync`, `EliminarClienteAsync`.
-  - `IFichaTecnicaService`: `ObtenerPorIdAsync(int id, CancellationToken ct = default)`, `ObtenerHistorialClienteAsync(int clienteId)`, `CrearFichaAsync(CrearFichaTecnicaDto dto)`, `ActualizarFichaAsync(int id, ActualizarFichaTecnicaDto dto, CancellationToken ct = default)`, `ActualizarFichaAsync(int id, CrearFichaTecnicaDto dto)`, `EliminarFichaAsync(int id)` (`0 DbContext`, `0 Reflection`).
+  - `IClienteService`: `ObtenerTodosAsync(PaginationFilterDto filter, CancellationToken ct = default)`, `ObtenerTodosAsync(int pageNumber = 1, int pageSize = 15, string? search = null)`, `ObtenerPorIdAsync(int id, CancellationToken ct = default)`, `CrearClienteAsync(ClienteRequestDto dto, CancellationToken ct = default)`, `ActualizarClienteAsync(int id, ClienteRequestDto dto, CancellationToken ct = default)`, `EliminarClienteAsync(int id, CancellationToken ct = default)`.
+  - `IFichaTecnicaService`: `ObtenerPorIdAsync(int id, CancellationToken ct = default)`, `ObtenerHistorialClienteAsync(int clienteId, CancellationToken ct = default)`, `CrearFichaAsync(CrearFichaTecnicaDto dto, CancellationToken ct = default)`, `ActualizarFichaAsync(int id, ActualizarFichaTecnicaDto dto, CancellationToken ct = default)`, `ActualizarFichaAsync(int id, CrearFichaTecnicaDto dto)`, `EliminarFichaAsync(int id, CancellationToken ct = default)` (`0 DbContext`, `0 Reflection`).
 * **Servicios Consolidados en Tarea 4.2 (`Peluqueros`, `Servicios`, `Recetas`, `Bloqueos` y `Motor de Turnos`):**
   - `IPeluqueroService`: `GetAllAsync(bool soloActivos = false, CancellationToken ct = default)`, `GetByIdAsync(int id, CancellationToken ct = default)`, `CreateAsync(CrearPeluqueroDto dto, CancellationToken ct = default)`, `UpdateAsync(int id, ActualizarPeluqueroDto dto, CancellationToken ct = default)`, `UpdateAsync(int id, CrearPeluqueroDto dto)`, `DeleteAsync(int id, CancellationToken ct = default)`, `ObtenerHorariosAsync(int peluqueroId, CancellationToken ct = default)`, `ConfigurarHorariosAsync(int peluqueroId, GuardarHorariosPeluqueroDto dto, CancellationToken ct = default)`.
   - `IServicioService`: `GetAllAsync(bool soloActivos = false, CancellationToken ct = default)`, `GetByIdAsync(int id, CancellationToken ct = default)`, `CreateAsync(CrearServicioDto dto, CancellationToken ct = default)`, `UpdateAsync(int id, ActualizarServicioDto dto, int? usuarioModificacionId = null, CancellationToken ct = default)`, `UpdateAsync(int id, CrearServicioDto dto)`, `DeleteAsync(int id, CancellationToken ct = default)`.
@@ -863,4 +868,67 @@
     3. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **0 Errores** (24 rutas compiladas y empaquetadas para producción).
 - **Sincronización de MD (Spec-Sync):** No requerida (100% alineado con `04_API_CONTRACTS.md`, `05_BUSINESS_RULES.md`, `06_INTEGRATION_AND_ODD_PLAN.md`, `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` y `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`).
 - **Resultado Compilación y Build Frontend (`tsc --noEmit` + `next build`):** 0 Errores / 0 Advertencias.
+
+### [TAREA 7.1] - SPEC-SYNC Documental + Mapa AGENTS.md
+- **Estado:** COMPLETADA (EN ESPERA DE APROBACIÓN HUMANA)
+- **Archivos Creados:**
+  - `AGENTS.md` (en la raíz del repositorio, 57 líneas `< 80` líneas)
+  - `.gitignore` (en la raíz del repositorio)
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api/01_SYSTEM_CONSTRAINTS.md`
+  - `MiPeluqueria.Api/02_ARCHITECTURE.md`
+  - `MiPeluqueria.Api/04_API_CONTRACTS.md`
+  - `MiPeluqueria.Api/08_TEST_PLANS_AND_ACCEPTANCE_CRITERIA.md`
+  - `MiPeluqueria.Api/09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md`
+  - `MiPeluqueria.Api/10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **SPEC-SYNC y Overrides en Sección 2 de `07`:** Se asentaron las 5 decisiones arquitectónicas de la Etapa 7 y se sincronizaron en `01`, `02`, `04`, `08`, `09` y `10`:
+    1. Autorización de `MiPeluqueria.Api.Tests.csproj` sin dividir el monolito de producción (`01` Sec. 2.1).
+    2. Inclusión oficial de paquetes de Observabilidad y Testing (`Serilog.AspNetCore`, `Serilog.Formatting.Compact`, `Serilog.Sinks.File`, `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore`, `xunit`, `Microsoft.AspNetCore.Mvc.Testing`, `FluentAssertions`, `@playwright/test`) en `01` y `02`.
+    3. Unificación de la ruta `/api/configuracion` en `01`, `04`, `08` y `10` (0 referencias residuales a `/api/configuracion-salon`).
+    4. Orden actualizado del pipeline HTTP en `02` (`CorrelationIdMiddleware` + `UseSerilogRequestLogging()` + `MapHealthChecks("/health/live")` y `MapHealthChecks("/health/ready")`).
+    5. Contrato de `POST /api/telemetry/client-errors` (`ClientErrorReportDto`, `202 Accepted`) y Health Checks en `04`, bloque `"Serilog"` JSON en `09`, y regla de Error Boundaries + frontera de componentes reutilizables `src/components/ui/` (0 imports de dominio) en `01` y `10`.
+  - **Mapa Operativo `AGENTS.md` y `.gitignore`:** Creado `AGENTS.md` en la raíz del repositorio (57 líneas) resumiendo el flujo Harness Engineering, la regla de cercado de tests, la política `try-catch`, privacidad Zero-PII en logs y sensores determinísticos obligatorios. Actualizado `.gitignore` excluyendo `MiPeluqueria.Api/Logs/`, `mipeluqueria-saas-web/playwright-report/` y `mipeluqueria-saas-web/test-results/`.
+- **Sincronización de MD (Spec-Sync):** Aplicada íntegramente en `01`, `02`, `04`, `08`, `09` y `10`.
+- **Sensor Determinístico Ejecutado:**
+  1. `Select-String` sobre `01`, `08` y `10` buscando `/api/configuracion-salon` -> **0 coincidencias** (todas unificadas en `/api/configuracion`).
+  2. Validación sintáctica del bloque JSON de `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` con `ConvertFrom-Json` -> **JSON válido (OK)**.
+
+### [TAREA 7.2] - Sonda Runtime de 22 Controladores + Erradicación de los 5 Timeouts
+- **Estado:** COMPLETADA (EN ESPERA DE REVISIÓN HUMANA)
+- **Archivos Creados:**
+  - `scripts/probe-api-22.mjs`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api/Controllers/ConfiguracionSalonController.cs`
+  - `MiPeluqueria.Api/Controllers/ClientesController.cs`
+  - `MiPeluqueria.Api/Services/Interfaces/IClienteService.cs`
+  - `MiPeluqueria.Api/Services/Implementations/ClienteService.cs`
+  - `MiPeluqueria.Api/Repositories/Implementations/ClienteRepository.cs`
+  - `MiPeluqueria.Api/Controllers/FichasTecnicasController.cs`
+  - `MiPeluqueria.Api/Services/Interfaces/IFichaTecnicaService.cs`
+  - `MiPeluqueria.Api/Services/Implementations/FichaTecnicaService.cs`
+  - `MiPeluqueria.Api/Repositories/Implementations/FichaTecnicaRepository.cs`
+  - `MiPeluqueria.Api/Repositories/Implementations/RecetaServicioRepository.cs`
+  - `MiPeluqueria.Api/Repositories/Implementations/ProductoRepository.cs`
+  - `MiPeluqueria.Api/Repositories/Implementations/ProveedorRepository.cs`
+  - `MiPeluqueria.Api/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Cambios o Decisiones Especiales:**
+  - **Sensor Determinístico Secuencial (`scripts/probe-api-22.mjs`):** Construido en Node 20+ ESM activando `NODE_TLS_REJECT_UNAUTHORIZED = "0"` únicamente para `https://localhost:7132`, autenticando contra `POST /api/auth/login` (`admin@tesis.com` / `Admin123!`, `X-Tenant-Id: 1`, `X-Sucursal-Id: 1`) y recorriendo de forma estrictamente secuencial los 22 endpoints GET de diagnóstico con umbral duro `< 2000 ms`, objetivo en caliente `< 500 ms` y clasificación de payload (`PagedResult` / `Array` / `Object`).
+  - **Diagnóstico y Optimización de Raíz en los 5 Módulos (`Clientes`, `FichasTecnicas`, `RecetasServicio`, `Productos`, `Proveedores`):**
+    1. **Desacoplamiento de `Include` y Cortocircuito de `CountAsync` en Paginación (`ClienteRepository`, `ProductoRepository`, `ProveedorRepository`):** Se separó `baseQuery` (`AsNoTracking()`) de los `.Include(...)` para evitar `LEFT JOIN` innecesarios durante `CountAsync`, se acotaron `pageNumber >= 1` y `pageSize` (`1..100`), y se omitió el segundo roundtrip SQL `SELECT COUNT(*)` cuando `pageNumber == 1 && items.Count < pageSize`.
+    2. **Eliminación de Funciones No-SARGables (`LOWER(...)`):** Se removieron las conversiones `.ToLower()` en filtros SQL (`Search`, `ExistsEmailAsync`, `ExistsCodigoBarraAsync`, `ExistsByRazonSocialAsync`, `ExistsByCuitAsync`) permitiendo que SQL Server aproveche directamente los índices únicos filtrados con su colación case-insensitive nativa.
+    3. **Poda de Joins Innecesarios en `FichaTecnicaRepository` y `AsNoTracking()`:** Se eliminaron `.Include(f => f.Turno)` y `.ThenInclude(TipoCabello/TipoRostro)` que no eran proyectados en `FichaTecnicaResponseDto`, incorporando `.AsNoTracking()` en `GetByIdWithDetailsAsync` y en `RecetaServicioRepository.ExisteConsumoGabinetePorTurnoAsync`.
+    4. **Propagación Completa de `CancellationToken`:** Se propagó `CancellationToken ct = default` de punta a punta en `ClientesController`/`IClienteService`/`ClienteService` y `FichasTecnicasController`/`IFichaTecnicaService`/`FichaTecnicaService` para abortar inmediatamente comandos SQL ante desconexiones HTTP y prevenir agotamiento del pool de conexiones.
+    5. **Alias de Compatibilidad en `ConfiguracionSalonController`:** Se agregó `[Route("api/configuracion-salon")]` junto a `[Route("api/configuracion")]`.
+  - **Nota de Observabilidad Preventiva para Tarea 7.3:** En el log de Kestrel se identificaron advertencias `MultipleCollectionIncludeWarning` (`EventId 20504`) en repositorios con múltiples colecciones (`PeluqueroRepository`, `VentaRepository`, `SesionCajaRepository`, `DashboardRepository`, `TurnoRepository`) que podrán evaluarse con `AsSplitQuery()` en fases subsiguientes si se autoriza su alcance.
+- **Sincronización de MD (Spec-Sync):** Firmas opcionales `CancellationToken ct = default` reflejadas en la Sección 4 de este Libro Mayor (`04_API_CONTRACTS.md` no cambia).
+- **Sensor Determinístico Ejecutado:**
+  1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.csproj` -> **0 Errores / 0 Advertencias**.
+  2. `node scripts/probe-api-22.mjs` (1ra corrida post-arranque): **22/22 `200 OK`**, promedio `79 ms`, máximo `188 ms`.
+  3. `node scripts/probe-api-22.mjs` (2da corrida en caliente post-JIT): **22/22 `200 OK`**, **22/22 `< 500 ms`**, promedio **`27 ms`**, máximo **`75 ms`** (`Clientes: 23 ms`, `FichasTecnicas: 15 ms`, `RecetasServicio: 18 ms`, `Productos: 21 ms`, `Proveedores: 37 ms`).
+
+
 

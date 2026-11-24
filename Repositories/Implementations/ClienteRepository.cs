@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -47,32 +48,39 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             PaginationFilterDto filter,
             CancellationToken ct = default)
         {
-            var query = GetAllQueryable();
+            int pageNumber = Math.Max(1, filter.PageNumber);
+            int pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
+            var baseQuery = _dbSet.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var term = filter.Search.Trim().ToLower();
-                query = query.Where(c =>
-                    c.Nombre.ToLower().Contains(term) ||
-                    c.Apellido.ToLower().Contains(term) ||
+                var term = filter.Search.Trim();
+                baseQuery = baseQuery.Where(c =>
+                    c.Nombre.Contains(term) ||
+                    c.Apellido.Contains(term) ||
                     c.Telefono.Contains(term) ||
-                    (c.Email != null && c.Email.ToLower().Contains(term)));
+                    (c.Email != null && c.Email.Contains(term)));
             }
 
             if (filter.FechaDesde.HasValue)
-                query = query.Where(c => c.FechaRegistro >= filter.FechaDesde.Value);
+                baseQuery = baseQuery.Where(c => c.FechaRegistro >= filter.FechaDesde.Value);
 
             if (filter.FechaHasta.HasValue)
-                query = query.Where(c => c.FechaRegistro <= filter.FechaHasta.Value);
+                baseQuery = baseQuery.Where(c => c.FechaRegistro <= filter.FechaHasta.Value);
 
-            int totalRecords = await query.CountAsync(ct);
-
-            var items = await query
+            var items = await baseQuery
+                .Include(c => c.TipoCabello)
+                .Include(c => c.TipoRostro)
                 .OrderBy(c => c.Apellido)
                 .ThenBy(c => c.Nombre)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
+
+            int totalRecords = (pageNumber == 1 && items.Count < pageSize)
+                ? items.Count
+                : await baseQuery.CountAsync(ct);
 
             return (items, totalRecords);
         }
@@ -97,10 +105,12 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             if (string.IsNullOrWhiteSpace(email))
                 return false;
 
-            var norm = email.Trim().ToLower();
-            return await _dbSet.AnyAsync(
-                c => c.Email != null && c.Email.ToLower() == norm && (!excludeId.HasValue || c.Id != excludeId.Value),
-                ct);
+            var norm = email.Trim();
+            return await _dbSet
+                .AsNoTracking()
+                .AnyAsync(
+                    c => c.Email != null && c.Email == norm && (!excludeId.HasValue || c.Id != excludeId.Value),
+                    ct);
         }
     }
 }

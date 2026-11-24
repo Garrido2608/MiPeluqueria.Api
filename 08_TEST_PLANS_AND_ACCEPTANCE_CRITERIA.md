@@ -1,4 +1,4 @@
-﻿# 08 - PLAN DE PRUEBAS FUNCIONALES, MATRIZ BDD Y SUITE EJECUTABLE HTTP (CAPA 8 SDD/ODD)
+# 08 - PLAN DE PRUEBAS FUNCIONALES, MATRIZ BDD Y SUITE EJECUTABLE HTTP (CAPA 8 SDD/ODD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md`, `04_API_CONTRACTS.md`, `05_BUSINESS_RULES.md`, `06_INTEGRATION_AND_ODD_PLAN.md`
 **Estándar de Ingeniería:** ISO/IEC/IEEE 29119 & Specification by Example (BDD)
@@ -38,9 +38,9 @@ Que la solución compile con `dotnet build` (`0 Errores, 0 Advertencias CS86xx`)
   3. En `GET /api/fichastecnicas/cliente/{clienteId}`, `formulaAplicada`, `observaciones`, `notasSensibilidadAlergias`, `productosUtilizados` y `fotoResultadoUrl` devuelven exactamente los strings guardados (jamás `null` por pérdida de Reflection).
 
 ### Test 04: Persistencia Real de Configuración del Salón en SQL Server (`[BUG-05]`)
-* **Dado** el endpoint `PUT /api/configuracion-salon` autenticado como `Administrador`.
+* **Dado** el endpoint `PUT /api/configuracion` autenticado como `Administrador`.
 * **Cuando** se actualiza `"intervaloTurnosMinutos": 45`, `"porcentajeSenaReserva": 25.00` y `"nombreComercial": "Salon Test SDD"`.
-* **Entonces** `ConfiguracionSalonService` persiste los cambios en la tabla `ConfiguracionSalon` de SQL Server e invalida la clave de caché `$"SaaS_Config_T{tenantId}_S{sucursalId}"`, retornando los valores actualizados en `GET /api/configuracion-salon` incluso tras reiniciar el proceso de la API.
+* **Entonces** `ConfiguracionSalonService` persiste los cambios en la tabla `ConfiguracionSalon` de SQL Server e invalida la clave de caché `$"SaaS_Config_T{tenantId}_S{sucursalId}"`, retornando los valores actualizados en `GET /api/configuracion` incluso tras reiniciar el proceso de la API.
 
 ### Test 05: Prevención de Condiciones de Carrera (`Serializable`) y Concurrencia Optimista (`RowVersion`) (`[BUG-02]`, `[BUG-07]`)
 * **Dado** un slot horario libre (`10:00` a `10:30`) para el `PeluqueroId = 1`.
@@ -119,7 +119,7 @@ X-Sucursal-Id: {{sucursalId}}
 
 ### 3. Persistencia Real de Configuración del Salón (Verifica BUG-05)
 @authToken = {{loginAdmin.response.body.data.token}}
-PUT {{baseUrl}}/configuracion-salon
+PUT {{baseUrl}}/configuracion
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 X-Tenant-Id: {{tenantId}}

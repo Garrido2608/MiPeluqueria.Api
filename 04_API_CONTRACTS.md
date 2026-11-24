@@ -1,4 +1,4 @@
-﻿
+
 # 04 - CONTRATOS DE INTERFAZ, ENDPOINTS HTTP, PAGINACIÓN Y DTOs (CAPA 4 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)[cite: 28]
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md`, `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`, `03_DATA_MODEL.md`[cite: 28]
@@ -82,7 +82,7 @@ namespace MiPeluqueria.Api.DTOs.Common
 
 | Nivel de Acceso | Roles Permitidos | Controladores / Endpoints Alcanzados |
 | :--- | :--- | :--- |
-| **Público (`[AllowAnonymous]`)** | Cualquier visitante | `PortalReservasController` (`/api/public/*`), `WebhooksController` (`/api/webhooks/pagos/*`), `AuthController` (`login`, `registro`, `verificar-email`, `olvide-password`, `restablecer-password`, `refresh-token`), `GET` de `CatalogosController` y `GET` de `ConfiguracionSalonController`. |
+| **Público (`[AllowAnonymous]`)** | Cualquier visitante | `PortalReservasController` (`/api/public/*`), `WebhooksController` (`/api/webhooks/pagos/*`), `AuthController` (`login`, `registro`, `verificar-email`, `olvide-password`, `restablecer-password`, `refresh-token`), `GET` de `CatalogosController`, `GET` de `ConfiguracionSalonController` (`/api/configuracion`), `TelemetryController` (`POST /api/telemetry/client-errors` con Rate Limiting) y Health Checks (`GET /health/live`, `GET /health/ready`). |
 | **Portal Cliente (`[Authorize]`)** | `Cliente` + Roles Internos | `AuthController.CambiarPassword`, consulta y cancelación con anticipación de sus propios turnos. |
 | **Operativo de Salón** | `Administrador`, `Recepcionista`, `Cajero`, `Peluquero`, `SuperAdminSaaS` | `TurnosController`, `ClientesController`, `FichasTecnicasController`, `BloqueosController`, `RecetasServicioController`, `GET` de `PeluquerosController`, `GET` de `ServiciosController`, `GET` de `ProductosController`. |
 | **Caja, POS y Compras** | `Administrador`, `Recepcionista`, `Cajero`, `SuperAdminSaaS` | `CajaController`, `VentasController`, `OrdenesCompraController`, `ProveedoresController`, `ProductosController.RegistrarMovimiento`. |
@@ -100,6 +100,7 @@ namespace MiPeluqueria.Api.DTOs.Common
 ### 3.2 Módulo Common (`DTOs/Common/`)
 * **`ConfiguracionSalonDto.cs` (Único DTO unificado):** Incluye `Id`, `NombreSalon`, `NombreComercial`, `RazonSocial`, `Cuit`, `Direccion`, `Telefono`, `EmailContacto`, `MonedaIso`, `Moneda`, `TimeZoneId`, `HorarioAtencionTexto`, `IntervaloTurnosMinutos`, `MinutosToleranciaEspera`, `HorasAnticipacionCancelacion`, `PorcentajeSenaReserva`, `NotificacionesWhatsAppActivas`, `NotificacionesEmailActivas`[cite: 28].
 * **`ActualizarCatalogoItemDto.cs`:** `string Nombre`, `string? Descripcion`, `bool? EsEfectivoFisico`[cite: 28].
+* **`ClientErrorReportDto.cs` (Telemetría Frontend Zero-PII):** `string Message`, `string? Stack`, `string? Route`, `string? ComponentStack`, `string? CorrelationId`, `string? UserAgent`, `string TimestampUtc` (payload total acotado a `<= 4 KB`, sin PII ni tokens).
 
 ### 3.3 Módulo Turnos y Agenda (`DTOs/Turnos/`)
 * **`TurnoResponseDto.cs`:** Incluye `Id`, `ClienteId`, `ClienteNombre`, `ClienteTelefono`, `PeluqueroId`, `PeluqueroNombre`, `ColorAgendaHex`, `FechaHoraInicio`, `FechaHoraFin`, `DuracionTotalMinutos`, `EstadoId`, `EstadoNombre`, `MotivoCancelacionId`, `MotivoCancelacionDescripcion`, `MontoTotalEstimado`, `RequiereSena`, `MontoSena`, `SenaPagada`, `FechaPagoSena`, `SaldoPendienteCobro`, `Observaciones`, `List<int> ServiciosIds`, `List<string> Servicios`, `List<TurnoServicioDetalleDto> ServiciosDetalle`[cite: 28].
@@ -135,4 +136,7 @@ namespace MiPeluqueria.Api.DTOs.Common
 11. **`PortalReservasController` (`/api/public`) y `WebhooksController` (`/api/webhooks/pagos`):** `GET catalogo-servicios`, `GET peluqueros`, `GET disponibilidad`, `POST reservar`, `POST {proveedor}`[cite: 28].
 12. **`ProductosController` (`/api/productos`), `ProveedoresController` (`/api/proveedores`) y `OrdenesCompraController` (`/api/ordenes-compra`):** CRUD con `ActualizarProductoDto` / `ActualizarProveedorDto`, `GET` paginados y `GET {id:int}/kardex` paginado con `KardexItemResponseDto`[cite: 28].
 13. **`CajaController` (`/api/caja`), `VentasController` (`/api/ventas`), `ComisionesController` (`/api/comisiones`) y `LiquidacionesController` (`/api/liquidaciones`):** Incluye `GET /api/caja/{id:int}`, `POST /api/ventas` idempotente y `POST /api/liquidaciones/{id:int}/anular`[cite: 28].
-14. **`ConfiguracionSalonController`, `DashboardController`, `SucursalesController` y `SuscripcionesController`:** Todos operando vía Servicios e `IUnitOfWork` devolviendo DTOs tipados[cite: 28].
+14. **`ConfiguracionSalonController` (`/api/configuracion`), `DashboardController` (`/api/dashboard`), `SucursalesController` (`/api/sucursales`) y `SuscripcionesController` (`/api/suscripciones`):** Todos operando vía Servicios e `IUnitOfWork` devolviendo DTOs tipados (`ConfiguracionSalonController` expone `GET /api/configuracion` y `PUT /api/configuracion`)[cite: 28].
+15. **Observabilidad, Telemetría y Health Checks (Etapa 7):**
+    * **`TelemetryController` (`POST /api/telemetry/client-errors`):** `[AllowAnonymous]` protegido con Rate Limiting. Recibe `ClientErrorReportDto` (`<= 4 KB`, sanitizado sin PII ni credenciales), registra el evento en Serilog con `Source = "Frontend"` correlacionado por `X-Correlation-Id`, `TenantId`, `SucursalId` y `UserId` en `Logs/errors-YYYYMMDD.json`, y retorna **`202 Accepted`** con `ApiResponse<bool>.Ok(true, "Reporte de error registrado.")`.
+    * **Health Checks (`GET /health/live` y `GET /health/ready`):** Endpoints `[AllowAnonymous]` exentos de bloqueo multi-tenant. `/health/live` verifica liveness del proceso HTTP sin consultar base de datos; `/health/ready` ejecuta `DbContextCheck<ApplicationDbContext>` contra SQL Server retornando `200 OK` (`Healthy`) o `503 Service Unavailable` (`Unhealthy`).

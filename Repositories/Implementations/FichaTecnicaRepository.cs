@@ -18,12 +18,9 @@ namespace MiPeluqueria.Api.Repositories.Implementations
         public async Task<FichaTecnica?> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken = default)
         {
             return await _dbSet
+                .AsNoTracking()
                 .Include(f => f.Cliente)
-                    .ThenInclude(c => c!.TipoCabello)
-                .Include(f => f.Cliente)
-                    .ThenInclude(c => c!.TipoRostro)
                 .Include(f => f.Peluquero)
-                .Include(f => f.Turno)
                 .FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
         }
 
@@ -33,7 +30,6 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .AsNoTracking()
                 .Include(f => f.Cliente)
                 .Include(f => f.Peluquero)
-                .Include(f => f.Turno)
                 .Where(f => f.ClienteId == clienteId)
                 .OrderByDescending(f => f.FechaRegistro)
                 .ThenByDescending(f => f.Id)

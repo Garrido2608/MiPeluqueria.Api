@@ -1,4 +1,4 @@
-﻿# 01 - RESTRICCIONES DEL SISTEMA, ROL ARQUITECTÓNICO Y STACK INNEGOCIABLE (CAPA 1 SDD)
+# 01 - RESTRICCIONES DEL SISTEMA, ROL ARQUITECTÓNICO Y STACK INNEGOCIABLE (CAPA 1 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` + `mipeluqueria-saas-web`)
 **Metodología:** Specification-Driven Development (SDD) para Agentes Autónomos (Google Antigravity)
 **Estado:** INMUTABLE - LEY SUPREMA DEL REPOSITORIO
@@ -21,7 +21,7 @@ Toda generación, refactorización o corrección de código que ejecutes en este
 * **SDK & Runtime:** .NET 8.0 (`<TargetFramework>net8.0</TargetFramework>`).
 * **Lenguaje:** C# 12.
 * **Tipado y Nulabilidad:** `<Nullable>enable</Nullable>` e `<ImplicitUsings>enable</ImplicitUsings>` obligatorios. El código debe compilar con **0 errores y 0 advertencias de nulabilidad (`CS8600` - `CS8625`)**.
-* ** Paradigma de Proyecto:** **Monolito Modular en un único `.csproj` (`MiPeluqueria.Api.csproj`)**. Queda prohibido dividir la solución en múltiples proyectos de librería de clases (`.csproj`) a menos que se ordene explícitamente en una fase futura. La separación de responsabilidades se aplica mediante aislamiento estricto de carpetas y namespaces.
+* ** Paradigma de Proyecto:** **Monolito Modular en un único `.csproj` de producción (`MiPeluqueria.Api.csproj`)**. Queda prohibido dividir el código de producción en múltiples proyectos de librería de clases (`.csproj`). Se autoriza exclusivamente el proyecto satélite de pruebas automatizadas **`MiPeluqueria.Api.Tests.csproj`** para la suite de integración BDD y contratos con `WebApplicationFactory<Program>`. La separación de responsabilidades en producción se aplica mediante aislamiento estricto de carpetas y namespaces.
 
 ### 2.2 Motor de Base de Datos y ORM
 * **Motor RDBMS:** Microsoft SQL Server (compatibilidad local y cloud con resiliencia activada: `EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorNumbersToAdd: null)`).
@@ -37,6 +37,16 @@ Toda generación, refactorización o corrección de código que ejecutes en este
 * `FluentValidation` & `FluentValidation.DependencyInjectionExtensions` (`11.x` / `12.x`)
 * `BCrypt.Net-Next` (`4.2.0`)
 * `Swashbuckle.AspNetCore` (`6.6.2`)
+* **Observabilidad y Health Checks (`MiPeluqueria.Api.csproj`):**
+  * `Serilog.AspNetCore` (`8.0.x`)
+  * `Serilog.Formatting.Compact` (`3.0.x`)
+  * `Serilog.Sinks.File` (`6.0.x`)
+  * `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` (`8.0.8`)
+* **Suite de Pruebas Automatizadas BDD (`MiPeluqueria.Api.Tests.csproj`):**
+  * `xunit` & `xunit.runner.visualstudio` (`2.8.x`)
+  * `Microsoft.AspNetCore.Mvc.Testing` (`8.0.8`)
+  * `FluentAssertions` (`6.12.x`)
+  * `Microsoft.NET.Test.Sdk` (`17.10.x`)
 
 ---
 
@@ -73,7 +83,7 @@ El sistema opera bajo un modelo comercial donde el propietario de la plataforma 
    * Ningún método de `Controller` o `IService` puede recibir ni devolver clases del namespace `MiPeluqueria.Api.Models.*` ni tipos anónimos `object` (`IEnumerable<object>`). Toda entrada y salida debe utilizar un DTO fuertemente tipado ubicado en `MiPeluqueria.Api.DTOs.*`.
    * Los endpoints `POST` deben usar DTOs `Crear*Dto` / `*RequestDto`, y los endpoints `PUT` deben usar obligatoriamente sus respectivos `Actualizar*Dto`.
 4. **ESTÁNDAR ÚNICO DE RUTAS Y ENVOLTORIO JSON (`ApiResponse<T>`):**
-   * **Rutas:** Se mantiene estrictamente el estándar `[Route("api/[controller]")]` (o rutas explícitas ya pactadas como `[Route("api/public")]`, `[Route("api/ordenes-compra")]`, `[Route("api/recetas-servicio")]`, `[Route("api/configuracion-salon")]`, `[Route("api/webhooks/pagos")]`). **NO agregar prefijos `/v1/`**.
+   * **Rutas:** Se mantiene estrictamente el estándar `[Route("api/[controller]")]` (o rutas explícitas ya pactadas como `[Route("api/public")]`, `[Route("api/ordenes-compra")]`, `[Route("api/recetas-servicio")]`, `[Route("api/configuracion")]`, `[Route("api/webhooks/pagos")]`, `[Route("api/telemetry/client-errors")]`, más los endpoints operativos `/health/live` y `/health/ready`). **NO agregar prefijos `/v1/`**.
    * **Envoltorio:** Todo endpoint de la API (éxito `200/201` o fallo `400/401/403/404/409/429/500`) debe retornar siempre la estructura `ApiResponse<T>` serializada en `camelCase`:
      ```json
      {
@@ -115,6 +125,9 @@ Para garantizar calidad de **Producto Comercial SaaS Pro**, el proyecto Frontend
   2. **Formularios y Validación:** `react-hook-form` (`^7.x`) + `zod` (`^3.x`) + `@hookform/resolvers` espejando las reglas de `FluentValidation` del backend.
   3. **Feedback Visual (Toasts):** `sonner` para notificaciones flotantes no intrusivas conectadas al campo `message` y `errors` de `ApiResponse<T>`.
   4. **Fechas y Analítica Visual:** `date-fns` (con locale `es`) para manipulación de agenda/turnos, y `recharts` para los gráficos gerenciales del Dashboard (`IngresosPorMedioPago` y `RankingPeluqueros`).
+  5. **Harness E2E Automatizado (`devDependencies`):** `@playwright/test` para verificación extremo a extremo de las 19 rutas y flujos críticos de negocio.
+* **Resiliencia con Error Boundaries y Telemetría:** El App Router debe contar con fronteras de captura `src/app/error.tsx`, `src/app/(dashboard)/error.tsx` y `src/app/global-error.tsx` conectadas a `src/lib/errorLogger.ts` (`POST /api/telemetry/client-errors`, sin PII).
+* **Frontera de Componentes Reutilizables (`src/components/ui/`):** Todo componente dentro de `src/components/ui/` debe ser **100% agnóstico de dominio** (`0` imports de `src/services/*`, `useDomainQueries` o tipos de negocio), composable (`children`, `className`, genéricos `<T>`) y documentado con JSDoc (`@param`, `@example`).
 
 ### 5.2 Reglas de Seguridad en Frontend (`.env.local`)
 * Ninguna clave secreta de pasarelas de pago o firma JWT puede exponerse con el prefijo `NEXT_PUBLIC_`.

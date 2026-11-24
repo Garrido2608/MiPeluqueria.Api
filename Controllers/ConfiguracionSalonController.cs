@@ -10,6 +10,7 @@ namespace MiPeluqueria.Api.Controllers
 {
     [ApiController]
     [Route("api/configuracion")]
+    [Route("api/configuracion-salon")]
     [Produces("application/json")]
     public class ConfiguracionSalonController : ControllerBase
     {

@@ -20,13 +20,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'off',
-    viewport: { width: 1440, height: 900 },
+    viewport: { width: 1280, height: 720 },
   },
   projects: [
     {
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
     },
     {
       name: 'chromium',
@@ -34,6 +37,7 @@ export default defineConfig({
       testIgnore: /.*\.setup\.ts/,
       use: {
         ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
         storageState: ADMIN_STORAGE_STATE,
       },
     },

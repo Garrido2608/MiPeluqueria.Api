@@ -31,7 +31,7 @@ export interface BrandLogoProps {
  * <BrandLogo brandName="Mi Peluquería Central" invertText size="md" />
  */
 export function BrandLogo({
-  src = '/logo.png',
+  src,
   brandName = 'Mi Peluquería',
   subtitle,
   size = 'md',
@@ -39,7 +39,9 @@ export function BrandLogo({
   invertText = false,
   className = '',
 }: BrandLogoProps) {
+  const resolvedSrc = src ?? process.env.NEXT_PUBLIC_BRAND_LOGO_URL ?? '';
   const [imageFailed, setImageFailed] = useState<boolean>(false);
+  const shouldRenderImage = Boolean(resolvedSrc) && !imageFailed;
 
   const boxSizes: Record<NonNullable<BrandLogoProps['size']>, string> = {
     sm: 'h-8 w-8 p-1 rounded-lg',
@@ -67,10 +69,10 @@ export function BrandLogo({
       <div
         className={`${boxSizes[size]} bg-white shadow-sm ring-1 ring-slate-200/80 flex items-center justify-center shrink-0 overflow-hidden`}
       >
-        {!imageFailed ? (
+        {shouldRenderImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={src}
+            src={resolvedSrc}
             alt={brandName}
             className="h-full w-full object-contain"
             onError={() => setImageFailed(true)}

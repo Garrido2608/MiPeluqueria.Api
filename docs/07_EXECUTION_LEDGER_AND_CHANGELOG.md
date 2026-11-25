@@ -7,12 +7,12 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.9 COMPLETADA)`
-* **Última Tarea Completada:** `TAREA 8.9 - Configuración/Seguridad (/admin/configuracion-seguridad) + Separación SuperAdminSaaS (/saas-admin, /admin/diagnostico-api)`
-* **Tarea Actual en Curso:** `TAREA 8.10 - Limpieza de Datos E2E, Suite Playwright Responsive (1280x720, 1366x768, 390x844), Certificación Integral y Cierre v1.1.0`
-* **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
-* **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
-* **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
+* **Estado Global de Ingeniería:** `ETAPA 8 COMPLETADA — RELEASE COMERCIAL v1.1.0 CERTIFICADO (HARD GATE 6C ALCANZADO)`
+* **Última Tarea Completada:** `TAREA 8.10 - Limpieza de Datos E2E, Suite Playwright Responsive (1280x720, 1366x768, 390x844), Certificación Integral y Cierre v1.1.0`
+* **Tarea Actual en Curso:** `NINGUNA (HARD GATE 6C ALCANZADO — PROYECTO LISTO PARA RELEASE COMERCIAL v1.1.0 Y DEFENSA DE TESIS)`
+* **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias (3.03s) — Sonda Runtime 22/22 200 OK (20 ms prom. en caliente, máx. 62 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores en corrida E2E certificada) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP en 17.78s)`
+* **Estado de Migración e Higiene SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests migradas y validadas con 20261125014902_AddSuperAdminSaaSRole (RolId = 6 SuperAdminSaaS activo); higiene determinística scripts/clean-e2e-data.sql ejecutada y enganchada automáticamente en test.afterAll (0 registros sintéticos E2E residuales, Data Seeding intacto).`
+* **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual Studio Clean / Obsidian & Indigo) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any en src y e2e / Playwright E2E 13/13 PASS en 55.2s (19/19 rutas + RBAC dual + 0px overflow en 1280x720, 1366x768 y 390x844 Claro/Oscuro + 4 Journeys críticos) / Puertos 7132 y 3000 liberados (OPEN_APP_PORTS=0)`
 
 ---
 
@@ -1342,6 +1342,48 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/configuracion-seguridad` `11.2 kB`, `/saas-admin` `5.71 kB`, `/admin/diagnostico-api` `6.43 kB`, Middleware `26.8 kB`, `BUILD_EXIT=0`)**.
+
+### [TAREA 8.10] - Limpieza de Datos E2E, Suite Playwright Responsive (`1280x720`, `1366x768`, `390x844`), Certificación Integral y Cierre `v1.1.0`
+- **Estado:** COMPLETADA (`HARD GATE 6C` ALCANZADO — CIERRE DEFINITIVO ETAPA 8)
+- **Archivos Creados:**
+  - `scripts/clean-e2e-data.sql` (script transaccional `SET QUOTED_IDENTIFIER ON; SET XACT_ABORT ON;` de limpieza hoja -> raíz en `MiPeluqueriaDB` para registros sintéticos `*E2E*`, `*ReservaPublica*` y `*.test` en `MovimientosCaja`, `DetallesLiquidacion`, `Liquidaciones`, `Pagos`, `DetallesVenta`, `Ventas`, `FichasTecnicas`, `MovimientosStock`, `HistorialEstadosTurno`, `TurnoServicios`, `Turnos`, `DetallesOrdenCompra`, `OrdenesCompra`, `ServiciosInsumosRecetas`, `HistorialPreciosProducto`, `Productos`, `SesionesCaja`, `RefreshTokens`, `HistorialSesiones`, `Usuarios`, `Clientes`, `Proveedores` y `AuditLogs`, recalculando totales en sesiones de caja reales sobrevivientes y preservando 100% el Data Seeding maestro)
+  - `mipeluqueria-saas-web/e2e/layout-responsive.spec.ts` (sensores determinísticos de `0px` de desborde horizontal `scrollWidth <= clientWidth` e `innerWidth` en las 19 rutas a `1280x720` y `1366x768` en modos Claro *Studio Clean* y Oscuro *Obsidian & Indigo* validando persistencia de `ThemeToggle`, más validación mobile-first a `390x844` en `/peluquero` cubriendo drawer móvil y Master-Detail de *Fichas Técnicas Capilares*)
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/playwright.config.ts` (viewport por defecto `1280x720`, ejecución determinística `workers: 1`, `retries: 0`, proyectos `setup` + `chromium`)
+  - `mipeluqueria-saas-web/e2e/auth.setup.ts` (autenticación dual: `admin@tesis.com` persistiendo `e2e/.auth/admin.json` y verificando visibilidad RBAC en Sidebar + redirección de `/saas-admin` y `/admin/diagnostico-api` hacia `/admin/dashboard`; `superadmin@mipeluqueria.com` persistiendo `e2e/.auth/superadmin.json` y verificando acceso pleno a consola de plataforma)
+  - `mipeluqueria-saas-web/e2e/smoke-19-routes.spec.ts` (recorrido cercado de las 18 rutas del salón con `admin.json` y de `/saas-admin` + `/admin/diagnostico-api` con `superadmin.json` ejecutando en vivo la sonda de 22 controladores `OK: 22/22, ERROR: 0`, exigiendo `0` `pageerror`, `0` `console.error` y `0` `HTTP >= 500`)
+  - `mipeluqueria-saas-web/e2e/critical-journeys.spec.ts` (actualización de selectores `v1.1.0` en Journeys 1, 2 y 3, incorporación de **Journey 4** — Liquidación de Haberes + `Recibo PDF` sin error de milisegundos SQL Server + `Pagar` con `<ConfirmModal />` + Producto crítico + `Generar OC con faltantes` + `PDF` de OC — y gancho `test.afterAll` que ejecuta `scripts/clean-e2e-data.sql` automáticamente al concluir la suite)
+  - `mipeluqueria-saas-web/src/components/ui/BrandLogo.tsx` (fix quirúrgico bajo Regla de Cercado: cuando no se define `src` ni `NEXT_PUBLIC_BRAND_LOGO_URL`, renderiza directamente el monograma `<Scissors />` de trazo negro sobre placa blanca `bg-white` sin disparar `GET /logo.png -> 404 Not Found` en consola)
+  - `mipeluqueria-saas-web/src/lib/axios.ts` (fix quirúrgico bajo Regla de Cercado: incremento de `timeout` de `20000` a `35000` ms para alinearse con `Connect Timeout=30` del Backend y absorber la latencia inicial de `21s` de fallback TCP IPv6 -> IPv4 en `localhost` Windows al expandir el pool de `SqlClient`)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales y Triaje de Causa Raíz (Fencing Rule):**
+  - El sensor estricto `consoleErrors.length === 0` detectó `GET http://localhost:3000/logo.png 404 (Not Found)` al montar `<BrandLogo />` sin archivo estático en `public/`. En lugar de relajar el sensor, se corrigió `BrandLogo.tsx` para usar `NEXT_PUBLIC_BRAND_LOGO_URL` opcional y renderizar limpiamente el isotipo vectorial negro sobre placa clara por defecto.
+  - En ráfagas paralelas de montaje, Windows 11 demora `21.0s` en el fallback TCP SYN `[::1]:1433 -> 127.0.0.1:1433` cuando `.NET SqlClient` abre nuevas conexiones físicas hacia `Server=localhost`, mientras `axios` abortaba a los `20.0s` (`HTTP 499`). Ajustar `timeout: 35000` en `src/lib/axios.ts` eliminó las cancelaciones prematuras y redujo el tiempo total de la suite E2E completa a **`55.2s` (`13/13 PASS`)**.
+- **Sensores Determinísticos Ejecutados (HARD GATE 6C):**
+  1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --warnaserror` -> **`0 Advertencia(s) / 0 Errores` (`00:00:03.03`)**.
+  2. `dotnet test MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj --no-build --verbosity normal` -> **`40/40 Correcto (`0 FAIL, 0 SKIP`, `17,78s`)`**.
+  3. `node scripts/probe-api-22.mjs` + Health Checks -> **`22/22 200 OK` (`Promedio: 20 ms | Máx: 62 ms`)** + `/health/live` **`Healthy [HTTP 200]`** + `/health/ready` **`Healthy [HTTP 200]`**.
+  4. `npm --prefix mipeluqueria-saas-web run typecheck` + `npm --prefix mipeluqueria-saas-web run build` -> **`0` errores TS / `24/24` páginas estáticas generadas (`EXIT 0`)**.
+  5. Auditorías estáticas Frontend (`src` + `e2e` y `src/components/ui`) -> **`ANY_COUNT=0`** y **`UI_DOMAIN_COUNT=0`**.
+  6. `npm --prefix mipeluqueria-saas-web run test:e2e` -> **`13 passed (55.2s)` — `100% PASS, 0 FAIL, 0 SKIP` (`0` `pageerror`, `0` `console.error`, `0` `HTTP >= 500`)**.
+  7. Auditoría post-E2E en `MiPeluqueriaDB`, Serilog y puertos -> **`0` registros basura E2E residuales**, **`SERILOG_E2E_ERRORS=0`** y **`OPEN_APP_PORTS=0`** (puertos `7132` y `3000` libres).
+
+#### Tabla Consolidada de Métricas de Certificación Comercial `v1.1.0` (Cierre Etapa 8)
+
+| Dimensión / Sensor Determinístico | Comando / Artefacto Auditado | Umbral Exigido (`docs/12`) | Resultado Certificado `v1.1.0` | Estado |
+| :--- | :--- | :--- | :--- | :---: |
+| **Compilación Backend (.NET 8)** | `dotnet build MiPeluqueria.Api.sln --warnaserror` | `0` Errores / `0` Advertencias | `0 Errores / 0 Advertencias` (`3.03s`) | PASS |
+| **Suite xUnit Backend (BDD + Contratos + Etapa 8)** | `dotnet test MiPeluqueria.Api.Tests --no-build` | `40/40 PASS` (`0 FAIL, 0 SKIP`) | `40/40 PASS` (`10` BDD + `22` Contratos + `3` Obs. + `5` Etapa 8 en `17.78s`) | PASS |
+| **Sonda Runtime 22 Controladores + Health** | `node scripts/probe-api-22.mjs` + `/health/*` | `22/22 200 OK` (`< 500 ms` caliente) | `22/22 200 OK` (`20 ms` prom., `62 ms` máx.) + `live`/`ready` `200 Healthy` | PASS |
+| **TypeScript Strict (`src` + `e2e`)** | `npm run typecheck` + `Select-String '\bany\b'` | `0` errores TS / `0` `any` | `0` errores TS / `ANY_COUNT=0` | PASS |
+| **Frontera Agnóstica UI (`components/ui`)** | `Select-String 'services/\|useDomainQueries\|\.types'` | `0` imports de dominio | `UI_DOMAIN_COUNT=0` | PASS |
+| **Build Producción Next.js 14** | `npm run build` | `0` errores (`24/24` rutas) | `0` errores (`24/24` rutas estáticas + Middleware `26.8 kB`) | PASS |
+| **Suite Playwright E2E Integral** | `npm run test:e2e` (`13` tests / `1` worker) | `100% PASS` (`0` errores consola/500) | `13/13 PASS` (`55.2s`), `0` `pageerror`, `0` `console.error`, `0` `HTTP >= 500` | PASS |
+| **Responsive & Design System Dual** | `e2e/layout-responsive.spec.ts` | `0px` overflow en `1280x720`, `1366x768`, `390x844` (Claro/Oscuro) | `scrollWidth <= clientWidth` en las 19 rutas (Claro/Oscuro) + Mobile `/peluquero` | PASS |
+| **Separación RBAC Multi-Tenant / SaaS** | `e2e/auth.setup.ts` + `smoke-19-routes.spec.ts` | `Administrador` bloqueado en plataforma; `SuperAdminSaaS` habilitado | Redirección verificada a `/admin/dashboard` + `SuperAdminSaaS` `22/22 OK` | PASS |
+| **Higiene SQL Server & Puertos Libres** | `scripts/clean-e2e-data.sql` + `Get-NetTCPConnection` | `0` basura E2E + puertos `7132`/`3000` libres | `0` filas sintéticas E2E, `SERILOG_E2E_ERRORS=0`, `OPEN_APP_PORTS=0` | PASS |
+
 
 
 

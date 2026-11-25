@@ -60,7 +60,7 @@ export const STORAGE_KEYS = {
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000,
+  timeout: 35000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

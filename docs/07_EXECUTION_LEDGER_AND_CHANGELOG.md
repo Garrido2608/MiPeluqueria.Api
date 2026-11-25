@@ -7,9 +7,9 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.7 COMPLETADA)`
-* **Última Tarea Completada:** `TAREA 8.7 - Dashboard Ejecutivo BI (/admin/dashboard) + Inventario, Proveedores y OC Pro (/admin/inventario)`
-* **Tarea Actual en Curso:** `TAREA 8.8 - Servicios/Recetas (/admin/servicios-recetas) + Staff, Comisiones y Liquidaciones (/admin/staff-liquidaciones)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.8 COMPLETADA)`
+* **Última Tarea Completada:** `TAREA 8.8 - Servicios/Recetas (/admin/servicios-recetas) + Staff, Comisiones y Liquidaciones (/admin/staff-liquidaciones)`
+* **Tarea Actual en Curso:** `TAREA 8.9 - Configuración/Seguridad (/admin/configuracion-seguridad) + Separación SuperAdminSaaS (/saas-admin, /admin/diagnostico-api)`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1304,6 +1304,24 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/dashboard` `115 kB`, `/admin/inventario` `14.5 kB`, Middleware `26.8 kB`, `EXIT 0`)**.
+
+### [TAREA 8.8] - Servicios/Recetas (`/admin/servicios-recetas`) + Staff, Comisiones y Liquidaciones (`/admin/staff-liquidaciones`)
+- **Estado:** COMPLETADA
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/services/ventas.service.ts` (`normalizeComision` prioriza `peluqueroNombre` con fallback seguro a `nombrePeluquero` / `peluqueroNombreCompleto` y `servicioNombre` / `nombreServicio`; `liquidacionesService.pagar` acepta `sesionCajaId?: number | null` y omite el query param cuando es `null` o `<= 0` alineado al contrato de Tarea 8.3)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/servicios-recetas/page.tsx` (rediseño Opción 1 sobre Design System Dual *Studio Clean* / *Obsidian & Indigo* sin prefijos numéricos ni textos técnicos/rutas `POST /api/...` ni jerga de `Kardex`: Catálogo con buscador, filtro por categoría, `<NumericInput />` en precio/duración y `<ConfirmModal />` para baja; Editor de Recetas con encabezados explícitos `Insumo / Unid. a descontar / Medida técnica / Unidad`, `<NumericInput />` sin `0` pegajoso, **Margen Neto Real** en esmeralda junto al **porcentaje de rentabilidad** en `font-mono-tabular`; acordeón colapsado `"Ajuste manual de consumo por turno"` reemplazando el input numérico crudo por `<SearchCombobox />` cargado con turnos recientes)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/staff-liquidaciones/page.tsx` (rediseño Opción 1 sobre Design System Dual con 4 variantes estrictas de botón y copywriting humano: Profesionales con avatar `colorAgendaHex` y chips colapsables de especialidades `+N más` con popover ordenado evitando desbordes a `1280x720`; Esquemas de Comisión mostrando nombre real del profesional, fila en edición resaltada y `<NumericInput />` en porcentajes sin `(PUT)`; Liquidaciones con bloqueo `isLoading` en `"Calcular y Emitir Liquidación"` contra doble emisión, fix de **`Recibo PDF`** normalizando fechas ISO con milisegundos de SQL Server antes de abrir `PrintReceiptModal` en 1 hoja, y fix de **`Pagar`** mediante `<ConfirmModal />` con opción para imputar el egreso en la Caja Abierta actual o marcar pagada fuera de caja invalidando queries de `liquidaciones` y `caja` + `refrescarEstadoCaja`)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - Se respetó estrictamente la lista blanca de TAREA 8.8 definida en `docs/12`, dejando `/admin/configuracion-seguridad`, `/saas-admin`, `/admin/diagnostico-api`, `middleware.ts` y `formatters.ts` para **TAREA 8.9** (confirmado por el usuario).
+  - La normalización segura de fechas de SQL Server (`normalizeSafeIsoForReceipt` y `formatSafeDateOnly`) se implementó localmente en `staff-liquidaciones/page.tsx` para recortar fracciones de 7 dígitos (`.1234567`) y evitar corrimientos UTC-3 sin tocar archivos fuera de la lista blanca.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`TYPECHECK_EXIT=0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/servicios-recetas` `9.87 kB`, `/admin/staff-liquidaciones` `12.5 kB`, Middleware `26.8 kB`, `BUILD_EXIT=0`)**.
 
 
 

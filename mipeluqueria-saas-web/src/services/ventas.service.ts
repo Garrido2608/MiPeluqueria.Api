@@ -67,8 +67,17 @@ function normalizeVenta(raw: VentaResponseDto): VentaResponseDto {
 }
 
 function normalizeComision(raw: ComisionConfigDto): ComisionConfigDto {
+  const legacyRaw = raw as ComisionConfigDto & {
+    nombrePeluquero?: string;
+    nombreServicio?: string;
+  };
   const peluqueroNombre =
-    raw.peluqueroNombre || raw.peluqueroNombreCompleto || '';
+    raw.peluqueroNombre ||
+    legacyRaw.nombrePeluquero ||
+    raw.peluqueroNombreCompleto ||
+    '';
+  const servicioNombre =
+    raw.servicioNombre ?? legacyRaw.nombreServicio ?? null;
   const porcentajeVentaProducto =
     raw.porcentajeVentaProducto ?? raw.porcentajeProducto ?? 0;
 
@@ -76,6 +85,7 @@ function normalizeComision(raw: ComisionConfigDto): ComisionConfigDto {
     ...raw,
     peluqueroNombre,
     peluqueroNombreCompleto: peluqueroNombre,
+    servicioNombre,
     porcentajeProducto: porcentajeVentaProducto,
     porcentajeVentaProducto,
   };
@@ -596,12 +606,16 @@ export const liquidacionesService = {
 
   async pagar(
     id: number,
-    sesionCajaId?: number
+    sesionCajaId?: number | null
   ): Promise<ApiResponse<boolean>> {
+    const params =
+      typeof sesionCajaId === 'number' && sesionCajaId > 0
+        ? { sesionCajaId }
+        : undefined;
     const { data } = await apiClient.post<ApiResponse<boolean>>(
       `/liquidaciones/${id}/pagar`,
       null,
-      { params: { sesionCajaId } }
+      { params }
     );
     return data;
   },

@@ -7,9 +7,9 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8B COMPLETADA — 🛑 HARD GATE 6B ALCANZADO)`
-* **Última Tarea Completada:** `TAREA 8.6 - Punto de Venta POS (/recepcion/pos), Caja Diaria (/recepcion/caja), Clientes CRM (/recepcion/clientes) y PrintReceiptModal`
-* **Tarea Actual en Curso:** `PENDIENTE APROBACIÓN HARD GATE 6B -> TAREA 8.7 - Dashboard Ejecutivo BI (/admin/dashboard) + Inventario, Proveedores y OC Pro (/admin/inventario)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.7 COMPLETADA)`
+* **Última Tarea Completada:** `TAREA 8.7 - Dashboard Ejecutivo BI (/admin/dashboard) + Inventario, Proveedores y OC Pro (/admin/inventario)`
+* **Tarea Actual en Curso:** `TAREA 8.8 - Servicios/Recetas (/admin/servicios-recetas) + Staff, Comisiones y Liquidaciones (/admin/staff-liquidaciones)`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1287,6 +1287,24 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/recepcion/pos` `11.1 kB`, `/recepcion/caja` `5.5 kB`, `/recepcion/clientes` `10.3 kB`, Middleware `26.8 kB`, `EXIT 0`)**.
+
+### [TAREA 8.7] - Dashboard Ejecutivo BI (`/admin/dashboard`) + Inventario, Proveedores y OC Pro (`/admin/inventario`)
+- **Estado:** COMPLETADA (FASE 8C iniciada tras aprobación de HARD GATE 6B)
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/dashboard/page.tsx` (rediseño sobre Design System Dual *Studio Clean* / *Obsidian & Indigo*: filtros rápidos `Hoy | Esta semana | Este mes` en hora local + datepickers compactos y único CTA `primary` `Actualizar`; 6 tarjetas KPI sin prefijos numéricos `1.`–`6.` con íconos semánticos y cifras en `font-mono-tabular`; coherencia cromática absoluta vía `getPaymentMethodColor(nombre, theme)` entre Donut Chart y barras horizontales de *Ingresos por Medio de Pago*; gráfico de barras *Ranking por Estilista* pintado con `colorAgendaHex` por profesional o `--brand-primary` y tooltips legibles en ambos temas; alerta de stock crítico estilizada sin fórmulas técnicas y acceso directo a `/admin/inventario`)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/inventario/page.tsx` (rediseño Opción 2 Pro sobre Design System Dual sin prefijos numéricos ni jerga técnica: pestaña *Productos* con buscador instantáneo por nombre/código, filtro por categoría, toggle `Solo stock crítico`, `<PaginationBar />`, renombrado `Kardex` -> `Historial` con tooltip auditado, `<NumericInput />` en precios/stock y reemplazo de `"CAMPO PROTEGIDO POR KARDEX"` por badge `"Se ajusta desde Movimientos"` con acceso directo al modal de movimiento; pestaña *Proveedores* con buscador por razón social/CUIT/contacto y badge clicable `N artículo(s)` que abre modal de productos vinculados consultando `GET /api/productos?proveedorId={id}`; pestaña *Órdenes de Compra* con modal multi-ítem con columnas `Producto / Cantidad / Costo Unit. / Subtotal`, `+ Agregar renglón` y total en vivo, acción `Generar OC con faltantes` consultando `GET /api/productos/stock-critico` agrupado por proveedor para precarga en 1 clic, vista previa/PDF en 1 hoja vía `PrintReceiptModal` y acción `WhatsApp` vía `https://wa.me/{telefono}?text=...`; confirmaciones destructivas con `<ConfirmModal />`)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - En `/admin/dashboard` se cruza `peluquerosService.getAll()` en paralelo (con fallback silencioso) para colorear cada barra y fila del ranking de estilistas con su `colorAgendaHex` real, manteniendo `0` cambios en contratos API.
+  - En `/admin/inventario`, cuando `Generar OC con faltantes` detecta artículos críticos de un único proveedor precarga directamente el modal de nueva OC; si existen múltiples proveedores, despliega un selector agrupado por proveedor para emitir cada pedido en 1 clic.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`EXIT 0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/dashboard` `115 kB`, `/admin/inventario` `14.5 kB`, Middleware `26.8 kB`, `EXIT 0`)**.
+
 
 
 

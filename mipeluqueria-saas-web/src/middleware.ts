@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { RolNombreType } from '@/types/api.types';
 
 const ROLE_ROUTE_MAP: Record<string, readonly RolNombreType[]> = {
-  '/saas-admin': ['SuperAdminSaaS', 'Administrador'],
+  '/saas-admin': ['SuperAdminSaaS'],
+  '/admin/diagnostico-api': ['SuperAdminSaaS'],
   '/admin': ['Administrador', 'SuperAdminSaaS'],
   '/recepcion': ['Recepcionista', 'Cajero', 'Administrador', 'SuperAdminSaaS'],
   '/peluquero': ['Peluquero', 'Administrador', 'SuperAdminSaaS'],

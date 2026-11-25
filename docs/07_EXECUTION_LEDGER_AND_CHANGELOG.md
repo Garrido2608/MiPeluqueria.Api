@@ -7,9 +7,9 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.8 COMPLETADA)`
-* **Última Tarea Completada:** `TAREA 8.8 - Servicios/Recetas (/admin/servicios-recetas) + Staff, Comisiones y Liquidaciones (/admin/staff-liquidaciones)`
-* **Tarea Actual en Curso:** `TAREA 8.9 - Configuración/Seguridad (/admin/configuracion-seguridad) + Separación SuperAdminSaaS (/saas-admin, /admin/diagnostico-api)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8C EN CURSO — TAREA 8.9 COMPLETADA)`
+* **Última Tarea Completada:** `TAREA 8.9 - Configuración/Seguridad (/admin/configuracion-seguridad) + Separación SuperAdminSaaS (/saas-admin, /admin/diagnostico-api)`
+* **Tarea Actual en Curso:** `TAREA 8.10 - Limpieza de Datos E2E, Suite Playwright Responsive (1280x720, 1366x768, 390x844), Certificación Integral y Cierre v1.1.0`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1322,6 +1322,26 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/servicios-recetas` `9.87 kB`, `/admin/staff-liquidaciones` `12.5 kB`, Middleware `26.8 kB`, `BUILD_EXIT=0`)**.
+
+### [TAREA 8.9] - Configuración/Seguridad (`/admin/configuracion-seguridad`) + Separación `SuperAdminSaaS` (`/saas-admin`, `/admin/diagnostico-api`)
+- **Estado:** COMPLETADA
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/middleware.ts` (restringidas `/saas-admin` y `/admin/diagnostico-api` exclusivamente al rol `SuperAdminSaaS` con precedencia de prefijo sobre `/admin`, redirigiendo a `Administrador` a `/admin/dashboard`)
+  - `mipeluqueria-saas-web/src/lib/formatters.ts` (nuevo helper puro `formatUserAgentSummary` que traduce strings User-Agent a etiquetas legibles como `Chrome · Windows`, `Safari · iOS`, `Cliente Node`, `Playwright · Automatizado`)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/configuracion-seguridad/page.tsx` (rediseño Opción 1 sobre Design System Dual *Studio Clean* / *Obsidian & Indigo* con 4 variantes estrictas de botón y `font-mono-tabular`: Ajustes del Salón con `<NumericInput />`; Catálogos Maestros sin textos técnicos `(CRUD Completo)/(POST)/(PUT)`, resaltado de fila activa con borde `--brand-primary` + badge `"Editando"`, foco automático y `<ConfirmModal />` para bajas; Usuarios y Sesiones con modal *Crear Cuenta de Personal* blindado contra autofill de Chrome vía `autoComplete="off"` / `autoComplete="new-password"` y desplegable de profesionales existentes en reemplazo de `ID LEGAJO PELUQUERO`; Auditoría de Accesos sin scroll interno atrapado con `<PaginationBar />` real de 10 eventos/página y `formatUserAgentSummary` con tooltip del User-Agent completo; nueva pestaña `"Mis Sucursales y Plan"` con gestión de sucursales y vista de plan actual estrictamente en solo lectura para `Administrador`)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/saas-admin/page.tsx` (eliminada pestaña mockeada `AuditLogs JSON Diff`, limitado `Simulador Webhooks` a `process.env.NODE_ENV === 'development'`, migración completa a tokens duales *Studio Clean* / *Obsidian & Indigo*, `SEMANTIC_COLORS`, `font-mono-tabular`, `<NumericInput />` y 4 variantes de botón sin scroll horizontal a `1280x720`)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/admin/diagnostico-api/page.tsx` (conservada 100% la sonda en lotes x4 de los 22 controladores y los Health Checks `/health/live` + `/health/ready`, adaptada íntegramente a tokens duales, `SEMANTIC_COLORS`, `font-mono-tabular` y 4 variantes de botón sin scroll horizontal a `1280x720`)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - En `middleware.ts`, la regla `'/admin/diagnostico-api': ['SuperAdminSaaS']` se ubicó antes de `'/admin'` para garantizar la evaluación por prefijo más específico y redirigir inmediatamente a `Administrador` hacia `/admin/dashboard`.
+  - En `configuracion-seguridad/page.tsx`, los usuarios con rol `Administrador` no pueden asignar ni modificar cuentas con rol `SuperAdminSaaS` (`RolId = 6`) y visualizan su suscripción vigente en modo estrictamente lectura.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`TYPECHECK_EXIT=0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/admin/configuracion-seguridad` `11.2 kB`, `/saas-admin` `5.71 kB`, `/admin/diagnostico-api` `6.43 kB`, Middleware `26.8 kB`, `BUILD_EXIT=0`)**.
 
 
 

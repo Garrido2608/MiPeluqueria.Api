@@ -2,7 +2,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { Activity, Play, RefreshCw, Server, ShieldAlert } from 'lucide-react';
 import { apiClient } from '@/lib/axios';
+import { SEMANTIC_COLORS } from '@/lib/semanticColors';
 import { Badge, Button } from '@/components/ui';
 
 interface EndpointCheckResult {
@@ -137,7 +139,9 @@ export default function ConsolaDiagnosticoApiPage() {
   const serverRootUrl = resolveServerRootUrl();
 
   const consultarHealthEndpoint = useCallback(
-    async (path: '/health/live' | '/health/ready'): Promise<HealthProbeState> => {
+    async (
+      path: '/health/live' | '/health/ready'
+    ): Promise<HealthProbeState> => {
       const inicio = performance.now();
       try {
         const res = await fetch(`${serverRootUrl}${path}`, {
@@ -210,7 +214,7 @@ export default function ConsolaDiagnosticoApiPage() {
         httpCode: res.status,
         latenciaMs,
         formaPayload,
-        detalle: `Respuesta JSON válida (${formaPayload}) desde MiPeluqueria.Api`,
+        detalle: `Respuesta JSON válida (${formaPayload})`,
       };
     } catch (err: unknown) {
       const latenciaMs = Math.round(performance.now() - inicio);
@@ -226,9 +230,9 @@ export default function ConsolaDiagnosticoApiPage() {
         formaPayload: '-',
         detalle:
           code === 401
-            ? 'Endpoint protegido por [Authorize] — requiere token JWT activo'
+            ? 'Endpoint protegido — requiere token JWT activo'
             : customErr?.message ||
-              'Verificar que el backend .NET esté corriendo',
+              'Verificar que el backend .NET esté en ejecución',
       };
     }
   };
@@ -271,86 +275,115 @@ export default function ConsolaDiagnosticoApiPage() {
       : 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="bg-white border border-slate-200 rounded-lg p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-amber-900">
-            Herramienta de Ingeniería • Sonda en Lotes de {BATCH_SIZE} Requests
-            Paralelos
-          </span>
-          <h1 className="text-xl font-bold text-slate-900 mt-0.5">
-            Diagnóstico en Vivo de Conectividad con MiPeluqueria.Api (.NET 8)
+    <div className="max-w-[1440px] mx-auto space-y-5 min-w-0">
+      <header className="bg-surface border border-border-subtle rounded-xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="courtesy">
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+              SuperAdminSaaS
+            </Badge>
+            <span className="text-xs text-ink-secondary">
+              Sonda controlada en lotes de {BATCH_SIZE} requests paralelos
+            </span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-ink-primary">
+            Diagnóstico API en Vivo
           </h1>
-          <p className="text-xs text-slate-500">
-            API Base: <code>{apiBaseUrl}</code> • Health Host:{' '}
-            <code>{serverRootUrl}</code>
+          <p className="text-xs text-ink-secondary break-all">
+            API:{' '}
+            <code className="font-mono-tabular text-ink-primary">
+              {apiBaseUrl}
+            </code>{' '}
+            • Health:{' '}
+            <code className="font-mono-tabular text-ink-primary">
+              {serverRootUrl}
+            </code>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Button
+            type="button"
             variant="secondary"
             size="sm"
             onClick={verificarHealthChecks}
             isLoading={verificandoHealth}
             disabled={ejecutando}
+            leftIcon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
           >
-            ↻ Actualizar Health Checks
+            Actualizar Health Checks
           </Button>
           <Button
-            variant="editorial"
+            type="button"
+            variant="primary"
             onClick={ejecutarDiagnosticoEnLotes}
             isLoading={ejecutando}
+            leftIcon={<Play className="h-4 w-4" aria-hidden="true" />}
           >
-            ▶ Probar los 22 Controladores (Lotes x{BATCH_SIZE})
+            Probar los 22 controladores (Lotes x{BATCH_SIZE})
           </Button>
         </div>
       </header>
 
-      {/* Tarjeta Superior de Estado en Vivo: /health/live y /health/ready */}
+      {/* Tarjetas de Estado en Vivo: /health/live y /health/ready */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[
           {
             titulo: 'Liveness Probe (Proceso Kestrel)',
             ruta: `${serverRootUrl}/health/live`,
             estado: liveHealth,
+            icon: <Activity className="h-4 w-4 text-brand-primary" aria-hidden="true" />,
           },
           {
-            titulo: 'Readiness Probe (SQL Server DbContextCheck)',
+            titulo: 'Readiness Probe (SQL Server DbContext)',
             ruta: `${serverRootUrl}/health/ready`,
             estado: readyHealth,
+            icon: <Server className="h-4 w-4 text-brand-primary" aria-hidden="true" />,
           },
         ].map((probe) => (
           <div
             key={probe.ruta}
-            className="bg-white border border-slate-200 rounded-lg p-4 flex items-center justify-between gap-4 shadow-sm"
+            className="bg-surface border border-border-subtle rounded-xl p-4 flex items-center justify-between gap-4 shadow-sm min-w-0"
           >
             <div className="space-y-1 min-w-0">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                {probe.titulo}
-              </span>
-              <code className="text-xs font-mono text-slate-800 block truncate">
+              <div className="flex items-center gap-2">
+                {probe.icon}
+                <span className="text-xs font-semibold text-ink-secondary">
+                  {probe.titulo}
+                </span>
+              </div>
+              <code className="text-xs font-mono-tabular text-ink-primary block truncate">
                 GET {probe.ruta}
               </code>
-              <p className="text-xs text-slate-500">
-                Estado: <strong>{probe.estado.texto}</strong>
-                {probe.estado.latenciaMs != null &&
-                  ` • ${probe.estado.latenciaMs} ms`}
+              <p className="text-xs text-ink-secondary">
+                Estado:{' '}
+                <strong className="text-ink-primary">
+                  {probe.estado.texto}
+                </strong>
+                {probe.estado.latenciaMs != null && (
+                  <span className="font-mono-tabular">
+                    {' '}
+                    • {probe.estado.latenciaMs} ms
+                  </span>
+                )}
                 {probe.estado.correlationId && (
-                  <span className="ml-2 font-mono text-[11px] text-slate-400">
+                  <span className="ml-2 font-mono-tabular text-[11px] text-ink-secondary">
                     CorrId: {probe.estado.correlationId.slice(0, 12)}…
                   </span>
                 )}
               </p>
             </div>
+
             <div className="shrink-0">
               {probe.estado.status === 'HEALTHY' ? (
-                <Badge variant="success">
+                <Badge variant="success" className="font-mono-tabular">
                   200 HEALTHY
                 </Badge>
               ) : probe.estado.status === 'CHECKING' ? (
                 <Badge variant="info">VERIFICANDO...</Badge>
               ) : probe.estado.status === 'UNHEALTHY' ? (
-                <Badge variant="danger">
+                <Badge variant="danger" className="font-mono-tabular">
                   {probe.estado.httpCode
                     ? `${probe.estado.httpCode} UNHEALTHY`
                     : 'OFFLINE'}
@@ -364,8 +397,10 @@ export default function ConsolaDiagnosticoApiPage() {
       </section>
 
       {progresoLote && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-950 flex items-center justify-between">
-          <span>
+        <div
+          className={`rounded-xl border px-4 py-3 text-xs flex flex-wrap items-center justify-between gap-2 ${SEMANTIC_COLORS.warning.surfaceClass}`}
+        >
+          <span className="text-ink-primary">
             Ejecutando sonda controlada en lotes de {BATCH_SIZE} requests
             paralelos —{' '}
             <strong>
@@ -373,64 +408,84 @@ export default function ConsolaDiagnosticoApiPage() {
             </strong>
             ...
           </span>
-          <span className="font-mono font-bold">
+          <span className="font-mono-tabular font-semibold text-ink-primary">
             {resultados.length} / {ENDPOINTS_A_VERIFICAR.length} completados
           </span>
         </div>
       )}
 
       {resultados.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3 text-xs bg-white border border-slate-200 rounded-lg px-4 py-3">
-            <Badge variant="success">OK: {totalOk}/22</Badge>
-            <Badge variant="warning">WARN: {totalWarn}</Badge>
-            <Badge variant="danger">ERROR: {totalErr}</Badge>
-            <span className="text-slate-600 font-mono ml-auto">
-              Latencia promedio: <strong>{latenciaPromedio} ms</strong>
+        <div className="space-y-3 min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs bg-surface border border-border-subtle rounded-xl px-4 py-3 shadow-sm">
+            <Badge variant="success" className="font-mono-tabular">
+              OK: {totalOk}/22
+            </Badge>
+            <Badge variant="warning" className="font-mono-tabular">
+              WARN: {totalWarn}
+            </Badge>
+            <Badge variant="danger" className="font-mono-tabular">
+              ERROR: {totalErr}
+            </Badge>
+            <span className="text-ink-secondary font-mono-tabular ml-auto">
+              Latencia promedio:{' '}
+              <strong className="text-ink-primary">
+                {latenciaPromedio} ms
+              </strong>
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100 text-slate-700 uppercase">
-                <tr>
-                  <th className="p-3">Controlador C#</th>
-                  <th className="p-3">Endpoint</th>
-                  <th className="p-3">HTTP</th>
-                  <th className="p-3">Forma</th>
-                  <th className="p-3">Latencia</th>
-                  <th className="p-3">Diagnóstico</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {resultados.map((r, idx) => (
-                  <tr key={idx}>
-                    <td className="p-3 font-bold text-slate-900">
-                      {r.controlador}
-                    </td>
-                    <td className="p-3 font-mono">{r.endpoint}</td>
-                    <td className="p-3 font-mono font-bold">
-                      <span
-                        className={`px-2 py-0.5 rounded ${
-                          r.status === 'OK'
-                            ? 'bg-emerald-100 text-emerald-900'
-                            : r.status === 'WARN'
-                            ? 'bg-amber-100 text-amber-900'
-                            : 'bg-red-100 text-red-900'
-                        }`}
-                      >
-                        {r.httpCode} ({r.status})
-                      </span>
-                    </td>
-                    <td className="p-3 font-mono text-slate-700">
-                      {r.formaPayload}
-                    </td>
-                    <td className="p-3 font-mono">{r.latenciaMs} ms</td>
-                    <td className="p-3 text-slate-600">{r.detalle}</td>
+          <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-elevated text-ink-secondary font-medium border-b border-border-subtle">
+                  <tr>
+                    <th className="px-3.5 py-2.5">Controlador</th>
+                    <th className="px-3.5 py-2.5">Endpoint</th>
+                    <th className="px-3.5 py-2.5">HTTP</th>
+                    <th className="px-3.5 py-2.5">Forma</th>
+                    <th className="px-3.5 py-2.5 text-right">Latencia</th>
+                    <th className="px-3.5 py-2.5">Diagnóstico</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border-subtle">
+                  {resultados.map((r, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-elevated/40 transition-colors"
+                    >
+                      <td className="px-3.5 py-2.5 font-medium text-ink-primary whitespace-nowrap">
+                        {r.controlador}
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono-tabular text-ink-secondary whitespace-nowrap">
+                        {r.endpoint}
+                      </td>
+                      <td className="px-3.5 py-2.5 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-md border font-mono-tabular font-semibold ${
+                            r.status === 'OK'
+                              ? SEMANTIC_COLORS.cash.badgeClass
+                              : r.status === 'WARN'
+                              ? SEMANTIC_COLORS.warning.badgeClass
+                              : SEMANTIC_COLORS.danger.badgeClass
+                          }`}
+                        >
+                          {r.httpCode} ({r.status})
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono-tabular text-ink-secondary whitespace-nowrap">
+                        {r.formaPayload}
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono-tabular text-right text-ink-primary whitespace-nowrap">
+                        {r.latenciaMs} ms
+                      </td>
+                      <td className="px-3.5 py-2.5 text-ink-secondary">
+                        {r.detalle}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

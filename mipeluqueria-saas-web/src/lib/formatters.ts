@@ -80,3 +80,88 @@ export function calcularHorasHastaTurno(fechaHoraInicioIso: string): number {
   const ahoraMs = Date.now();
   return (inicioMs - ahoraMs) / (1000 * 60 * 60);
 }
+
+/**
+ * Resume un header User-Agent técnico en una etiqueta legible de navegador y sistema operativo
+ * (ej. "Chrome · Windows", "Safari · iOS", "Cliente Node").
+ *
+ * @param userAgent Cadena User-Agent cruda registrada en el historial de sesiones.
+ * @returns Etiqueta corta y legible para humanos.
+ */
+export function formatUserAgentSummary(userAgent?: string | null): string {
+  const raw = (userAgent || '').trim();
+  if (!raw || raw === '-') {
+    return 'Desconocido';
+  }
+
+  const ua = raw.toLowerCase();
+
+  // Clientes CLI / automatización / pruebas
+  if (ua.includes('playwright')) {
+    return 'Playwright · Automatizado';
+  }
+  if (ua.includes('postman')) {
+    return 'Postman';
+  }
+  if (ua.includes('insomnia')) {
+    return 'Insomnia';
+  }
+  if (ua.includes('curl/')) {
+    return 'cURL';
+  }
+  if (
+    ua.includes('node-fetch') ||
+    ua.includes('undici') ||
+    ua.includes('axios/') ||
+    /\bnode\b/.test(ua)
+  ) {
+    return 'Cliente Node';
+  }
+
+  // Detección de navegador (orden estricto por tokens compartidos)
+  let browser: string | null = null;
+  if (ua.includes('edg/') || ua.includes('edga/') || ua.includes('edgios/')) {
+    browser = 'Edge';
+  } else if (ua.includes('opr/') || ua.includes('opera')) {
+    browser = 'Opera';
+  } else if (ua.includes('firefox/') || ua.includes('fxios/')) {
+    browser = 'Firefox';
+  } else if (ua.includes('headlesschrome')) {
+    browser = 'Chrome Headless';
+  } else if (ua.includes('chrome/') || ua.includes('crios/')) {
+    browser = 'Chrome';
+  } else if (ua.includes('safari/')) {
+    browser = 'Safari';
+  }
+
+  // Detección de sistema operativo
+  let os: string | null = null;
+  if (
+    ua.includes('iphone') ||
+    ua.includes('ipad') ||
+    ua.includes('ipod') ||
+    ua.includes('cpu iphone os')
+  ) {
+    os = 'iOS';
+  } else if (ua.includes('android')) {
+    os = 'Android';
+  } else if (ua.includes('windows')) {
+    os = 'Windows';
+  } else if (ua.includes('mac os x') || ua.includes('macintosh')) {
+    os = 'macOS';
+  } else if (ua.includes('linux')) {
+    os = 'Linux';
+  }
+
+  if (browser && os) {
+    return `${browser} · ${os}`;
+  }
+  if (browser) {
+    return browser;
+  }
+  if (os) {
+    return os;
+  }
+
+  return raw.length > 36 ? `${raw.slice(0, 35)}…` : raw;
+}

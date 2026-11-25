@@ -7,6 +7,30 @@ export {
   Badge,
   PageHeader,
 } from './DesignSystem';
+export type {
+  ButtonProps,
+  ButtonVariant,
+  CanonicalButtonVariant,
+  InputFieldProps,
+  ModalProps,
+  BadgeProps,
+  PageHeaderProps,
+} from './DesignSystem';
+
+export { NumericInput } from './NumericInput';
+export type { NumericInputProps } from './NumericInput';
+
+export { BrandLogo } from './BrandLogo';
+export type { BrandLogoProps } from './BrandLogo';
+
+export { SearchCombobox } from './SearchCombobox';
+export type {
+  SearchComboboxOption,
+  SearchComboboxProps,
+} from './SearchCombobox';
+
+export { ThemeToggle } from './ThemeToggle';
+export type { ThemeToggleProps } from './ThemeToggle';
 
 export { PrintReceiptModal } from './PrintReceiptModal';
 export type { PrintableReceiptData } from './PrintReceiptModal';

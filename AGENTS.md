@@ -1,11 +1,11 @@
-﻿# AGENTS.md â€” Mapa Operativo y Gobernanza Harness Engineering
+# AGENTS.md â€” Mapa Operativo y Gobernanza Harness Engineering
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8 + `mipeluqueria-saas-web` Next.js 14)
 **Paradigma:** Specification-Driven Development (SDD) + Harness Engineering + TDD Fencing
 
 ---
 
 ## 1. Flujo de Trabajo Obligatorio por Tarea
-1. **Lectura de Memoria en Disco:** Antes de tocar cualquier archivo, leer [`docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`](docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md) (puntero, overrides en SecciÃ³n 2 y firmas consolidadas en SecciÃ³n 4) y [`docs/11_QA_HARDENING_OBSERVABILITY_AND_REUSABILITY_PLAN.md`](docs/11_QA_HARDENING_OBSERVABILITY_AND_REUSABILITY_PLAN.md).
+1. **Lectura de Memoria en Disco:** Antes de tocar cualquier archivo, leer [`docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`](docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md) (puntero, overrides en SecciÃ³n 2 y firmas consolidadas en SecciÃ³n 4), [`docs/11_QA_HARDENING_OBSERVABILITY_AND_REUSABILITY_PLAN.md`](docs/11_QA_HARDENING_OBSERVABILITY_AND_REUSABILITY_PLAN.md) y [`docs/12_plan_maestro_etapa_8_redise_o_ux_ui_pro_design_system_dual_y_fixes_integrales.md`](docs/12_plan_maestro_etapa_8_redise_o_ux_ui_pro_design_system_dual_y_fixes_integrales.md) (plan activo Etapa 8 — `v1.1.0`).
 2. **Alcance Estricto:** Modificar Ãºnicamente los archivos listados en `[ARCHIVOS PERMITIDOS]` de la tarea activa.
 3. **Triaje en 5 Pasos ante Defectos:** `Reproducir (sensor rojo) -> Localizar -> Reducir -> Corregir -> Blindar (regresiÃ³n verde)`.
 4. **Cierre y BitÃ¡cora:** Ejecutar el `[SENSOR DETERMINÃSTICO]` de la tarea, adjuntar su salida real, actualizar `07_EXECUTION_LEDGER_AND_CHANGELOG.md` (aplicando SPEC-SYNC si corresponde) y detenerse en cada Hard Gate.

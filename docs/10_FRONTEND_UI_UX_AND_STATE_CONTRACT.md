@@ -104,6 +104,30 @@ Todo custom hook de mutación (`useMutation`) debe procesar el contrato `ApiResp
    * El proyecto debe implementar `src/app/error.tsx`, `src/app/(dashboard)/error.tsx` y `src/app/global-error.tsx`.
    * Ante cualquier excepción de renderizado o promesa no controlada, el boundary captura el error, muestra una tarjeta de recuperación (`ErrorFallbackCard`) con botón de reintento (`reset()`) y despacha de forma no bloqueante (`navigator.sendBeacon` o `fetch` con cortocircuito anti-bucle) un `ClientErrorReportDto` hacia `POST /api/telemetry/client-errors` correlacionado por el último `X-Correlation-Id` recibido, **sin incluir PII, contraseñas ni tokens JWT**.
 2. **Frontera Estricta de Reutilización en `src/components/ui/` (0 Imports de Dominio):**
-   * Todo componente ubicado en `src/components/ui/` (`DesignSystem.tsx`, `AsyncStateGuard.tsx`, `ErrorFallbackCard.tsx`, `DataTable.tsx`, `PaginationBar.tsx`, `ConfirmModal.tsx`, `PrintReceiptModal.tsx`) debe ser **100% agnóstico del dominio de peluquería**.
+   * Todo componente ubicado en `src/components/ui/` (`DesignSystem.tsx`, `AsyncStateGuard.tsx`, `ErrorFallbackCard.tsx`, `DataTable.tsx`, `PaginationBar.tsx`, `ConfirmModal.tsx`, `PrintReceiptModal.tsx`, `NumericInput.tsx`, `BrandLogo.tsx`, `SearchCombobox.tsx`, `ThemeToggle.tsx`) debe ser **100% agnóstico del dominio de peluquería**.
    * **Prohibición verificable por sensor:** Ningún archivo en `src/components/ui/*.tsx` puede importar desde `src/services/*`, `src/hooks/useDomainQueries` ni módulos de tipos de negocio (`clientes.types`, `turnos.types`, `ventas.types`, `stock.types`, `seguridad.types`, `saas.types`, `public.types`).
    * Todo componente UI base debe diseñarse por composición (`children`, `className`, tipos genéricos `<T>`) y documentarse con bloques JSDoc (`@param`, `@example`).
+
+---
+
+## 6. DESIGN SYSTEM DUAL `v1.1.0`, TIPOGRAFÍA Y ESTÁNDAR DE VIEWPORT (SPEC-SYNC ETAPA 8)
+
+1. **Colorimetría Dual (*Studio Clean* Light-First + *Obsidian & Indigo* Dark Mode):**
+   * Implementado mediante CSS Custom Properties en `src/app/globals.css` (`:root` para Light por defecto, `.dark` para Dark Mode) mapeadas en `tailwind.config.ts` con `darkMode: 'class'`.
+   * Persistencia en `localStorage` bajo la clave `mipeluqueria_theme` (valor inicial `'light'`) con script inline anti-FOUC en `src/app/layout.tsx` y contexto reactivo en `src/context/ThemeProvider.tsx`.
+2. **Tipografía Oficial (`next/font/google`):**
+   * **UI y Títulos (`--font-sans`):** `Plus Jakarta Sans` (`400`, `500`, `600`, `700`).
+   * **Finanzas, Horarios, Stock y Comprobantes (`--font-mono`):** `JetBrains Mono` (`400`, `500`, `600`, `700`) siempre acompañada de `tabular-nums`.
+3. **Mapa de Colores Semánticos Globales (`src/lib/semanticColors.ts`):**
+   * **Efectivo Físico / Éxito / Caja Abierta:** Esmeralda (`#059669` Light / `#10B981` Dark).
+   * **Digital / Mercado Pago QR / Transferencia / Tarjetas / Info:** Azul Cielo (`#0284C7` Light / `#38BDF8` Dark).
+   * **Advertencia / Pendiente / Seña / Stock Bajo:** Ámbar (`#D97706` Light / `#F59E0B` Dark).
+   * **Destructivo / Error / Anular / Alergias / Stock 0:** Carmesí (`#DC2626` Light / `#F43F5E` Dark).
+   * **Canje / Cortesía / Neutro:** Violeta (`#7C3AED` / `#8B5CF6`) o Slate (`#64748B`).
+4. **Estándar de Viewport Base y Responsive:**
+   * **Escritorio Base (Notebook 13"/14"):** `1280x720` y `1366x768` con **cero scroll horizontal** (`document.documentElement.scrollWidth <= window.innerWidth`) en las 19 rutas.
+   * **Monitores Grandes (`>= 1536px`):** Contenedores balanceados hasta `max-w-[1440px]`.
+   * **Móvil Prioritario (`390x844`):** Navegación base y pestaña **Fichas Técnicas Capilares** en `/peluquero` 100% operables en celular.
+5. **Jerarquía de Botones y Estrategia de Logo:**
+   * `Button` en `DesignSystem.tsx` estandariza 4 variantes estrictas (`primary`, `secondary`, `destructive` con tono `solid`/`soft`, y `ghost`) con alturas uniformes `h-9` / `h-10` y contraste WCAG 2.2 AA.
+   * `<BrandLogo />` presenta el logo negro del salón (`/logo.png` con fallback tipográfico/ícono) sobre un contenedor claro dedicado (`bg-white`) garantizando visibilidad en Sidebar oscuro, Modo Oscuro e impresión (`@media print` de 1 hoja).

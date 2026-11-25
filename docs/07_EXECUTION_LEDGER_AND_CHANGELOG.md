@@ -7,12 +7,12 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 7 COMPLETADA AL 100% — RELEASE CANDIDATE v1.0.0`
-* **Última Tarea Completada:** `TAREA 7.9 - Pipeline CI/CD (GitHub Actions) y Cierre Definitivo Etapa 7 — v1.0.0`
-* **Tarea Actual en Curso:** `NINGUNA — CICLO COMPLETO ETAPAS 1 A 7 FINALIZADO Y AUDITADO (v1.0.0)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8A: CIMIENTOS DESIGN SYSTEM DUAL COMPLETADOS)`
+* **Última Tarea Completada:** `TAREA 8.1 - SPEC-SYNC + Tokens Studio Clean (Claro/Oscuro) + Tipografía + Kit UI Base`
+* **Tarea Actual en Curso:** `PRÓXIMA: TAREA 8.2 - Fixes Críticos Backend #1 (Cálculo HistorialCajas Abierta + Rango Semanal de Turnos) + Tests xUnit`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP en 17.92 s)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal (AUTO_CLOSE OFF + min/max server memory 128/512 MB).`
-* **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (setup + 19/19 rutas + 22/22 controladores + 3/3 Journeys en 37.6 s, 0 FAIL, 0 SKIP) / Pipeline .github/workflows/ci.yml validado (backend-ci + frontend-ci en paralelo)`
+* **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
 
 ---
 
@@ -31,6 +31,7 @@
 | Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Sección 4.4), `04_API_CONTRACTS.md`, `08_TEST_PLANS_AND_ACCEPTANCE_CRITERIA.md` (Test 04 y Sec. 3), `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md` (Sec. 2 y 4.5) | Referencias residuales a `/api/configuracion-salon` en la documentación. | Unificación documental en **`/api/configuracion`** para coincidir 1:1 con `[Route("api/configuracion")]` compilado en `ConfiguracionSalonController.cs` y consumido en `common.service.ts`. | Eliminar cualquier contradicción documental entre los archivos `01`, `04`, `08`, `10` y el código real compilado. |
 | Tarea 7.1 | `02_ARCHITECTURE.md` (Secciones 1.1 y 3.1) | Pipeline HTTP iniciando en `GlobalExceptionMiddleware` y terminando en `MapControllers()`. | Orden actualizado: `CorrelationIdMiddleware -> UseSerilogRequestLogging() -> GlobalExceptionMiddleware -> Swagger(dev) -> HttpsRedirection -> Cors -> RateLimiter -> Authentication -> TenantResolutionMiddleware -> Authorization -> MapHealthChecks("/health/live") + MapHealthChecks("/health/ready") -> MapControllers()`. | Trazabilidad por `X-Correlation-Id` de punta a punta y sondas de salud desacopladas del bloqueo multi-tenant. |
 | Tarea 7.1 | `01_SYSTEM_CONSTRAINTS.md` (Sección 5.1), `04_API_CONTRACTS.md` (Secciones 2, 3.2 y 4), `09_ODS_ENVIRONMENT_AND_CONFIG_SPEC.md` (Sección 1), `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md` (Sección 5) | Sin contrato de ingesta de telemetría frontend, sección `Serilog` en JSON ni frontera formal de agnosticismo en `src/components/ui/`. | Contrato `POST /api/telemetry/client-errors` (`ClientErrorReportDto <= 4 KB`, Zero-PII, `202 Accepted`), bloque `"Serilog"` en `09`, Error Boundaries (`error.tsx`, `(dashboard)/error.tsx`, `global-error.tsx`) y regla de **0 imports de dominio** en `src/components/ui/*.tsx`. | Convergencia de errores Frontend/Backend en `Logs/errors-YYYYMMDD.json` y reutilización pura del Design System. |
+| Tarea 8.1 | `10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md`, `tailwind.config.js` | Tema claro único con fuente `Inter` sin tokens duales y archivo `tailwind.config.js`. | Design System Dual `v1.1.0` (*Studio Clean* Claro por defecto + *Obsidian & Indigo* `.dark` con `darkMode: 'class'`, persistencia `mipeluqueria_theme` sin FOUC), tipografías `Plus Jakarta Sans` + `JetBrains Mono` (`tabular-nums`), `tailwind.config.ts` (reemplazando `.js`), mapa `src/lib/semanticColors.ts` y 4 componentes agnósticos (`NumericInput`, `BrandLogo`, `SearchCombobox`, `ThemeToggle`). En `Button` se mantienen alias legacy temporales (`editorial` -> `primary`, `danger` -> `destructive`) hasta finalizar Tareas 8.4–8.9. | Garantizar estándar comercial `v1.1.0` (WCAG 2.2 AA, viewport `1280x720`/`1366x768`, logo negro sobre placa clara) con cero regresiones en las 19 pantallas vigentes. **SPEC-SYNC aplicado en `docs/10` y `AGENTS.md`.** |
 
 ---
 
@@ -1156,4 +1157,35 @@
   3. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0 Errores` (`EXIT 0`)**.
   4. Auditoría `Select-String` en `src/**/*.{ts,tsx}` y `src/components/ui/*` -> **`AUDIT_ANY_COUNT=0 | AUDIT_UI_DOMAIN_IMPORTS=0`**.
   5. Verificación de limpieza de entorno -> **`0` puertos colgados (`7132`/`3000` libres) y `0` archivos temporales sueltos**.
+
+### [TAREA 8.1] - SPEC-SYNC + Tokens Studio Clean (Claro/Oscuro) + Tipografía + Kit UI Base
+- **Estado:** COMPLETADA
+- **Archivos Creados:**
+  - `mipeluqueria-saas-web/tailwind.config.ts`
+  - `mipeluqueria-saas-web/src/context/ThemeProvider.tsx`
+  - `mipeluqueria-saas-web/src/lib/semanticColors.ts`
+  - `mipeluqueria-saas-web/src/components/ui/NumericInput.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/BrandLogo.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/SearchCombobox.tsx`
+  - `mipeluqueria-saas-web/src/components/ui/ThemeToggle.tsx`
+- **Archivos Modificados:**
+  - `AGENTS.md` (referencia explícita al plan activo Etapa 8 `docs/12_...`)
+  - `docs/10_FRONTEND_UI_UX_AND_STATE_CONTRACT.md` (SPEC-SYNC Sección 6: tokens duales, tipografía, mapa semántico y viewport base `1280x720`/`1366x768` + móvil `390x844`)
+  - `mipeluqueria-saas-web/src/app/globals.css` (3 capas CSS Custom Properties `:root` *Studio Clean* y `.dark` *Obsidian & Indigo* + `@media print` limpio en 1 hoja)
+  - `mipeluqueria-saas-web/src/app/layout.tsx` (`Plus_Jakarta_Sans` + `JetBrains_Mono` vía `next/font/google`, `suppressHydrationWarning` y script inline anti-FOUC con default `'light'`)
+  - `mipeluqueria-saas-web/src/context/AppProviders.tsx` (integración de `ThemeProvider` y `<Toaster />` sincronizado con el tema activo)
+  - `mipeluqueria-saas-web/src/components/ui/DesignSystem.tsx` (4 variantes estrictas de `Button`: `primary`, `secondary`, `destructive` [`solid`/`soft`], `ghost`, alturas `h-9`/`h-10`, contraste WCAG 2.2 AA dual y compatibilidad legacy temporal para `editorial`/`danger`)
+  - `mipeluqueria-saas-web/src/components/ui/index.ts` (re-exportación completa del kit UI y tipos)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:**
+  - `mipeluqueria-saas-web/tailwind.config.js` (reemplazado limpiamente por `tailwind.config.ts`)
+- **Decisiones Especiales:**
+  - **Cero Regresiones en Pantallas Existentes:** Se auditaron los usos de `Button` en todo `src/` (`11` usos de `editorial` y `3` de `danger` que serán migrados en Tareas 8.4–8.9), manteniendo alias temporales tipados hacia `primary` y `destructive` (`solid`) para que el 100% de las 19 pantallas compile sin errores.
+  - **Frontera UI 100% Agnóstica:** Todos los componentes nuevos (`NumericInput`, `BrandLogo`, `SearchCombobox`, `ThemeToggle`) y `DesignSystem.tsx` cuentan con JSDoc (`@param`, `@example`), composición limpia y `0` imports de dominio.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` -> **`0` errores (`TYPECHECK_EXIT=0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**/*.{ts,tsx}` -> **`0` coincidencias (`AUDIT_ANY_COUNT=0`)**.
+  3. Auditoría de frontera agnóstica en `mipeluqueria-saas-web/src/components/ui/*.{ts,tsx}` (`services/|useDomainQueries|\.types`) -> **`0` coincidencias (`AUDIT_UI_DOMAIN_IMPORTS=0`)**.
+  4. `npm --prefix mipeluqueria-saas-web run build` -> **`0` errores (`24/24` rutas compiladas con `Plus Jakarta Sans` + `JetBrains Mono`)**.
+
 

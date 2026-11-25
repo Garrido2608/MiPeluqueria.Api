@@ -1,27 +1,139 @@
-/* filepath: src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+ * DESIGN SYSTEM DUAL v1.1.0 — W3C 3-Layer Tokens
+ * Layer 1 & 2: Studio Clean (Light Default) + Obsidian & Indigo (.dark)
+ * ============================================================================ */
+
 :root {
-  --bg-editorial: #FAF8F5;
-  --text-primary: #18181B;
-  --accent-terracotta: #9A3412;
+  color-scheme: light;
+
+  /* Superficies y Fondos */
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  --bg-sidebar: #0F172A;
+
+  /* Bordes */
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Tipografía */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+
+  /* Marca (WCAG 2.2 AA con texto #FFFFFF) */
+  --brand-primary: #4F46E5;
+  --brand-primary-hover: #4338CA;
+  --brand-accent: #0EA5E9;
+
+  /* Semántica Global Inmutable */
+  --semantic-cash: #059669;
+  --semantic-digital: #0284C7;
+  --semantic-warning: #D97706;
+  --semantic-danger: #DC2626;
+  --semantic-courtesy: #7C3AED;
+  --semantic-neutral: #64748B;
+
+  /* Compatibilidad temporal de variables legacy */
+  --bg-editorial: #F8FAFC;
+  --accent-terracotta: #4F46E5;
   --slate-pos: #0F172A;
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #F8FAFC;
-  color: #0F172A;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
+.dark {
+  color-scheme: dark;
+
+  /* Superficies y Fondos */
+  --bg-canvas: #0B1120;
+  --bg-surface: #111827;
+  --bg-elevated: #1E293B;
+  --bg-sidebar: #090E1A;
+
+  /* Bordes */
+  --border-subtle: #1F2937;
+  --border-strong: #334155;
+
+  /* Tipografía */
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+
+  /* Marca */
+  --brand-primary: #6366F1;
+  --brand-primary-hover: #818CF8;
+  --brand-accent: #38BDF8;
+
+  /* Semántica Global Inmutable */
+  --semantic-cash: #10B981;
+  --semantic-digital: #38BDF8;
+  --semantic-warning: #F59E0B;
+  --semantic-danger: #F43F5E;
+  --semantic-courtesy: #8B5CF6;
+  --semantic-neutral: #94A3B8;
+
+  /* Compatibilidad temporal */
+  --bg-editorial: #0B1120;
+  --accent-terracotta: #6366F1;
+  --slate-pos: #090E1A;
 }
 
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Utilidad tipográfica para cifras financieras y horarios */
+  .font-mono-tabular {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ============================================================================
+ * IMPRESIÓN LIMPIA EN 1 SOLA HOJA (COMPROBANTES POS, RECIBOS Y ÓRDENES DE COMPRA)
+ * ============================================================================ */
 @media print {
+  @page {
+    margin: 10mm;
+  }
+
+  html,
+  body,
+  .dark {
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    color-scheme: light !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  aside,
+  nav,
+  header.app-topbar,
   .no-print {
     display: none !important;
+  }
+
+  .print-only-sheet {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }

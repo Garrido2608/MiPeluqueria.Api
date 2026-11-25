@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { ThemeProvider, useTheme } from '@/context/ThemeProvider';
 import {
   AuthResponseDto,
   CatalogosMaestrosDto,
@@ -366,44 +367,59 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <CookieConsentContext.Provider
-        value={{ consentGiven, acceptCookies, rejectCookies }}
-      >
-        <AuthContext.Provider
-          value={{
-            user,
-            isAuthenticated: !!user,
-            isLoadingAuth,
-            tenantId,
-            sucursalId,
-            setSession,
-            switchSucursal,
-            logout,
-          }}
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <CookieConsentContext.Provider
+          value={{ consentGiven, acceptCookies, rejectCookies }}
         >
-          <CatalogosContext.Provider
-            value={{ catalogos, configSalon, recargarCatalogosYConfig }}
+          <AuthContext.Provider
+            value={{
+              user,
+              isAuthenticated: !!user,
+              isLoadingAuth,
+              tenantId,
+              sucursalId,
+              setSession,
+              switchSucursal,
+              logout,
+            }}
           >
-            <CajaPosContext.Provider
-              value={{
-                sesionCajaActual,
-                cajaAbierta:
-                  !!sesionCajaActual && sesionCajaActual.estadoAbierta,
-                cargandoCaja,
-                posPreload,
-                refrescarEstadoCaja,
-                enviarTurnoAlPos,
-                limpiarPreloadPos,
-              }}
+            <CatalogosContext.Provider
+              value={{ catalogos, configSalon, recargarCatalogosYConfig }}
             >
-              {children}
-              <Toaster position="top-right" richColors closeButton expand />
-            </CajaPosContext.Provider>
-          </CatalogosContext.Provider>
-        </AuthContext.Provider>
-      </CookieConsentContext.Provider>
-    </QueryClientProvider>
+              <CajaPosContext.Provider
+                value={{
+                  sesionCajaActual,
+                  cajaAbierta:
+                    !!sesionCajaActual && sesionCajaActual.estadoAbierta,
+                  cargandoCaja,
+                  posPreload,
+                  refrescarEstadoCaja,
+                  enviarTurnoAlPos,
+                  limpiarPreloadPos,
+                }}
+              >
+                {children}
+                <ThemedToaster />
+              </CajaPosContext.Provider>
+            </CatalogosContext.Provider>
+          </AuthContext.Provider>
+        </CookieConsentContext.Provider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+}
+
+function ThemedToaster() {
+  const { theme } = useTheme();
+  return (
+    <Toaster
+      theme={theme}
+      position="top-right"
+      richColors
+      closeButton
+      expand
+    />
   );
 }
 

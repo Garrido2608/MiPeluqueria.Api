@@ -1,7 +1,22 @@
 // filepath: src/app/(dashboard)/recepcion/clientes/page.tsx
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  Cake,
+  Camera,
+  CheckCircle2,
+  ExternalLink,
+  FlaskConical,
+  Info,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  UserPlus,
+  X,
+} from 'lucide-react';
 import {
   ClienteDto,
   FichaTecnicaDto,
@@ -14,7 +29,10 @@ import {
 } from '@/services/api.services';
 import { useCatalogos } from '@/context/AppProviders';
 import { notifyApiError, notifyApiSuccess } from '@/hooks';
-import { uploadImageToCloudinary } from '@/lib/cloudinary';
+import {
+  isCloudinaryConfigured,
+  uploadImageToCloudinary,
+} from '@/lib/cloudinary';
 import {
   extractErrorCorrelationId,
   extractErrorMessage,
@@ -22,6 +40,7 @@ import {
   extractPaginationMeta,
 } from '@/lib/apiHelpers';
 import { formatDateOnly, formatDateTime } from '@/lib/formatters';
+import { SEMANTIC_COLORS } from '@/lib/semanticColors';
 import {
   AsyncStateGuard,
   Badge,
@@ -32,8 +51,23 @@ import {
   PaginationBar,
 } from '@/components/ui';
 
+function getClientInitials(cliente: ClienteDto): string {
+  const first = (cliente.nombre || '').trim().charAt(0);
+  const last = (cliente.apellido || '').trim().charAt(0);
+  if (first || last) {
+    return `${first}${last}`.toUpperCase();
+  }
+  const full = (cliente.nombreCompleto || 'CL').trim().split(/\s+/);
+  return full
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join('')
+    .toUpperCase();
+}
+
 export default function ClientesCrm360Page() {
   const { catalogos } = useCatalogos();
+  const cloudinaryActivo = useMemo(() => isCloudinaryConfigured(), []);
 
   // Listado paginado de Clientes
   const [clientes, setClientes] = useState<ClienteDto[]>([]);
@@ -63,7 +97,7 @@ export default function ClientesCrm360Page() {
   const [cliTipoRostroId, setCliTipoRostroId] = useState<number>(0);
   const [guardandoCliente, setGuardandoCliente] = useState<boolean>(false);
 
-  // Modal / Drawer de Fichas Técnicas Capilares por Cliente
+  // Modal de Fichas Técnicas Capilares por Cliente
   const [clienteFichaActivo, setClienteFichaActivo] =
     useState<ClienteDto | null>(null);
   const [fichasCliente, setFichasCliente] = useState<FichaTecnicaDto[]>([]);
@@ -80,6 +114,7 @@ export default function ClientesCrm360Page() {
   const [fichaAlergias, setFichaAlergias] = useState<string>('');
   const [fichaProductos, setFichaProductos] = useState<string>('');
   const [fichaFotoUrl, setFichaFotoUrl] = useState<string>('');
+  const [fotoPreviewError, setFotoPreviewError] = useState<boolean>(false);
   const [subiendoFoto, setSubiendoFoto] = useState<boolean>(false);
   const [guardandoFicha, setGuardandoFicha] = useState<boolean>(false);
 
@@ -122,7 +157,7 @@ export default function ClientesCrm360Page() {
   }, [pageNumber, pageSize, busqueda]);
 
   useEffect(() => {
-    cargarClientes();
+    void cargarClientes();
   }, [cargarClientes]);
 
   useEffect(() => {
@@ -141,6 +176,14 @@ export default function ClientesCrm360Page() {
         // Silencioso
       });
   }, []);
+
+  const alertasAlergiasCliente = useMemo(
+    () =>
+      fichasCliente
+        .map((f) => (f.notasSensibilidadAlergias || '').trim())
+        .filter((nota) => nota.length > 0),
+    [fichasCliente]
+  );
 
   const abrirNuevoCliente = () => {
     setClienteEditando(null);
@@ -161,9 +204,7 @@ export default function ClientesCrm360Page() {
     setCliTelefono(c.telefono);
     setCliEmail(c.email || '');
     setCliFechaNac(
-      c.fechaNacimiento
-        ? c.fechaNacimiento.split('T')[0]
-        : '1995-05-15'
+      c.fechaNacimiento ? c.fechaNacimiento.split('T')[0] : '1995-05-15'
     );
     setCliTipoCabelloId(c.tipoCabelloId || 0);
     setCliTipoRostroId(c.tipoRostroId || 0);
@@ -192,8 +233,8 @@ export default function ClientesCrm360Page() {
         notifyApiSuccess(
           res,
           clienteEditando
-            ? 'Ficha del cliente actualizada.'
-            : 'Nuevo cliente registrado en el CRM.'
+            ? 'Datos del cliente actualizados.'
+            : 'Nuevo cliente registrado correctamente.'
         );
         setModalClienteOpen(false);
         await cargarClientes();
@@ -211,7 +252,10 @@ export default function ClientesCrm360Page() {
     try {
       const res = await clientesService.delete(c.id);
       if (res.success) {
-        notifyApiSuccess(res, `Cliente ${c.nombreCompleto} dado de baja.`);
+        notifyApiSuccess(
+          res,
+          `Cliente ${c.nombreCompleto || `${c.nombre} ${c.apellido}`} dado de baja.`
+        );
         await cargarClientes();
       }
     } catch (err) {
@@ -230,6 +274,7 @@ export default function ClientesCrm360Page() {
     setFichaAlergias('');
     setFichaProductos('');
     setFichaFotoUrl('');
+    setFotoPreviewError(false);
     setErrorFichas(null);
     setCargandoFichas(true);
     try {
@@ -263,6 +308,7 @@ export default function ClientesCrm360Page() {
     setFichaAlergias(f.notasSensibilidadAlergias || '');
     setFichaProductos(f.productosUtilizados || '');
     setFichaFotoUrl(f.fotoResultadoUrl || '');
+    setFotoPreviewError(false);
   };
 
   const limpiarFormFicha = () => {
@@ -272,6 +318,7 @@ export default function ClientesCrm360Page() {
     setFichaAlergias('');
     setFichaProductos('');
     setFichaFotoUrl('');
+    setFotoPreviewError(false);
   };
 
   const handleSubirFotoCloudinary = async (
@@ -283,6 +330,7 @@ export default function ClientesCrm360Page() {
     try {
       const uploadResult = await uploadImageToCloudinary(file);
       setFichaFotoUrl(uploadResult.url);
+      setFotoPreviewError(false);
     } catch (err) {
       notifyApiError(err, {
         fallbackMessage: 'No se pudo procesar la fotografía.',
@@ -353,22 +401,34 @@ export default function ClientesCrm360Page() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0">
       <PageHeader
-        eyebrow="CRM 360° & Diagnóstico Capilar • ClientesController + FichasTecnicasController"
-        title="Padrón de Clientes y Fichas Técnicas Capilares"
-        subtitle={`Total de clientes registrados en la sucursal: ${totalCount} • Alertas de cumpleaños y sensibilidad cutánea`}
+        title="Clientes"
         actions={
-          <Button variant="editorial" size="sm" onClick={abrirNuevoCliente}>
-            + Nuevo Cliente
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Badge variant="neutral">
+              <span className="font-mono-tabular">{totalCount}</span> registrados
+            </Badge>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<UserPlus className="h-4 w-4" aria-hidden="true" />}
+              onClick={abrirNuevoCliente}
+            >
+              Nuevo Cliente
+            </Button>
+          </div>
         }
       />
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 lg:p-5 space-y-4 max-w-[1440px] w-full mx-auto min-w-0">
         {/* Barra de Búsqueda */}
-        <div className="bg-white border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-1 max-w-md">
+        <div className="bg-surface border border-border-subtle rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <div className="relative flex-1 min-w-[220px] max-w-md">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-secondary"
+              aria-hidden="true"
+            />
             <input
               type="search"
               placeholder="Buscar por nombre, apellido, teléfono o email..."
@@ -377,12 +437,13 @@ export default function ClientesCrm360Page() {
                 setBusqueda(e.target.value);
                 setPageNumber(1);
               }}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs"
+              className="h-10 w-full rounded-lg border border-border-strong bg-surface pl-9 pr-3 text-sm text-ink-primary placeholder:text-ink-secondary/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
             />
           </div>
-          <div className="text-xs text-slate-500">
-            Página <strong>{pageNumber}</strong> de{' '}
-            <strong>{totalPages}</strong> ({totalCount} registros)
+          <div className="text-xs text-ink-secondary font-mono-tabular">
+            Página <strong className="text-ink-primary">{pageNumber}</strong> de{' '}
+            <strong className="text-ink-primary">{totalPages}</strong> ·{' '}
+            {totalCount} clientes
           </div>
         </div>
 
@@ -398,80 +459,118 @@ export default function ClientesCrm360Page() {
           emptyDescription="No existen clientes registrados que coincidan con el criterio ingresado."
           onRetry={cargarClientes}
         >
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase text-slate-500">
-                    <th className="py-3 px-4">Cliente</th>
-                    <th className="py-3 px-4">Contacto</th>
-                    <th className="py-3 px-4">Diagnóstico (Cabello / Rostro)</th>
-                    <th className="py-3 px-4">Nacimiento</th>
-                    <th className="py-3 px-4 text-right">Acciones CRM</th>
+                  <tr className="bg-elevated/80 border-b border-border-subtle text-ink-secondary">
+                    <th className="py-3 px-4 font-medium">Cliente</th>
+                    <th className="py-3 px-4 font-medium">Contacto</th>
+                    <th className="py-3 px-4 font-medium">Perfil capilar</th>
+                    <th className="py-3 px-4 font-medium">Nacimiento</th>
+                    <th className="py-3 px-4 font-medium text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {(clientes ?? []).map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">
-                            {c.nombreCompleto || `${c.nombre} ${c.apellido}`}
-                          </span>
-                          {c.esCumpleaneroDelMes && (
-                            <Badge variant="warning">🎂 Cumpleañero del Mes</Badge>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          ID #{c.id}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="font-mono font-semibold text-slate-800">
-                          {c.telefono}
-                        </p>
-                        <p className="text-[11px] text-slate-500">
-                          {c.email || 'Sin correo'}
-                        </p>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="neutral">
-                            Cabello: {c.tipoCabelloNombre || 'No especificado'}
-                          </Badge>
-                          <Badge variant="neutral">
-                            Rostro: {c.tipoRostroNombre || 'No especificado'}
-                          </Badge>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600">
-                        {formatDateOnly(c.fechaNacimiento)}
-                      </td>
-                      <td className="py-3 px-4 text-right space-x-1.5">
-                        <Button
-                          size="sm"
-                          variant="editorial"
-                          onClick={() => cargarFichasDeCliente(c)}
-                        >
-                          🧪 Fichas Técnicas
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => abrirEditarCliente(c)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => handleEliminarCliente(c)}
-                        >
-                          Baja
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-border-subtle">
+                  {(clientes ?? []).map((c) => {
+                    const displayName =
+                      c.nombreCompleto || `${c.nombre} ${c.apellido}`;
+                    return (
+                      <tr
+                        key={c.id}
+                        className="hover:bg-elevated/50 transition-colors"
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              aria-hidden="true"
+                              className="h-9 w-9 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800/70 flex items-center justify-center text-xs font-semibold shrink-0"
+                            >
+                              {getClientInitials(c)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-sm font-medium text-ink-primary truncate">
+                                  {displayName}
+                                </span>
+                                {c.esCumpleaneroDelMes && (
+                                  <Badge variant="warning">
+                                    <Cake
+                                      className="h-3 w-3"
+                                      aria-hidden="true"
+                                    />
+                                    <span>Cumpleaños</span>
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-ink-secondary font-mono-tabular">
+                                #{c.id}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <p className="font-mono-tabular font-medium text-ink-primary">
+                            {c.telefono}
+                          </p>
+                          <p className="text-[11px] text-ink-secondary truncate max-w-[200px]">
+                            {c.email || 'Sin correo'}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="neutral">
+                              Cabello: {c.tipoCabelloNombre || 'Sin definir'}
+                            </Badge>
+                            <Badge variant="neutral">
+                              Rostro: {c.tipoRostroNombre || 'Sin definir'}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono-tabular text-ink-secondary whitespace-nowrap">
+                          {formatDateOnly(c.fechaNacimiento)}
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              leftIcon={
+                                <FlaskConical
+                                  className="h-3.5 w-3.5 text-brand-primary"
+                                  aria-hidden="true"
+                                />
+                              }
+                              onClick={() => cargarFichasDeCliente(c)}
+                            >
+                              Fichas Técnicas
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              leftIcon={
+                                <Pencil
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden="true"
+                                />
+                              }
+                              onClick={() => abrirEditarCliente(c)}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              destructiveTone="soft"
+                              onClick={() => handleEliminarCliente(c)}
+                            >
+                              Baja
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -494,10 +593,10 @@ export default function ClientesCrm360Page() {
         onClose={() => setModalClienteOpen(false)}
         title={
           clienteEditando
-            ? `Editar Cliente #${clienteEditando.id}`
-            : 'Registrar Nuevo Cliente'
+            ? `Editar cliente #${clienteEditando.id}`
+            : 'Registrar nuevo cliente'
         }
-        subtitle="Completá los datos personales y el perfil morfológico capilar."
+        subtitle="Completá los datos de contacto y el perfil capilar."
       >
         <form onSubmit={handleGuardarCliente} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -520,13 +619,13 @@ export default function ClientesCrm360Page() {
               onChange={(e) => setCliTelefono(e.target.value)}
             />
             <InputField
-              label="Correo Electrónico"
+              label="Correo electrónico"
               type="email"
               value={cliEmail}
               onChange={(e) => setCliEmail(e.target.value)}
             />
             <InputField
-              label="Fecha de Nacimiento *"
+              label="Fecha de nacimiento *"
               type="date"
               required
               value={cliFechaNac}
@@ -535,14 +634,18 @@ export default function ClientesCrm360Page() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 block mb-1">
-                Tipo de Cabello
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="cliente-tipo-cabello"
+                className="text-xs font-medium text-ink-secondary"
+              >
+                Tipo de cabello
               </label>
               <select
+                id="cliente-tipo-cabello"
                 value={cliTipoCabelloId}
                 onChange={(e) => setCliTipoCabelloId(Number(e.target.value))}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="h-10 w-full rounded-lg border border-border-strong bg-surface text-ink-primary px-3 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
               >
                 <option value={0}>Sin especificar</option>
                 {(catalogos?.tiposCabello || []).map((tc) => (
@@ -552,14 +655,18 @@ export default function ClientesCrm360Page() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 block mb-1">
-                Tipo de Rostro
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="cliente-tipo-rostro"
+                className="text-xs font-medium text-ink-secondary"
+              >
+                Tipo de rostro
               </label>
               <select
+                id="cliente-tipo-rostro"
                 value={cliTipoRostroId}
                 onChange={(e) => setCliTipoRostroId(Number(e.target.value))}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="h-10 w-full rounded-lg border border-border-strong bg-surface text-ink-primary px-3 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
               >
                 <option value={0}>Sin especificar</option>
                 {(catalogos?.tiposRostro || []).map((tr) => (
@@ -584,239 +691,389 @@ export default function ClientesCrm360Page() {
               variant="primary"
               isLoading={guardandoCliente}
             >
-              Guardar Cliente
+              Guardar cliente
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Modal / Drawer de Fichas Técnicas Capilares y Subida Cloudinary */}
+      {/* Modal de Fichas Técnicas Capilares */}
       <Modal
-        isOpen={!!clienteFichaActivo}
+        isOpen={Boolean(clienteFichaActivo)}
         onClose={() => setClienteFichaActivo(null)}
-        title={`Historial de Fichas Técnicas — ${
-          clienteFichaActivo?.nombreCompleto || ''
+        title={`Fichas técnicas — ${
+          clienteFichaActivo?.nombreCompleto ||
+          (clienteFichaActivo
+            ? `${clienteFichaActivo.nombre} ${clienteFichaActivo.apellido}`
+            : '')
         }`}
-        subtitle="Fórmulas de colorimetría, oxidantes, notas de alergia y fotografía Direct-to-Cloud (Cloudinary)."
-        maxWidthClass="max-w-4xl"
+        subtitle="Fórmulas de colorimetría, alertas de sensibilidad y registro fotográfico."
+        maxWidthClass="max-w-5xl"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Formulario de Nueva / Edición de Ficha Técnica */}
-          <form
-            onSubmit={handleGuardarFichaTecnica}
-            className="lg:col-span-5 space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-200"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                {fichaEditando
-                  ? `Editar Ficha #${fichaEditando.id}`
-                  : 'Nueva Ficha Técnica Capilar'}
-              </h3>
-              {fichaEditando && (
-                <button
-                  type="button"
-                  onClick={limpiarFormFicha}
-                  className="text-xs text-amber-900 underline font-semibold"
+        <div className="space-y-4">
+          {/* Banner destacado de alergias si existe alguna alerta en el historial */}
+          {alertasAlergiasCliente.length > 0 && (
+            <div
+              role="alert"
+              className={`rounded-xl border p-3.5 flex items-start gap-3 ${SEMANTIC_COLORS.danger.surfaceClass}`}
+            >
+              <AlertTriangle
+                className={`h-5 w-5 shrink-0 mt-0.5 ${SEMANTIC_COLORS.danger.textClass}`}
+                aria-hidden="true"
+              />
+              <div className="text-xs space-y-1 min-w-0">
+                <p
+                  className={`font-semibold ${SEMANTIC_COLORS.danger.textClass}`}
                 >
-                  + Crear Nueva
-                </button>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 block mb-1">
-                Profesional Responsable *
-              </label>
-              <select
-                value={fichaPeluqueroId}
-                onChange={(e) => setFichaPeluqueroId(Number(e.target.value))}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs"
-              >
-                {peluqueros.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombreCompleto || `${p.nombre} ${p.apellido}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                Fórmula Aplicada (Colorimetría / Técnica) *
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={fichaFormula}
-                onChange={(e) => setFichaFormula(e.target.value)}
-                placeholder="Ej. Pomo 7.1 (45g) + 8.11 (15g) con Oxidante 20 Vol. Tiempo de pose: 35 min."
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-red-700">
-                ⚠️ Notas de Sensibilidad o Alergias Cutáneas
-              </label>
-              <textarea
-                rows={2}
-                value={fichaAlergias}
-                onChange={(e) => setFichaAlergias(e.target.value)}
-                placeholder="Ej. Sensibilidad a decolorantes con amoníaco en nuca."
-                className="rounded-md border border-red-300 bg-red-50/40 px-3 py-2 text-xs"
-              />
-            </div>
-
-            <InputField
-              label="Productos de Gabinete Utilizados"
-              value={fichaProductos}
-              onChange={(e) => setFichaProductos(e.target.value)}
-              placeholder="Ej. Ampolla Cauterización + Shampoo Ácido"
-            />
-
-            <InputField
-              label="Observaciones Generales"
-              value={fichaObservaciones}
-              onChange={(e) => setFichaObservaciones(e.target.value)}
-            />
-
-            {/* Subida Direct-to-Cloud a Cloudinary */}
-            <div className="space-y-1.5 pt-1 border-t border-slate-200">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 block">
-                Fotografía del Resultado Capilar (Cloudinary CDN)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                disabled={subiendoFoto}
-                onChange={handleSubirFotoCloudinary}
-                className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-800"
-              />
-              {subiendoFoto && (
-                <p className="text-[11px] text-amber-800 font-semibold">
-                  Subiendo imagen a Cloudinary CDN...
+                  Alerta de sensibilidad o alergias registradas
                 </p>
-              )}
-              <InputField
-                label="URL de la Fotografía (Autocompletada o Manual)"
-                value={fichaFotoUrl}
-                onChange={(e) => setFichaFotoUrl(e.target.value)}
-                placeholder="https://res.cloudinary.com/..."
-              />
+                <p className="text-ink-primary leading-relaxed">
+                  {alertasAlergiasCliente[0]}
+                  {alertasAlergiasCliente.length > 1
+                    ? ` (+${alertasAlergiasCliente.length - 1} registro adicional en historial)`
+                    : ''}
+                </p>
+              </div>
             </div>
+          )}
 
-            <Button
-              type="submit"
-              variant="editorial"
-              className="w-full"
-              isLoading={guardandoFicha}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Formulario de Nueva / Edición de Ficha Técnica */}
+            <form
+              onSubmit={handleGuardarFichaTecnica}
+              className="lg:col-span-5 space-y-3.5 bg-elevated/60 p-4 rounded-xl border border-border-subtle"
             >
-              {fichaEditando
-                ? 'Guardar Cambios en Ficha'
-                : 'Registrar Ficha Técnica'}
-            </Button>
-          </form>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-ink-primary">
+                  {fichaEditando
+                    ? `Editar ficha #${fichaEditando.id}`
+                    : 'Nueva ficha técnica'}
+                </h3>
+                {fichaEditando && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<Plus className="h-3.5 w-3.5" aria-hidden="true" />}
+                    onClick={limpiarFormFicha}
+                  >
+                    Crear nueva
+                  </Button>
+                )}
+              </div>
 
-          {/* Listado Cronológico de Fichas del Cliente */}
-          <div className="lg:col-span-7 max-h-[540px] overflow-y-auto pr-1">
-            <AsyncStateGuard
-              isLoading={cargandoFichas}
-              isError={Boolean(errorFichas)}
-              errorMessage={errorFichas ?? undefined}
-              isEmpty={(fichasCliente ?? []).length === 0}
-              loadingText="Cargando historial técnico capilar..."
-              emptyTitle="Sin fichas técnicas capilares"
-              emptyDescription="Este cliente aún no registra fichas técnicas capilares."
-              onRetry={() => {
-                if (clienteFichaActivo) {
-                  void cargarFichasDeCliente(clienteFichaActivo);
-                }
-              }}
-              className="space-y-3"
-            >
-              {(fichasCliente ?? []).map((f) => (
-                <div
-                  key={f.id}
-                  className="p-4 rounded-lg border border-slate-200 bg-white space-y-2 text-xs shadow-sm"
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="ficha-peluquero"
+                  className="text-xs font-medium text-ink-secondary"
                 >
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <div>
-                      <span className="font-mono font-bold text-slate-800">
-                        Ficha #{f.id}
-                      </span>{' '}
-                      •{' '}
-                      <span className="text-slate-500">
-                        {formatDateTime(f.fecha || f.fechaRegistro || '')}
-                      </span>
-                    </div>
-                    <Badge variant="info">
-                      Estilista:{' '}
-                      {f.peluqueroNombreCompleto ||
-                        f.nombrePeluquero ||
-                        `#${f.peluqueroId}`}
+                  Profesional responsable *
+                </label>
+                <select
+                  id="ficha-peluquero"
+                  value={fichaPeluqueroId}
+                  onChange={(e) => setFichaPeluqueroId(Number(e.target.value))}
+                  className="h-10 w-full rounded-lg border border-border-strong bg-surface text-ink-primary px-3 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
+                >
+                  {peluqueros.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombreCompleto || `${p.nombre} ${p.apellido}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="ficha-formula"
+                  className="text-xs font-medium text-ink-secondary"
+                >
+                  Fórmula aplicada (colorimetría / técnica) *
+                </label>
+                <textarea
+                  id="ficha-formula"
+                  rows={3}
+                  required
+                  value={fichaFormula}
+                  onChange={(e) => setFichaFormula(e.target.value)}
+                  placeholder="Ej. Pomo 7.1 (45g) + 8.11 (15g) con oxidante 20 Vol. Tiempo de pose: 35 min."
+                  className="rounded-lg border border-border-strong bg-surface text-ink-primary px-3 py-2 text-sm placeholder:text-ink-secondary/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="ficha-alergias"
+                  className={`text-xs font-semibold flex items-center gap-1.5 ${SEMANTIC_COLORS.danger.textClass}`}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Notas de sensibilidad o alergias</span>
+                </label>
+                <textarea
+                  id="ficha-alergias"
+                  rows={2}
+                  value={fichaAlergias}
+                  onChange={(e) => setFichaAlergias(e.target.value)}
+                  placeholder="Ej. Sensibilidad a decolorantes con amoníaco en nuca."
+                  className="rounded-lg border border-red-300 dark:border-rose-800/80 bg-red-50/50 dark:bg-rose-950/30 text-ink-primary px-3 py-2 text-xs placeholder:text-ink-secondary/70 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                />
+              </div>
+
+              <InputField
+                label="Productos utilizados"
+                value={fichaProductos}
+                onChange={(e) => setFichaProductos(e.target.value)}
+                placeholder="Ej. Ampolla cauterización + shampoo ácido"
+              />
+
+              <InputField
+                label="Observaciones generales"
+                value={fichaObservaciones}
+                onChange={(e) => setFichaObservaciones(e.target.value)}
+              />
+
+              {/* Fotografía con vista previa y estado Cloudinary */}
+              <div className="space-y-2.5 pt-2 border-t border-border-subtle">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-ink-secondary flex items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Fotografía del resultado</span>
+                  </span>
+                  {cloudinaryActivo ? (
+                    <Badge variant="success">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                      <span>Nube activa</span>
                     </Badge>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] uppercase font-bold text-slate-500">
-                      Fórmula Aplicada:
-                    </p>
-                    <p className="font-mono text-slate-900 bg-slate-50 p-2 rounded border border-slate-200 mt-0.5">
-                      {f.formulaAplicada || f.detalleFormulaTintura}
-                    </p>
-                  </div>
-
-                  {f.notasSensibilidadAlergias && (
-                    <div className="p-2 rounded bg-red-50 border border-red-200 text-red-900">
-                      <strong>⚠️ Alerta Sensibilidad / Alergias:</strong>{' '}
-                      {f.notasSensibilidadAlergias}
-                    </div>
+                  ) : (
+                    <Badge variant="warning">
+                      <Info className="h-3 w-3" aria-hidden="true" />
+                      <span>Modo demo local</span>
+                    </Badge>
                   )}
-
-                  {f.productosUtilizados && (
-                    <p className="text-slate-600">
-                      <strong>Productos:</strong> {f.productosUtilizados}
-                    </p>
-                  )}
-
-                  {f.observaciones && (
-                    <p className="text-slate-600">
-                      <strong>Observaciones:</strong> {f.observaciones}
-                    </p>
-                  )}
-
-                  {f.fotoResultadoUrl && (
-                    <div className="pt-1">
-                      <a
-                        href={f.fotoResultadoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-amber-900 underline font-semibold"
-                      >
-                        📷 Ver Fotografía del Resultado Capilar
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => seleccionarFichaParaEditar(f)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => handleEliminarFicha(f.id)}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
                 </div>
-              ))}
-            </AsyncStateGuard>
+
+                {!cloudinaryActivo && (
+                  <p className="text-[11px] leading-relaxed text-ink-secondary bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg px-2.5 py-2">
+                    Cloudinary está en modo demo local. Al subir un archivo se
+                    asignará una imagen de respaldo, o podés pegar directamente
+                    una URL manual abajo.
+                  </p>
+                )}
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={subiendoFoto}
+                  onChange={handleSubirFotoCloudinary}
+                  className="block w-full text-xs text-ink-secondary file:mr-3 file:h-8 file:px-3 file:rounded-lg file:border file:border-border-strong file:text-xs file:font-medium file:bg-surface file:text-ink-primary hover:file:bg-elevated file:cursor-pointer"
+                />
+
+                {subiendoFoto && (
+                  <p
+                    className={`text-xs font-medium ${SEMANTIC_COLORS.digital.textClass}`}
+                  >
+                    Procesando imagen...
+                  </p>
+                )}
+
+                <InputField
+                  label="URL de la fotografía (opcional)"
+                  value={fichaFotoUrl}
+                  onChange={(e) => {
+                    setFichaFotoUrl(e.target.value);
+                    setFotoPreviewError(false);
+                  }}
+                  placeholder="https://..."
+                />
+
+                {fichaFotoUrl.trim().length > 0 && (
+                  <div className="relative rounded-lg border border-border-subtle bg-surface p-2 flex items-center gap-3">
+                    {!fotoPreviewError ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={fichaFotoUrl}
+                        alt="Vista previa del resultado capilar"
+                        onError={() => setFotoPreviewError(true)}
+                        className="h-16 w-16 rounded-md object-cover border border-border-subtle shrink-0"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-md bg-elevated border border-border-subtle flex items-center justify-center text-ink-secondary shrink-0">
+                        <Camera className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1 text-xs">
+                      <p className="font-medium text-ink-primary">
+                        Vista previa cargada
+                      </p>
+                      <p className="text-[11px] text-ink-secondary truncate">
+                        {fotoPreviewError
+                          ? 'No se pudo previsualizar la URL ingresada'
+                          : fichaFotoUrl}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFichaFotoUrl('');
+                        setFotoPreviewError(false);
+                      }}
+                      aria-label="Quitar foto"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-secondary hover:text-ink-primary hover:bg-elevated shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                isLoading={guardandoFicha}
+              >
+                {fichaEditando
+                  ? 'Guardar cambios en ficha'
+                  : 'Registrar ficha técnica'}
+              </Button>
+            </form>
+
+            {/* Listado Cronológico de Fichas del Cliente */}
+            <div className="lg:col-span-7 max-h-[560px] overflow-y-auto pr-1">
+              <AsyncStateGuard
+                isLoading={cargandoFichas}
+                isError={Boolean(errorFichas)}
+                errorMessage={errorFichas ?? undefined}
+                isEmpty={(fichasCliente ?? []).length === 0}
+                loadingText="Cargando historial técnico capilar..."
+                emptyTitle="Sin fichas técnicas capilares"
+                emptyDescription="Este cliente aún no registra fichas técnicas."
+                onRetry={() => {
+                  if (clienteFichaActivo) {
+                    void cargarFichasDeCliente(clienteFichaActivo);
+                  }
+                }}
+                className="space-y-3"
+              >
+                {(fichasCliente ?? []).map((f) => (
+                  <article
+                    key={f.id}
+                    className="p-4 rounded-xl border border-border-subtle bg-surface space-y-3 text-xs shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono-tabular font-semibold text-ink-primary">
+                          Ficha #{f.id}
+                        </span>
+                        <span className="text-ink-secondary">·</span>
+                        <span className="font-mono-tabular text-ink-secondary">
+                          {formatDateTime(f.fecha || f.fechaRegistro || '')}
+                        </span>
+                      </div>
+                      <Badge variant="info">
+                        {f.peluqueroNombreCompleto ||
+                          f.nombrePeluquero ||
+                          `Profesional #${f.peluqueroId}`}
+                      </Badge>
+                    </div>
+
+                    {f.notasSensibilidadAlergias && (
+                      <div
+                        className={`p-2.5 rounded-lg border flex items-start gap-2 ${SEMANTIC_COLORS.danger.surfaceClass}`}
+                      >
+                        <AlertTriangle
+                          className={`h-4 w-4 shrink-0 mt-0.5 ${SEMANTIC_COLORS.danger.textClass}`}
+                          aria-hidden="true"
+                        />
+                        <div className="text-ink-primary">
+                          <strong className={SEMANTIC_COLORS.danger.textClass}>
+                            Sensibilidad / Alergias:
+                          </strong>{' '}
+                          {f.notasSensibilidadAlergias}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-medium text-ink-secondary">
+                        Fórmula aplicada
+                      </p>
+                      <p className="font-mono-tabular text-ink-primary bg-elevated/70 p-2.5 rounded-lg border border-border-subtle whitespace-pre-wrap">
+                        {f.formulaAplicada || f.detalleFormulaTintura}
+                      </p>
+                    </div>
+
+                    {f.productosUtilizados && (
+                      <p className="text-ink-secondary">
+                        <strong className="text-ink-primary">Productos:</strong>{' '}
+                        {f.productosUtilizados}
+                      </p>
+                    )}
+
+                    {f.observaciones && (
+                      <p className="text-ink-secondary">
+                        <strong className="text-ink-primary">
+                          Observaciones:
+                        </strong>{' '}
+                        {f.observaciones}
+                      </p>
+                    )}
+
+                    {f.fotoResultadoUrl && (
+                      <div className="flex items-center gap-3 p-2.5 rounded-lg bg-elevated/50 border border-border-subtle">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={f.fotoResultadoUrl}
+                          alt={`Resultado ficha #${f.id}`}
+                          className="h-14 w-14 rounded-md object-cover border border-border-subtle shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-ink-primary">
+                            Fotografía del resultado
+                          </p>
+                          <a
+                            href={f.fotoResultadoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-brand-primary hover:underline font-medium mt-0.5"
+                          >
+                            <span>Abrir en tamaño completo</span>
+                            <ExternalLink
+                              className="h-3 w-3"
+                              aria-hidden="true"
+                            />
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-1.5 pt-2 border-t border-border-subtle">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leftIcon={
+                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        }
+                        onClick={() => seleccionarFichaParaEditar(f)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        destructiveTone="soft"
+                        leftIcon={
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        }
+                        onClick={() => handleEliminarFicha(f.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </AsyncStateGuard>
+            </div>
           </div>
         </div>
       </Modal>

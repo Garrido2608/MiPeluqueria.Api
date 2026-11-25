@@ -7,9 +7,9 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8B EN PROGRESO)`
-* **Última Tarea Completada:** `TAREA 8.5 - Mi Puesto Profesional (/peluquero) + Calendario Master (/recepcion/calendario)`
-* **Tarea Actual en Curso:** `TAREA 8.6 - Punto de Venta POS (/recepcion/pos), Caja Diaria (/recepcion/caja) y Clientes CRM (/recepcion/clientes)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8B COMPLETADA — 🛑 HARD GATE 6B ALCANZADO)`
+* **Última Tarea Completada:** `TAREA 8.6 - Punto de Venta POS (/recepcion/pos), Caja Diaria (/recepcion/caja), Clientes CRM (/recepcion/clientes) y PrintReceiptModal`
+* **Tarea Actual en Curso:** `PENDIENTE APROBACIÓN HARD GATE 6B -> TAREA 8.7 - Dashboard Ejecutivo BI (/admin/dashboard) + Inventario, Proveedores y OC Pro (/admin/inventario)`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1269,6 +1269,24 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/peluquero` `16.4 kB`, `/recepcion/calendario` `12.6 kB`, `EXIT 0`)**.
+
+### [TAREA 8.6] - Punto de Venta POS (`/recepcion/pos`), Caja Diaria (`/recepcion/caja`), Clientes CRM (`/recepcion/clientes`) y `PrintReceiptModal.tsx`
+- **Estado:** COMPLETADA — 🛑 **HARD GATE 6B ALCANZADO**
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/components/ui/PrintReceiptModal.tsx` (rediseño agnóstico de ticket/acta con `<BrandLogo />`, tabla tabular `font-mono-tabular`, JSDoc completo y portal dedicado `#mipeluqueria-print-portal` en `document.body` con `@media print` estricto ocultando `body > *:not(#mipeluqueria-print-portal)` para imprimir en **1 sola hoja** sin borde de modal, título de vista previa, botón `X`, botones ni sidebar)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/pos/page.tsx` (header limpio con badge semántico `Caja del DD/MM/YYYY (#N)` y sin textos técnicos de `Idempotency-Key` en UI manteniendo 100% intacta la lógica interna de `idempotencyKey`, `<NumericInput />` sin `0` pegajoso, atajos de cobro coloreados con `semanticColors.ts` — Efectivo esmeralda / Digital azul cielo —, jerarquía estricta de 4 variantes de botón con único `primary` para emitir ticket, y layout 60/40 adaptado al Design System Dual con `0px` de desborde horizontal a `1280x720`)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/caja/page.tsx` (header limpio sin fórmula matemática ni `CajaController`, 2 tarjetas KPI con colores semánticos fijos Esmeralda = Efectivo en Cajón y Azul Cielo = Recaudación Digital, `<NumericInput />` en apertura, movimientos manuales y arqueo físico, tabla de historial mostrando `Sesión #N — DD/MM/YYYY` con `<PaginationBar />` real sin scroll interno atrapado y modal de inspección sobre tokens duales)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/clientes/page.tsx` (header limpio `"Clientes"` + badge total + único botón `primary` `+ Nuevo Cliente` sin textos de controladores, tabla con avatares de iniciales, badges suaves y acciones suavizadas con `destructiveTone="soft"`, `<PaginationBar />` real y modal de Fichas Técnicas con banner destacado de alergias, vista previa de foto e indicador de estado Cloudinary activo vs modo demo local con URL manual)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - En `PrintReceiptModal.tsx` se utilizó `createPortal(..., document.body)` montado solo tras hidratación (`useEffect`) junto con una regla `@media print` acotada a `body > *:not(#mipeluqueria-print-portal) { display: none !important; }`, garantizando 1 sola hoja limpia sin necesidad de tocar `globals.css` ni `DesignSystem.tsx` (respetando estrictamente la lista blanca de TAREA 8.6).
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`EXIT 0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/recepcion/pos` `11.1 kB`, `/recepcion/caja` `5.5 kB`, `/recepcion/clientes` `10.3 kB`, Middleware `26.8 kB`, `EXIT 0`)**.
 
 
 

@@ -2,6 +2,17 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Banknote,
+  CreditCard,
+  Eye,
+  FileText,
+  History,
+  Lock,
+  Unlock,
+} from 'lucide-react';
 import { SesionCajaDto } from '@/types/api.types';
 import { cajaService } from '@/services/api.services';
 import { useCajaPos, useCatalogos } from '@/context/AppProviders';
@@ -12,13 +23,19 @@ import {
   extractPagedItems,
   extractPaginationMeta,
 } from '@/lib/apiHelpers';
-import { formatCurrency, formatDateTime } from '@/lib/formatters';
+import {
+  formatCurrency,
+  formatDateOnly,
+  formatDateTime,
+} from '@/lib/formatters';
+import { SEMANTIC_COLORS } from '@/lib/semanticColors';
 import {
   AsyncStateGuard,
   Badge,
   Button,
   InputField,
   Modal,
+  NumericInput,
   PageHeader,
   PaginationBar,
 } from '@/components/ui';
@@ -32,12 +49,12 @@ export default function ControlCajaDiariaPage() {
   const { configSalon } = useCatalogos();
   const moneda = configSalon?.moneda || 'ARS';
 
-  // Estados de Apertura, Movimientos Manuales y Cierre
-  const [montoInicial, setMontoInicial] = useState<number>(15000);
-  const [montoMovimiento, setMontoMovimiento] = useState<number>(0);
+  // Estados de Apertura, Movimientos Manuales y Cierre (NumericInput sin 0 pegajoso)
+  const [montoInicial, setMontoInicial] = useState<number | null>(15000);
+  const [montoMovimiento, setMontoMovimiento] = useState<number | null>(null);
   const [conceptoMovimiento, setConceptoMovimiento] = useState<string>('');
   const [tipoEgreso, setTipoEgreso] = useState<string>('EgresoInsumoMenor');
-  const [montoFisicoCierre, setMontoFisicoCierre] = useState<number>(0);
+  const [montoFisicoCierre, setMontoFisicoCierre] = useState<number | null>(null);
   const [observacionesCierre, setObservacionesCierre] = useState<string>('');
   const [procesando, setProcesando] = useState<boolean>(false);
 
@@ -89,14 +106,17 @@ export default function ControlCajaDiariaPage() {
   }, [pageNumber]);
 
   useEffect(() => {
-    cargarHistorial();
+    void cargarHistorial();
   }, [cargarHistorial]);
 
   const handleAbrirCaja = async (e: React.FormEvent) => {
     e.preventDefault();
+    const valorInicial = montoInicial ?? 0;
+    if (valorInicial < 0) return;
+
     setProcesando(true);
     try {
-      const res = await cajaService.abrir({ montoInicial });
+      const res = await cajaService.abrir({ montoInicial: valorInicial });
       if (res.success) {
         notifyApiSuccess(res, 'Sesión de caja abierta correctamente.');
         await Promise.all([refrescarEstadoCaja(), cargarHistorial()]);
@@ -111,11 +131,8 @@ export default function ControlCajaDiariaPage() {
   };
 
   const handleMovimiento = async (modo: 'ingreso' | 'egreso') => {
-    if (
-      !sesionCajaActual ||
-      montoMovimiento <= 0 ||
-      !conceptoMovimiento.trim()
-    ) {
+    const importe = montoMovimiento ?? 0;
+    if (!sesionCajaActual || importe <= 0 || !conceptoMovimiento.trim()) {
       return;
     }
 
@@ -123,7 +140,7 @@ export default function ControlCajaDiariaPage() {
     try {
       const payload = {
         sesionCajaId: sesionCajaActual.id,
-        monto: montoMovimiento,
+        monto: importe,
         concepto: conceptoMovimiento.trim(),
         tipo: modo === 'ingreso' ? 'IngresoManual' : tipoEgreso,
       };
@@ -136,11 +153,11 @@ export default function ControlCajaDiariaPage() {
       if (res.success) {
         notifyApiSuccess(
           res,
-          `Movimiento manual de ${modo} imputado en la caja #${sesionCajaActual.id}.`
+          `Movimiento manual de ${modo} registrado en la caja #${sesionCajaActual.id}.`
         );
-        setMontoMovimiento(0);
+        setMontoMovimiento(null);
         setConceptoMovimiento('');
-        await refrescarEstadoCaja();
+        await Promise.all([refrescarEstadoCaja(), cargarHistorial()]);
       }
     } catch (err) {
       notifyApiError(err, {
@@ -152,7 +169,7 @@ export default function ControlCajaDiariaPage() {
   };
 
   const armarActaArqueo = (sesion: SesionCajaDto): PrintableReceiptData => ({
-    titulo: 'ACTA DE ARQUEO DE CAJA',
+    titulo: 'Acta de Arqueo de Caja',
     numeroComprobante: String(sesion.id).padStart(5, '0'),
     fechaIso: sesion.fechaCierre || sesion.fechaApertura,
     clienteOProfesional:
@@ -161,47 +178,47 @@ export default function ControlCajaDiariaPage() {
       `Cajero #${sesion.usuarioAperturaId}`,
     monedaIso: moneda,
     renglones: [
-      { descripcion: 'Fondo Fijo Inicial', monto: sesion.montoInicial },
+      { descripcion: 'Fondo fijo inicial', monto: sesion.montoInicial },
       {
-        descripcion: '+ Ventas en Efectivo Físico',
+        descripcion: 'Ventas en efectivo',
         monto: sesion.totalVentasEfectivo,
       },
       {
-        descripcion: '+ Ingresos Manuales',
+        descripcion: 'Ingresos manuales',
         monto: sesion.totalIngresosManuales,
       },
       {
-        descripcion: '- Egresos / Alivios de Caja',
+        descripcion: 'Egresos y retiros de caja',
         monto: -sesion.totalEgresosManuales,
       },
     ],
     pagosODesglose: [
       {
-        etiqueta: 'Efectivo Físico Esperado en Cajón',
+        etiqueta: 'Efectivo esperado en cajón',
         monto: sesion.montoFinalEsperado,
       },
       {
-        etiqueta: 'Efectivo Físico Real Contado',
+        etiqueta: 'Efectivo físico contado',
         monto: sesion.montoFinalReal ?? 0,
       },
       {
-        etiqueta: 'Diferencia de Arqueo (Sobrante/Faltante)',
+        etiqueta: 'Diferencia de arqueo',
         monto: sesion.diferencia ?? 0,
       },
       {
-        etiqueta: 'Recaudación Digital Acumulada (Informativo)',
+        etiqueta: 'Recaudación digital acumulada (informativo)',
         monto: sesion.totalVentasDigital,
       },
     ],
     totalFinal: sesion.montoFinalReal ?? sesion.montoFinalEsperado,
     pieDePagina: sesion.observacionesCierre
       ? `Observaciones: ${sesion.observacionesCierre}`
-      : 'Arqueo de Tesorería Auditado',
+      : 'Acta de arqueo diario emitida por el sistema',
   });
 
   const handleCerrarCaja = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sesionCajaActual) return;
+    if (!sesionCajaActual || montoFisicoCierre === null) return;
 
     setProcesando(true);
     try {
@@ -220,6 +237,7 @@ export default function ControlCajaDiariaPage() {
           )}`
         );
         setActaImprimible(armarActaArqueo(res.data));
+        setMontoFisicoCierre(null);
         setObservacionesCierre('');
         await Promise.all([refrescarEstadoCaja(), cargarHistorial()]);
       }
@@ -245,45 +263,72 @@ export default function ControlCajaDiariaPage() {
     }
   };
 
+  const cajaBadgeLabel =
+    cajaAbierta && sesionCajaActual
+      ? `Caja del ${formatDateOnly(sesionCajaActual.fechaApertura)} (#${sesionCajaActual.id})`
+      : 'Caja cerrada';
+
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0">
       <PageHeader
-        eyebrow="Tesorería & Arqueo de Billetes • CajaController"
-        title="Control de Caja Diaria y Arqueo Ciego"
-        subtitle="Fórmula estricta de arqueo: MontoFinalEsperado = MontoInicial + VentasEfectivo + IngresosManuales - EgresosManuales"
+        title="Caja Diaria"
+        subtitle="Control de efectivo en cajón, movimientos manuales y cierre de turno."
         actions={
           <Badge variant={cajaAbierta ? 'success' : 'danger'}>
-            {cajaAbierta
-              ? `CAJA ABIERTA #${sesionCajaActual?.id}`
-              : 'CAJA CERRADA'}
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                cajaAbierta
+                  ? SEMANTIC_COLORS.cash.dotClass
+                  : SEMANTIC_COLORS.danger.dotClass
+              }`}
+              aria-hidden="true"
+            />
+            <span className="font-mono-tabular">{cajaBadgeLabel}</span>
           </Badge>
         }
       />
 
-      <div className="p-6 space-y-6">
-        {/* Dos Tarjetas Independientes (Efectivo Físico en Cajón vs Recaudación Digital) */}
+      <div className="p-4 lg:p-5 space-y-5 max-w-[1440px] w-full mx-auto min-w-0">
+        {/* Dos Tarjetas KPI con colores semánticos fijos: Verde (Efectivo) y Azul (Digital) */}
         {cajaAbierta && sesionCajaActual && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white border-2 border-emerald-700 rounded-lg p-5 space-y-2 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                  1. Efectivo Físico Esperado en Cajón
-                </span>
-                <Badge variant="success">Solo Billetes Físicos</Badge>
+            {/* KPI 1: Efectivo en Cajón (Esmeralda) */}
+            <div
+              className={`rounded-xl border p-5 space-y-3 shadow-sm ${SEMANTIC_COLORS.cash.surfaceClass}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-600/15 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Banknote
+                      className={`h-4 w-4 ${SEMANTIC_COLORS.cash.textClass}`}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span
+                    className={`text-sm font-semibold truncate ${SEMANTIC_COLORS.cash.textClass}`}
+                  >
+                    Efectivo en Cajón
+                  </span>
+                </div>
+                <Badge variant="success">Billetes físicos</Badge>
               </div>
-              <p className="text-2xl font-mono font-extrabold text-slate-900">
+
+              <p className="text-2xl sm:text-3xl font-bold font-mono-tabular text-ink-primary">
                 {formatCurrency(sesionCajaActual.montoFinalEsperado, moneda)}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-emerald-200/70 dark:border-emerald-800/60 text-xs">
                 <div>
-                  <span className="block text-slate-400">Fondo Inicial</span>
-                  <strong className="font-mono">
+                  <span className="block text-ink-secondary">Fondo inicial</span>
+                  <strong className="font-mono-tabular font-semibold text-ink-primary">
                     {formatCurrency(sesionCajaActual.montoInicial, moneda)}
                   </strong>
                 </div>
                 <div>
-                  <span className="block text-slate-400">+ Ventas Efectivo</span>
-                  <strong className="font-mono text-emerald-700">
+                  <span className="block text-ink-secondary">+ Ventas efvo.</span>
+                  <strong
+                    className={`font-mono-tabular font-semibold ${SEMANTIC_COLORS.cash.textClass}`}
+                  >
                     {formatCurrency(
                       sesionCajaActual.totalVentasEfectivo,
                       moneda
@@ -291,8 +336,10 @@ export default function ControlCajaDiariaPage() {
                   </strong>
                 </div>
                 <div>
-                  <span className="block text-slate-400">+ Ingresos Man.</span>
-                  <strong className="font-mono text-emerald-700">
+                  <span className="block text-ink-secondary">+ Ingresos</span>
+                  <strong
+                    className={`font-mono-tabular font-semibold ${SEMANTIC_COLORS.cash.textClass}`}
+                  >
                     {formatCurrency(
                       sesionCajaActual.totalIngresosManuales,
                       moneda
@@ -300,8 +347,10 @@ export default function ControlCajaDiariaPage() {
                   </strong>
                 </div>
                 <div>
-                  <span className="block text-slate-400">- Egresos Man.</span>
-                  <strong className="font-mono text-red-700">
+                  <span className="block text-ink-secondary">- Egresos</span>
+                  <strong
+                    className={`font-mono-tabular font-semibold ${SEMANTIC_COLORS.danger.textClass}`}
+                  >
                     -{formatCurrency(
                       sesionCajaActual.totalEgresosManuales,
                       moneda
@@ -311,39 +360,64 @@ export default function ControlCajaDiariaPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-2 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-900">
-                  2. Recaudación Digital Acumulada
-                </span>
-                <Badge variant="info">Tarjetas / QR / Transferencias</Badge>
+            {/* KPI 2: Recaudación Digital (Azul Cielo) */}
+            <div
+              className={`rounded-xl border p-5 space-y-3 shadow-sm flex flex-col justify-between ${SEMANTIC_COLORS.digital.surfaceClass}`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-sky-600/15 dark:bg-sky-500/20 flex items-center justify-center shrink-0">
+                      <CreditCard
+                        className={`h-4 w-4 ${SEMANTIC_COLORS.digital.textClass}`}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <span
+                      className={`text-sm font-semibold truncate ${SEMANTIC_COLORS.digital.textClass}`}
+                    >
+                      Recaudación Digital
+                    </span>
+                  </div>
+                  <Badge variant="info">Tarjetas · QR · Transferencias</Badge>
+                </div>
+
+                <p className="text-2xl sm:text-3xl font-bold font-mono-tabular text-ink-primary">
+                  {formatCurrency(sesionCajaActual.totalVentasDigital, moneda)}
+                </p>
               </div>
-              <p className="text-2xl font-mono font-extrabold text-slate-900">
-                {formatCurrency(sesionCajaActual.totalVentasDigital, moneda)}
-              </p>
-              <p className="text-xs text-slate-500 pt-2 border-t border-slate-100">
-                Acreditado directamente en cuentas bancarias/pasarelas
-                digitales. No se suma al arqueo de billetes físicos del cajón.
+
+              <p className="text-xs text-ink-secondary pt-3 border-t border-sky-200/70 dark:border-sky-800/60">
+                Cobros acreditados en cuentas bancarias o billeteras digitales. No
+                se incluyen en el recuento físico de billetes del cajón.
               </p>
             </div>
           </div>
         )}
 
+        {/* Operativa: Apertura o Movimientos + Cierre */}
         {!cajaAbierta ? (
           <form
             onSubmit={handleAbrirCaja}
-            className="max-w-md bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-sm"
+            className="max-w-md bg-surface border border-border-subtle rounded-xl p-5 space-y-4 shadow-sm"
           >
-            <h2 className="text-base font-bold text-slate-900">
-              Apertura de Turno de Caja
-            </h2>
-            <InputField
-              label="Fondo Fijo Inicial en Efectivo *"
-              type="number"
-              step="0.01"
-              required
+            <div className="flex items-center gap-2">
+              <Unlock
+                className="h-4 w-4 text-brand-primary"
+                aria-hidden="true"
+              />
+              <h2 className="text-base font-semibold text-ink-primary">
+                Apertura de turno de caja
+              </h2>
+            </div>
+            <NumericInput
+              id="caja-fondo-inicial"
+              label="Fondo fijo inicial en efectivo *"
+              prefix="$"
               value={montoInicial}
-              onChange={(e) => setMontoInicial(Number(e.target.value))}
+              onValueChange={setMontoInicial}
+              placeholder="0"
+              required
             />
             <Button
               type="submit"
@@ -351,96 +425,137 @@ export default function ControlCajaDiariaPage() {
               className="w-full"
               isLoading={procesando}
             >
-              Abrir Sesión de Caja
+              Abrir sesión de caja
             </Button>
           </form>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
-                Registrar Ingreso / Egreso Manual
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Tarjeta Ingresos / Egresos manuales */}
+            <div className="bg-surface border border-border-subtle rounded-xl p-5 space-y-4 shadow-sm">
+              <h2 className="text-base font-semibold text-ink-primary">
+                Registrar ingreso o egreso manual
               </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <NumericInput
+                  id="caja-monto-movimiento"
+                  label="Importe en efectivo *"
+                  prefix="$"
+                  value={montoMovimiento}
+                  onValueChange={setMontoMovimiento}
+                  placeholder="0"
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor="caja-tipo-egreso"
+                    className="text-xs font-medium text-ink-secondary"
+                  >
+                    Categoría (para egresos)
+                  </label>
+                  <select
+                    id="caja-tipo-egreso"
+                    value={tipoEgreso}
+                    onChange={(e) => setTipoEgreso(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border-strong bg-surface text-ink-primary px-3 text-sm focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-accent/25"
+                  >
+                    <option value="EgresoInsumoMenor">Insumo menor</option>
+                    <option value="RetiroDuenio">Retiro de alivio / Dueño</option>
+                    <option value="PagoDelivery">Cadetería / Delivery</option>
+                  </select>
+                </div>
+              </div>
+
               <InputField
-                label="Importe en Efectivo *"
-                type="number"
-                step="0.01"
-                value={montoMovimiento}
-                onChange={(e) => setMontoMovimiento(Number(e.target.value))}
-              />
-              <InputField
-                label="Concepto / Comprobante *"
+                label="Concepto o comprobante *"
                 value={conceptoMovimiento}
                 onChange={(e) => setConceptoMovimiento(e.target.value)}
-                placeholder="Ej. Pago cadetería / Retiro alivio de caja / Cambio"
+                placeholder="Ej. Pago cadetería, retiro parcial o cambio de billetes"
               />
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 block mb-1">
-                  Clasificación Operativa
-                </label>
-                <select
-                  value={tipoEgreso}
-                  onChange={(e) => setTipoEgreso(e.target.value)}
-                  className="w-full rounded border border-slate-300 px-3 py-2 text-xs"
-                >
-                  <option value="EgresoInsumoMenor">Egreso Insumo Menor</option>
-                  <option value="RetiroDuenio">
-                    Retiro de Alivio / Dueño
-                  </option>
-                  <option value="PagoDelivery">
-                    Pago Cadetería / Delivery
-                  </option>
-                </select>
-              </div>
-              <div className="flex gap-2">
+
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                 <Button
                   type="button"
                   variant="secondary"
                   className="flex-1"
+                  leftIcon={
+                    <ArrowUpCircle
+                      className={`h-4 w-4 ${SEMANTIC_COLORS.cash.textClass}`}
+                      aria-hidden="true"
+                    />
+                  }
+                  disabled={
+                    procesando ||
+                    (montoMovimiento ?? 0) <= 0 ||
+                    !conceptoMovimiento.trim()
+                  }
                   isLoading={procesando}
                   onClick={() => handleMovimiento('ingreso')}
                 >
-                  + Registrar Ingreso
+                  Registrar ingreso
                 </Button>
                 <Button
                   type="button"
-                  variant="danger"
+                  variant="destructive"
+                  destructiveTone="solid"
                   className="flex-1"
+                  leftIcon={
+                    <ArrowDownCircle className="h-4 w-4" aria-hidden="true" />
+                  }
+                  disabled={
+                    procesando ||
+                    (montoMovimiento ?? 0) <= 0 ||
+                    !conceptoMovimiento.trim()
+                  }
                   isLoading={procesando}
                   onClick={() => handleMovimiento('egreso')}
                 >
-                  - Registrar Egreso
+                  Registrar egreso
                 </Button>
               </div>
             </div>
 
+            {/* Tarjeta Cierre y Arqueo */}
             <form
               onSubmit={handleCerrarCaja}
-              className="bg-white border border-slate-200 rounded-lg p-6 space-y-4"
+              className="bg-surface border border-border-subtle rounded-xl p-5 space-y-4 shadow-sm flex flex-col justify-between"
             >
-              <h2 className="text-base font-bold text-slate-900">
-                Cierre y Arqueo Físico de Billetes
-              </h2>
-              <InputField
-                label="Efectivo Físico Contado en Cajón (MontoFinalReal) *"
-                type="number"
-                step="0.01"
-                required
-                value={montoFisicoCierre}
-                onChange={(e) => setMontoFisicoCierre(Number(e.target.value))}
-              />
-              <InputField
-                label="Observaciones de Cierre / Justificación de Diferencia"
-                value={observacionesCierre}
-                onChange={(e) => setObservacionesCierre(e.target.value)}
-                placeholder="Ej. Arqueo conforme sin diferencias."
-              />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Lock
+                    className="h-4 w-4 text-ink-secondary"
+                    aria-hidden="true"
+                  />
+                  <h2 className="text-base font-semibold text-ink-primary">
+                    Cierre y arqueo físico de billetes
+                  </h2>
+                </div>
+
+                <NumericInput
+                  id="caja-monto-contado"
+                  label="Efectivo físico contado en cajón *"
+                  prefix="$"
+                  value={montoFisicoCierre}
+                  onValueChange={setMontoFisicoCierre}
+                  placeholder="0"
+                  required
+                />
+
+                <InputField
+                  label="Observaciones de cierre (opcional)"
+                  value={observacionesCierre}
+                  onChange={(e) => setObservacionesCierre(e.target.value)}
+                  placeholder="Ej. Arqueo conforme sin diferencias."
+                />
+              </div>
+
               <Button
                 type="submit"
-                variant="editorial"
+                variant="primary"
                 className="w-full"
+                disabled={montoFisicoCierre === null}
                 isLoading={procesando}
               >
-                Ejecutar Arqueo y Cerrar Caja #{sesionCajaActual?.id}
+                Ejecutar arqueo y cerrar caja #{sesionCajaActual?.id}
               </Button>
             </form>
           </div>
@@ -451,30 +566,45 @@ export default function ControlCajaDiariaPage() {
           sesionCajaActual &&
           sesionCajaActual.movimientos &&
           sesionCajaActual.movimientos.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-lg p-5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">
-                Libro Diario de Movimientos de la Sesión Actual (#
-                {sesionCajaActual.id})
-              </h3>
+            <section className="bg-surface border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+              <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-ink-primary">
+                  Movimientos de la sesión actual (#{sesionCajaActual.id})
+                </h3>
+                <Badge variant="neutral">
+                  <span className="font-mono-tabular">
+                    {sesionCajaActual.movimientos.length}
+                  </span>
+                </Badge>
+              </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600">
-                    <tr>
-                      <th className="p-2">Hora</th>
-                      <th className="p-2">Tipo</th>
-                      <th className="p-2">Concepto</th>
-                      <th className="p-2 text-right">Importe</th>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-elevated/80 border-b border-border-subtle text-ink-secondary">
+                      <th className="py-2.5 px-4 font-medium">Fecha y hora</th>
+                      <th className="py-2.5 px-4 font-medium">Tipo</th>
+                      <th className="py-2.5 px-4 font-medium">Concepto</th>
+                      <th className="py-2.5 px-4 font-medium text-right">
+                        Importe
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-border-subtle">
                     {sesionCajaActual.movimientos.map((m) => (
-                      <tr key={m.id}>
-                        <td className="p-2 text-slate-500">
+                      <tr
+                        key={m.id}
+                        className="hover:bg-elevated/50 transition-colors"
+                      >
+                        <td className="py-2.5 px-4 font-mono-tabular text-ink-secondary whitespace-nowrap">
                           {formatDateTime(m.fecha)}
                         </td>
-                        <td className="p-2 font-semibold">{m.tipo}</td>
-                        <td className="p-2">{m.concepto}</td>
-                        <td className="p-2 text-right font-mono font-bold">
+                        <td className="py-2.5 px-4 font-medium text-ink-primary whitespace-nowrap">
+                          {m.tipo}
+                        </td>
+                        <td className="py-2.5 px-4 text-ink-primary">
+                          {m.concepto}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono-tabular font-semibold text-ink-primary whitespace-nowrap">
                           {formatCurrency(m.monto, moneda)}
                         </td>
                       </tr>
@@ -482,11 +612,11 @@ export default function ControlCajaDiariaPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           )}
 
-        {/* Historial Paginado de Arqueos */}
-        <div className="space-y-3">
+        {/* Historial Paginado de Sesiones (sin scroll interno atrapado) */}
+        <section className="space-y-3">
           <AsyncStateGuard
             isLoading={cargandoHistorial}
             isError={Boolean(errorHistorial)}
@@ -498,88 +628,138 @@ export default function ControlCajaDiariaPage() {
             emptyDescription="Aún no se registraron aperturas ni cierres de caja en esta sucursal."
             onRetry={cargarHistorial}
           >
-            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Historial de Sesiones y Diferencias de Arqueo
-                </h3>
-                <span className="text-xs text-slate-500">
-                  Página {pageNumber} de {totalPages}
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden shadow-sm">
+              <div className="px-4 py-3.5 border-b border-border-subtle flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <History
+                    className="h-4 w-4 text-ink-secondary"
+                    aria-hidden="true"
+                  />
+                  <h2 className="text-sm font-semibold text-ink-primary">
+                    Historial de sesiones y arqueos
+                  </h2>
+                </div>
+                <span className="text-xs text-ink-secondary font-mono-tabular">
+                  {totalHistorial} sesiones
                 </span>
               </div>
+
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <tr>
-                      <th className="p-3">Sesión #</th>
-                      <th className="p-3">Apertura / Cierre</th>
-                      <th className="p-3 text-right">Fondo Inicial</th>
-                      <th className="p-3 text-right">Efectivo Esperado</th>
-                      <th className="p-3 text-right">Real Contado</th>
-                      <th className="p-3 text-right">Digital Acum.</th>
-                      <th className="p-3 text-right">Diferencia</th>
-                      <th className="p-3 text-right">Acciones</th>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-elevated/80 border-b border-border-subtle text-ink-secondary">
+                      <th className="py-3 px-4 font-medium">Sesión</th>
+                      <th className="py-3 px-3 font-medium">Horario</th>
+                      <th className="py-3 px-3 font-medium text-right">
+                        Fondo inicial
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right">
+                        Efectivo esp.
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right">
+                        Real contado
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right">
+                        Digital
+                      </th>
+                      <th className="py-3 px-3 font-medium text-right">
+                        Diferencia
+                      </th>
+                      <th className="py-3 px-4 font-medium text-right">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {(historialCajas ?? []).map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-mono font-bold">#{c.id}</td>
-                        <td className="p-3">
-                          <p>{formatDateTime(c.fechaApertura)}</p>
-                          {c.fechaCierre && (
-                            <p className="text-[11px] text-slate-400">
-                              Cierre: {formatDateTime(c.fechaCierre)}
-                            </p>
-                          )}
-                        </td>
-                        <td className="p-3 text-right font-mono">
-                          {formatCurrency(c.montoInicial, moneda)}
-                        </td>
-                        <td className="p-3 text-right font-mono font-semibold">
-                          {c.montoFinalEsperado != null
-                            ? formatCurrency(c.montoFinalEsperado, moneda)
-                            : '—'}
-                        </td>
-                        <td className="p-3 text-right font-mono">
-                          {c.montoFinalReal != null
-                            ? formatCurrency(c.montoFinalReal, moneda)
-                            : '—'}
-                        </td>
-                        <td className="p-3 text-right font-mono text-sky-800">
-                          {formatCurrency(c.totalVentasDigital, moneda)}
-                        </td>
-                        <td
-                          className={`p-3 text-right font-mono font-bold ${
-                            (c.diferencia || 0) < 0
-                              ? 'text-red-700'
-                              : 'text-emerald-800'
-                          }`}
+                  <tbody className="divide-y divide-border-subtle">
+                    {(historialCajas ?? []).map((c) => {
+                      const esAbierta = c.estadoAbierta || c.fechaCierre == null;
+                      return (
+                        <tr
+                          key={c.id}
+                          className="hover:bg-elevated/50 transition-colors"
                         >
-                          {c.diferencia != null
-                            ? formatCurrency(c.diferencia, moneda)
-                            : 'Abierta'}
-                        </td>
-                        <td className="p-3 text-right space-x-1.5">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                              handleInspeccionarSesionHistorica(c.id)
-                            }
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="font-mono-tabular font-semibold text-ink-primary">
+                              Sesión #{c.id} — {formatDateOnly(c.fechaApertura)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-ink-secondary whitespace-nowrap">
+                            <p className="font-mono-tabular">
+                              {formatDateTime(c.fechaApertura)}
+                            </p>
+                            {c.fechaCierre && (
+                              <p className="text-[11px] text-ink-secondary/80 font-mono-tabular">
+                                Cierre: {formatDateTime(c.fechaCierre)}
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono-tabular text-ink-primary whitespace-nowrap">
+                            {formatCurrency(c.montoInicial, moneda)}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono-tabular font-semibold text-ink-primary whitespace-nowrap">
+                            {c.montoFinalEsperado != null
+                              ? formatCurrency(c.montoFinalEsperado, moneda)
+                              : '—'}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono-tabular text-ink-primary whitespace-nowrap">
+                            {c.montoFinalReal != null
+                              ? formatCurrency(c.montoFinalReal, moneda)
+                              : '—'}
+                          </td>
+                          <td
+                            className={`py-3 px-3 text-right font-mono-tabular font-medium whitespace-nowrap ${SEMANTIC_COLORS.digital.textClass}`}
                           >
-                            Ver Detalle
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setActaImprimible(armarActaArqueo(c))}
-                          >
-                            Acta PDF
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                            {formatCurrency(c.totalVentasDigital, moneda)}
+                          </td>
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            {esAbierta || c.diferencia == null ? (
+                              <Badge variant="success">Abierta</Badge>
+                            ) : (
+                              <span
+                                className={`font-mono-tabular font-semibold ${
+                                  c.diferencia < 0
+                                    ? SEMANTIC_COLORS.danger.textClass
+                                    : SEMANTIC_COLORS.cash.textClass
+                                }`}
+                              >
+                                {formatCurrency(c.diferencia, moneda)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                leftIcon={
+                                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                                }
+                                onClick={() =>
+                                  handleInspeccionarSesionHistorica(c.id)
+                                }
+                              >
+                                Detalle
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                leftIcon={
+                                  <FileText
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                }
+                                onClick={() =>
+                                  setActaImprimible(armarActaArqueo(c))
+                                }
+                              >
+                                Acta PDF
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -594,14 +774,16 @@ export default function ControlCajaDiariaPage() {
             isLoading={cargandoHistorial}
             onPageChange={setPageNumber}
           />
-        </div>
+        </section>
       </div>
 
-      {/* Modal de Inspección de Sesión Histórica (GET /api/caja/{id}) */}
+      {/* Modal de Inspección de Sesión Histórica */}
       <Modal
-        isOpen={!!sesionInspeccionada}
+        isOpen={Boolean(sesionInspeccionada)}
         onClose={() => setSesionInspeccionada(null)}
-        title={`Detalle de Sesión de Caja #${sesionInspeccionada?.id}`}
+        title={`Sesión #${sesionInspeccionada?.id ?? ''} — ${formatDateOnly(
+          sesionInspeccionada?.fechaApertura
+        )}`}
         subtitle={`Apertura: ${formatDateTime(
           sesionInspeccionada?.fechaApertura || ''
         )}`}
@@ -609,27 +791,37 @@ export default function ControlCajaDiariaPage() {
       >
         {sesionInspeccionada && (
           <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded border border-slate-200">
-              <div>
-                <span className="text-slate-500 block">Efectivo Esperado</span>
-                <strong className="font-mono text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div
+                className={`p-3 rounded-lg border ${SEMANTIC_COLORS.cash.surfaceClass}`}
+              >
+                <span className="text-ink-secondary block">
+                  Efectivo esperado
+                </span>
+                <strong className="font-mono-tabular text-sm font-bold text-ink-primary">
                   {formatCurrency(
                     sesionInspeccionada.montoFinalEsperado,
                     moneda
                   )}
                 </strong>
               </div>
-              <div>
-                <span className="text-slate-500 block">Real Contado</span>
-                <strong className="font-mono text-sm">
+              <div className="p-3 rounded-lg border border-border-subtle bg-elevated/60">
+                <span className="text-ink-secondary block">Real contado</span>
+                <strong className="font-mono-tabular text-sm font-bold text-ink-primary">
                   {sesionInspeccionada.montoFinalReal != null
                     ? formatCurrency(sesionInspeccionada.montoFinalReal, moneda)
-                    : 'Abierta'}
+                    : 'Sesión abierta'}
                 </strong>
               </div>
-              <div>
-                <span className="text-slate-500 block">Recaudación Digital</span>
-                <strong className="font-mono text-sm text-sky-900">
+              <div
+                className={`p-3 rounded-lg border ${SEMANTIC_COLORS.digital.surfaceClass}`}
+              >
+                <span className="text-ink-secondary block">
+                  Recaudación digital
+                </span>
+                <strong
+                  className={`font-mono-tabular text-sm font-bold ${SEMANTIC_COLORS.digital.textClass}`}
+                >
                   {formatCurrency(
                     sesionInspeccionada.totalVentasDigital,
                     moneda
@@ -639,41 +831,55 @@ export default function ControlCajaDiariaPage() {
             </div>
 
             {sesionInspeccionada.observacionesCierre && (
-              <p className="p-2.5 rounded bg-amber-50 border border-amber-200 text-amber-950">
-                <strong>Observaciones de Cierre:</strong>{' '}
+              <div
+                className={`p-3 rounded-lg border text-ink-primary ${SEMANTIC_COLORS.warning.surfaceClass}`}
+              >
+                <strong>Observaciones de cierre:</strong>{' '}
                 {sesionInspeccionada.observacionesCierre}
-              </p>
+              </div>
             )}
 
-            <div>
-              <h4 className="font-bold uppercase text-slate-700 mb-2">
-                Movimientos Registrados (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-ink-primary">
+                Movimientos registrados (
                 {(sesionInspeccionada.movimientos ?? []).length})
               </h4>
-              <div className="max-h-60 overflow-y-auto border border-slate-200 rounded">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="p-2">Fecha</th>
-                      <th className="p-2">Tipo</th>
-                      <th className="p-2">Concepto</th>
-                      <th className="p-2 text-right">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {(sesionInspeccionada.movimientos ?? []).map((m) => (
-                      <tr key={m.id}>
-                        <td className="p-2">{formatDateTime(m.fecha)}</td>
-                        <td className="p-2 font-semibold">{m.tipo}</td>
-                        <td className="p-2">{m.concepto}</td>
-                        <td className="p-2 text-right font-mono font-bold">
-                          {formatCurrency(m.monto, moneda)}
-                        </td>
+              {(sesionInspeccionada.movimientos ?? []).length === 0 ? (
+                <p className="text-ink-secondary py-4 text-center border border-dashed border-border-strong rounded-lg">
+                  No se registraron movimientos manuales en esta sesión.
+                </p>
+              ) : (
+                <div className="border border-border-subtle rounded-lg overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-elevated/80 border-b border-border-subtle text-ink-secondary">
+                      <tr>
+                        <th className="p-2.5 font-medium">Fecha</th>
+                        <th className="p-2.5 font-medium">Tipo</th>
+                        <th className="p-2.5 font-medium">Concepto</th>
+                        <th className="p-2.5 font-medium text-right">Monto</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle">
+                      {(sesionInspeccionada.movimientos ?? []).map((m) => (
+                        <tr key={m.id}>
+                          <td className="p-2.5 font-mono-tabular text-ink-secondary whitespace-nowrap">
+                            {formatDateTime(m.fecha)}
+                          </td>
+                          <td className="p-2.5 font-medium text-ink-primary whitespace-nowrap">
+                            {m.tipo}
+                          </td>
+                          <td className="p-2.5 text-ink-primary">
+                            {m.concepto}
+                          </td>
+                          <td className="p-2.5 text-right font-mono-tabular font-semibold text-ink-primary whitespace-nowrap">
+                            {formatCurrency(m.monto, moneda)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

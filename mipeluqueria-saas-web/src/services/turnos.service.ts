@@ -131,6 +131,31 @@ export const turnosService = {
     };
   },
 
+  async getByRange(
+    fechaDesde: string,
+    fechaHasta: string,
+    peluqueroId?: number,
+    estadoId?: number,
+    clienteId?: number
+  ): Promise<ApiResponse<TurnoDto[]>> {
+    const paged = await this.getPaged(
+      {
+        pageNumber: 1,
+        pageSize: 100,
+        fechaDesde,
+        fechaHasta,
+      },
+      undefined,
+      peluqueroId,
+      estadoId,
+      clienteId
+    );
+    return {
+      ...paged,
+      data: extractPagedItems<TurnoDto>(paged.data),
+    };
+  },
+
   async getById(id: number): Promise<ApiResponse<TurnoDto>> {
     const { data } = await apiClient.get<ApiResponse<TurnoDto>>(
       `/turnos/${id}`

@@ -8,8 +8,8 @@
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
 * **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8B EN PROGRESO)`
-* **Última Tarea Completada:** `TAREA 8.4 - App Shell Compacto (1280x720 / 1366x768): Sidebar Agrupado, Topbar, Switch Claro/Oscuro y Caja con Fecha`
-* **Tarea Actual en Curso:** `TAREA 8.5 - Mi Puesto Profesional (/peluquero) + Calendario Master (/recepcion/calendario)`
+* **Última Tarea Completada:** `TAREA 8.5 - Mi Puesto Profesional (/peluquero) + Calendario Master (/recepcion/calendario)`
+* **Tarea Actual en Curso:** `TAREA 8.6 - Punto de Venta POS (/recepcion/pos), Caja Diaria (/recepcion/caja) y Clientes CRM (/recepcion/clientes)`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1250,6 +1250,25 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
   3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
   4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, Middleware `26.8 kB`, `EXIT 0`)**.
+
+### [TAREA 8.5] - Mi Puesto Profesional (`/peluquero`) + Calendario Master (`/recepcion/calendario`)
+- **Estado:** COMPLETADA
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/services/turnos.service.ts` (agregado `turnosService.getByRange(fechaDesde, fechaHasta, peluqueroId, estadoId, clienteId)` consumiendo `GET /api/turnos?fechaDesde=...&fechaHasta=...` consolidado en Tarea 8.2, sin alterar firmas previas)
+  - `mipeluqueria-saas-web/src/hooks/useDomainQueries.ts` (extensión retrocompatible de `useTurnosAgendaQuery` para soportar consulta por rango `fechaDesde`/`fechaHasta` además de `fecha` puntual)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/peluquero/page.tsx` (rediseño integral sobre Design System Dual *Studio Clean* / *Obsidian & Indigo* y `semanticColors.ts`: cabecera sin textos técnicos ni prefijos numéricos, *Mi Agenda* con segmented control `Hoy | Mañana | Esta semana` + datepicker + timeline vertical `09:00–20:00` con franja sombreada de descanso laboral, bloqueos horarios, línea de hora actual y tarjetas proporcionales + vista semanal Lunes a Sábado; *Fichas Técnicas Capilares* en layout Master-Detail responsive y mobile-first `390x844` con buscador instantáneo, lista vertical con avatares e iniciales, alternancia lista/detalle con `← Volver a clientes`, banner rojo destacado de alergias y `+ Nueva Ficha Técnica` siempre accesible; *Comisiones y Recibos* mostrando porcentajes reales con `font-mono-tabular` y recibo imprimible; *Horarios y Ausencias* con jerarquía estricta de botones y copywriting limpio)
+  - `mipeluqueria-saas-web/src/app/(dashboard)/recepcion/calendario/page.tsx` (rediseño integral estilo Fresha: switch `Día | Semana`, navegación `Hoy` + `<` / `>` + datepicker + filtro de estado sin prefijos numéricos + filtro por profesional en vista semanal; Vista Día con grilla horaria vertical `09:00–20:00` en slots de 30 min clicables para agendar preseleccionando profesional y horario, columnas por profesional con avatar y `colorAgendaHex`, descansos y bloqueos sombreados, línea de hora actual y tarjetas proporcionales con modal de acciones rápidas *Confirmar*, *En proceso*, *Completar*, *Cancelar*, *Cobrar en POS*, *Reprogramar* e *Historial*; modal *Nuevo Turno* usando `<SearchCombobox />` para clientes con acción integrada a Registro Express y las 4 variantes estrictas de botón)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - Todas las fechas de agenda y rangos semanales se calculan en hora local (`toLocalDateIso` / `parseLocalDateIso`) para evitar saltos de día por desfase UTC en horarios nocturnos locales, y el posicionamiento de tarjetas en la grilla vertical resuelve solapamientos en carriles paralelos sin deformar columnas.
+  - En Vista Día de `/recepcion/calendario`, la grilla multi-columna mantiene `overflow-x-auto` confinado dentro del contenedor del calendario cuando haya muchos estilistas, garantizando `0px` de desborde horizontal en el documento a `1280x720` y `1366x768`.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`EXIT 0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, `/peluquero` `16.4 kB`, `/recepcion/calendario` `12.6 kB`, `EXIT 0`)**.
 
 
 

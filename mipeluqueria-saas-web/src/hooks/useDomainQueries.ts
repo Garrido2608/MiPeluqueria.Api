@@ -225,19 +225,40 @@ export function usePeluquerosQuery() {
 }
 
 export function useTurnosAgendaQuery(params: {
-  fecha: string;
+  fecha?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
   peluqueroId?: number;
 }) {
+  const rangeKey =
+    params.fecha ||
+    (params.fechaDesde && params.fechaHasta
+      ? `${params.fechaDesde}_${params.fechaHasta}`
+      : undefined);
+
   return useQuery({
-    queryKey: QUERY_KEYS.turnos(params),
+    queryKey: QUERY_KEYS.turnos({
+      fecha: rangeKey,
+      peluqueroId: params.peluqueroId,
+    }),
     queryFn: async () => {
+      if (params.fechaDesde && params.fechaHasta && !params.fecha) {
+        const res = await turnosService.getByRange(
+          params.fechaDesde,
+          params.fechaHasta,
+          params.peluqueroId
+        );
+        return extractPagedItems<TurnoDto>(res.data);
+      }
       const res = await turnosService.getAll(
         params.fecha,
         params.peluqueroId
       );
       return extractPagedItems<TurnoDto>(res.data);
     },
-    enabled: Boolean(params.fecha),
+    enabled: Boolean(
+      params.fecha || (params.fechaDesde && params.fechaHasta)
+    ),
     staleTime: 15 * 1000,
   });
 }

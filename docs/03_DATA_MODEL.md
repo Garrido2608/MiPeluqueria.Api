@@ -1,4 +1,4 @@
-﻿# 03 - MODELO DE DOMINIO, ESQUEMA RELACIONAL SQL SERVER Y FLUENT API (CAPA 3 SDD)
+# 03 - MODELO DE DOMINIO, ESQUEMA RELACIONAL SQL SERVER Y FLUENT API (CAPA 3 SDD)
 **Proyecto:** MiPeluqueria SaaS (`MiPeluqueria.Api` .NET 8)[cite: 27]
 **Documentos Padres Vinculados:** `00_AUDITORIA_Y_DEUDA_TECNICA.md`, `01_SYSTEM_CONSTRAINTS.md`, `02_ARCHITECTURE.md`[cite: 27]
 **Estado:** INMUTABLE - ESPECIFICACIÓN DE PERSISTENCIA, ENTIDADES E ÍNDICES[cite: 27]
@@ -67,7 +67,7 @@ namespace MiPeluqueria.Api.Models.Common
 
 ### 1.2 Regla de Herencia para las Entidades del Sistema
 1. **Entidades de Plataforma / Catálogo Fijo de Código (Heredan de `AuditableEntity`):**
-   * `Tenant`, `Sucursal`, `PlanSuscripcion`, `SuscripcionTenant`, `Rol` (IDs 1 al 5) y `EstadoTurno` (IDs 1 al 6)[cite: 27].
+   * `Tenant`, `Sucursal`, `PlanSuscripcion`, `SuscripcionTenant`, `Rol` (IDs 1 al 6) y `EstadoTurno` (IDs 1 al 6)[cite: 27].
 2. **Entidades Operativas y Catálogos del Local (Heredan de `AuditableTenantEntity`):**
    * Todas las demás entidades del sistema (incluyendo `Usuario`, `Cliente`, `FichaTecnica`, `Peluquero`, `PeluqueroEspecialidad`, `Turno`, `TurnoServicio`, `Producto`, `MovimientoStock`, `OrdenCompra`, `SesionCaja`, `Venta`, `Liquidacion`, `ConfiguracionSalon`, `AuditLog` y los 7 catálogos personalizables del salón)[cite: 27].
 
@@ -89,7 +89,7 @@ namespace MiPeluqueria.Api.Models.Common
 * **`SuscripcionTenant` (`AuditableEntity`):** `TenantId` (`int`), `PlanSuscripcionId` (`int`), `FechaInicio` (`datetime2`), `FechaProximoVencimiento` (`datetime2`), `Estado` (`EstadoSuscripcionEnum`), `ExternalSubscriptionId` (`nvarchar(150)?`)[cite: 27].
 
 ### 2.3 Módulo Seguridad (`Models/Seguridad/`)
-* **`Rol` (`AuditableEntity`):** `Nombre` (`nvarchar(50)`). Valores: `1 = Administrador`, `2 = Recepcionista`, `3 = Peluquero`, `4 = Cliente`, `5 = Cajero`[cite: 27].
+* **`Rol` (`AuditableEntity`):** `Nombre` (`nvarchar(50)`). Valores: `1 = Administrador`, `2 = Recepcionista`, `3 = Peluquero`, `4 = Cliente`, `5 = Cajero`, `6 = SuperAdminSaaS`[cite: 27].
 * **`Usuario` (`AuditableTenantEntity`):** `RolId` (`int`, default `4`), `Username` (`nvarchar(100)`), `PasswordHash` (`nvarchar(500)`), `Email` (`nvarchar(150)`), `EmailVerificado` (`bit`), `CodigoVerificacion` (`nvarchar(6)?`), `FechaExpiracionCodigo` (`datetime2?`), `AceptaTerminos` (`bit`), `FechaAceptacionTerminos` (`datetime2?`), `IntentosFallidos` (`int`), `BloqueadoHasta` (`datetime2?`), `PeluqueroId` (`int?`), `ClienteId` (`int?`), `Activo` (`bit`), `[Timestamp] public byte[] RowVersion`[cite: 27].
   * Índices Únicos por Local: `UX_Usuarios_Local_Username` sobre `(TenantId, SucursalId, Username)` y `UX_Usuarios_Local_Email` sobre `(TenantId, SucursalId, Email)` con filtro `[IsDeleted] = 0`[cite: 27].
 * **`HistorialSesion` (`AuditableTenantEntity`):** `UsuarioId` (`int`), `DireccionIP` (`nvarchar(50)`), `Dispositivo` (`nvarchar(500)?`), `Exitoso` (`bit`), `MotivoFallo` (`MotivoFalloSesionEnum?`), `FechaIntento` (`datetime2`)[cite: 27].
@@ -151,5 +151,5 @@ namespace MiPeluqueria.Api.Models.Common
 2. **Sellado Automático en `SaveChangesAsync`:**
    Al insertar cualquier `ITenantEntity` (`EntityState.Added`), si `TenantId <= 0` se asigna `CurrentTenantId`, y si `SucursalId == null || SucursalId <= 0` se asigna `CurrentSucursalId ?? 1`[cite: 27].
 3. **Data Seeding Completo (`HasData`):**
-   Incluye `Roles` (1-5), `EstadosTurno` (1-6), `PlanesSuscripcion` (1-3), `Tenant #1`, `Sucursal #1`, `SuscripcionTenant #1`, `ConfiguracionSalon #1`, `Usuario #1` (`admin`), `MediosPago` (1-7 con `EsEfectivoFisico = true` para Efectivo), `MotivosCancelacion` (1-4), `TiposCabello` (1-6), `TiposRostro` (1-5), `Especialidades` (1-5), `CategoriasServicio` (1-4), `CategoriasProducto` (1-4), `Peluquero #1` con `HorariosLaborales` y `ComisionesConfig`, `Servicios #1-#3`, `Proveedor #1` y `Productos #1-#2`[cite: 27].
+   Incluye `Roles` (1-6, sumando `6 = SuperAdminSaaS`), `EstadosTurno` (1-6), `PlanesSuscripcion` (1-3), `Tenant #1`, `Sucursal #1`, `SuscripcionTenant #1`, `ConfiguracionSalon #1`, `Usuario #1` (`admin`) y `Usuario #2` (`superadmin` / `superadmin@mipeluqueria.com`, `RolId = 6`), `MediosPago` (1-7 con `EsEfectivoFisico = true` para Efectivo), `MotivosCancelacion` (1-4), `TiposCabello` (1-6), `TiposRostro` (1-5), `Especialidades` (1-5), `CategoriasServicio` (1-4), `CategoriasProducto` (1-4), `Peluquero #1` con `HorariosLaborales` y `ComisionesConfig`, `Servicios #1-#3`, `Proveedor #1` y `Productos #1-#2`[cite: 27].
 ```

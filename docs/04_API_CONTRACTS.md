@@ -86,7 +86,8 @@ namespace MiPeluqueria.Api.DTOs.Common
 | **Portal Cliente (`[Authorize]`)** | `Cliente` + Roles Internos | `AuthController.CambiarPassword`, consulta y cancelación con anticipación de sus propios turnos. |
 | **Operativo de Salón** | `Administrador`, `Recepcionista`, `Cajero`, `Peluquero`, `SuperAdminSaaS` | `TurnosController`, `ClientesController`, `FichasTecnicasController`, `BloqueosController`, `RecetasServicioController`, `GET` de `PeluquerosController`, `GET` de `ServiciosController`, `GET` de `ProductosController`. |
 | **Caja, POS y Compras** | `Administrador`, `Recepcionista`, `Cajero`, `SuperAdminSaaS` | `CajaController`, `VentasController`, `OrdenesCompraController`, `ProveedoresController`, `ProductosController.RegistrarMovimiento`. |
-| **Gerencial / Dueño** | `Administrador`, `SuperAdminSaaS` | `DashboardController`, `ComisionesController` (`POST/PUT/DELETE`), `LiquidacionesController`, `UsuariosController`, `PeluquerosController` (`POST/PUT/DELETE/Horarios`), `ServiciosController` (`POST/PUT/DELETE`), `CatalogosController` (`POST/PUT/DELETE`), `ConfiguracionSalonController` (`PUT`), `SucursalesController`, `SuscripcionesController`. |
+| **Gerencial / Dueño** | `Administrador`, `SuperAdminSaaS` | `DashboardController`, `ComisionesController` (`POST/PUT/DELETE`), `LiquidacionesController`, `UsuariosController`, `PeluquerosController` (`POST/PUT/DELETE/Horarios`), `ServiciosController` (`POST/PUT/DELETE`), `CatalogosController` (`POST/PUT/DELETE`), `ConfiguracionSalonController` (`PUT`), `SucursalesController`, `SuscripcionesController.ObtenerMiSuscripcion` (`GET mi-suscripcion`). |
+| **Plataforma SaaS** | `SuperAdminSaaS` | `SuscripcionesController.CambiarPlan` (`POST /api/suscripciones/cambiar-plan`). |
 
 ---
 
@@ -115,6 +116,8 @@ namespace MiPeluqueria.Api.DTOs.Common
   * `CrearVentaDto` agrega `public string? IdempotencyKey { get; set; }`.
   * `PagoRequestDto` y `VentaPagoItemResponseDto` agregan `public string? ReferenciaOperacion { get; set; }`.
   * `VentaResponseDto` agrega `public decimal Subtotal { get; set; }` y `public decimal DescuentoSenaAplicado { get; set; }`.
+* **`ComisionConfigDto.cs`:**
+  * Expone `Id`, `PeluqueroId`, `NombrePeluquero`, `PeluqueroNombre` (aditivo `v1.1.0`), `ServicioId`, `NombreServicio`, `ServicioNombre` (aditivo `v1.1.0`), `PorcentajeServicio` y `PorcentajeVentaProducto`.
 * **`LiquidacionResponseDto.cs` y `DetalleLiquidacionItemDto.cs`:**
   * `LiquidacionResponseDto` incluye `FechaEmision`, `Bonificaciones`, `Descuentos`, `Observaciones`[cite: 28].
   * `DetalleLiquidacionItemDto` incluye `string ConceptoNombre`[cite: 28].

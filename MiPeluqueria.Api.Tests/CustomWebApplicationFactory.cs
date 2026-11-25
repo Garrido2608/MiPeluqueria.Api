@@ -125,6 +125,11 @@ namespace MiPeluqueria.Api.Tests
                 var pending = db.Database.GetPendingMigrations().ToList();
                 if (pending.Count > 0)
                 {
+                    db.Database.ExecuteSqlRaw(@"
+                        DELETE FROM [RefreshTokens] WHERE [UsuarioId] > 1;
+                        DELETE FROM [HistorialSesiones] WHERE [UsuarioId] > 1;
+                        DELETE FROM [Usuarios] WHERE [Id] > 1 AND [Email] <> N'superadmin@mipeluqueria.com';
+                    ");
                     db.Database.Migrate();
                 }
 
@@ -132,7 +137,27 @@ namespace MiPeluqueria.Api.Tests
                 db.Database.ExecuteSqlRaw(@"
                     DELETE FROM [DetallesLiquidacion];
                     DELETE FROM [Liquidaciones];
-                    DELETE FROM [ComisionesConfig];
+                    DELETE FROM [ComisionesConfig] WHERE [Id] > 1;
+                    IF NOT EXISTS (SELECT 1 FROM [ComisionesConfig] WHERE [Id] = 1)
+                    BEGIN
+                        SET IDENTITY_INSERT [ComisionesConfig] ON;
+                        INSERT INTO [ComisionesConfig] ([Id], [TenantId], [SucursalId], [PeluqueroId], [ServicioId], [PorcentajeServicio], [PorcentajeVentaProducto], [CreatedAt], [IsDeleted])
+                        VALUES (1, 1, 1, 1, NULL, 50.00, 10.00, '2026-01-01T00:00:00.0000000', 0);
+                        SET IDENTITY_INSERT [ComisionesConfig] OFF;
+                    END
+                    ELSE
+                    BEGIN
+                        UPDATE [ComisionesConfig]
+                        SET [TenantId] = 1,
+                            [SucursalId] = 1,
+                            [PeluqueroId] = 1,
+                            [ServicioId] = NULL,
+                            [PorcentajeServicio] = 50.00,
+                            [PorcentajeVentaProducto] = 10.00,
+                            [IsDeleted] = 0,
+                            [DeletedAt] = NULL
+                        WHERE [Id] = 1;
+                    END
                     DELETE FROM [Pagos];
                     DELETE FROM [DetallesVenta];
                     DELETE FROM [Ventas];
@@ -157,7 +182,7 @@ namespace MiPeluqueria.Api.Tests
                     DELETE FROM [Peluqueros] WHERE [Id] > 10;
                     DELETE FROM [RefreshTokens];
                     DELETE FROM [HistorialSesiones];
-                    DELETE FROM [Usuarios] WHERE [Id] > 1;
+                    DELETE FROM [Usuarios] WHERE [Id] NOT IN (1, 2) AND [Email] <> N'superadmin@mipeluqueria.com';
                     UPDATE [ConfiguracionSalon]
                     SET [IntervaloTurnosMinutos] = 30,
                         [PorcentajeSenaReserva] = 25.00

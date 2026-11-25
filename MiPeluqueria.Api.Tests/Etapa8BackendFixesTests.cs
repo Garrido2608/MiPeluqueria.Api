@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
 using MiPeluqueria.Api.DTOs.Common;
+using MiPeluqueria.Api.DTOs.SaaS;
+using MiPeluqueria.Api.DTOs.Seguridad;
 using MiPeluqueria.Api.DTOs.Turnos;
 using MiPeluqueria.Api.DTOs.Ventas;
 using MiPeluqueria.Api.Models.Turnos;
@@ -225,6 +228,265 @@ namespace MiPeluqueria.Api.Tests
             var idsFechaPuntual = fechaPuntualBody.Data.Select(t => t.Id).ToList();
             idsFechaPuntual.Should().Contain(turnoMiercolesId);
             idsFechaPuntual.Should().NotContain(new[] { turnoLunesId, turnoSabadoId, turnoPrevId, turnoNextId });
+        }
+
+        // =========================================================================
+        // TAREA 8.3 - TEST 1: Liquidaciones sin duplicados (400 en reintento) + Pagar (con y sin Caja)
+        // =========================================================================
+        [Fact]
+        public async Task Tarea83_Liquidaciones_SinDuplicados_400EnReintento_Y_PagoConYSinCaja()
+        {
+            using var adminClient = _factory.CreateAuthenticatedClient();
+
+            await CerrarCajaSiEstaAbiertaAsync(adminClient);
+
+            // 1. Crear profesional aislado y servicio dedicado ($20.000 -> comisión 50% default = $10.000)
+            var pelRes = await adminClient.PostAsJsonAsync("/api/peluqueros", new CrearPeluqueroDto
+            {
+                Nombre = "Valeria",
+                Apellido = $"LiqT83_{Guid.NewGuid():N}"[..16],
+                Email = $"valeria.t83.{Guid.NewGuid():N}@tesis.com",
+                Telefono = "+5493515558301",
+                ColorAgendaHex = "#6366F1",
+                EspecialidadesIds = new List<int> { 1 }
+            });
+            pelRes.StatusCode.Should().Be(HttpStatusCode.Created);
+            int peluqueroId = (await pelRes.Content.ReadFromJsonAsync<ApiResponse<PeluqueroDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!.Id;
+
+            var servRes = await adminClient.PostAsJsonAsync("/api/servicios", new CrearServicioDto
+            {
+                CategoriaId = 1,
+                Nombre = $"Serv Liq T83 {Guid.NewGuid():N}"[..24],
+                Precio = 20000.00m,
+                DuracionMinutos = 30
+            });
+            servRes.StatusCode.Should().Be(HttpStatusCode.Created);
+            int servicioId = (await servRes.Content.ReadFromJsonAsync<ApiResponse<ServicioDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!.Id;
+
+            // 2. Abrir caja ($10.000) y cobrar primera venta ($20.000 efectivo)
+            var abrirRes = await adminClient.PostAsJsonAsync("/api/caja/abrir", new AperturaCajaDto
+            {
+                MontoInicial = 10000.00m
+            });
+            abrirRes.StatusCode.Should().Be(HttpStatusCode.Created);
+            int sesionCajaId = (await abrirRes.Content.ReadFromJsonAsync<ApiResponse<SesionCajaResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!.Id;
+
+            var venta1Res = await adminClient.PostAsJsonAsync("/api/ventas", new CrearVentaDto
+            {
+                SesionCajaId = sesionCajaId,
+                ClienteId = 1,
+                IdempotencyKey = $"t83-v1-{Guid.NewGuid():N}"[..36],
+                Detalles = new List<DetalleVentaRequestDto>
+                {
+                    new()
+                    {
+                        TipoItem = TipoItemVentaEnum.Servicio,
+                        ItemId = servicioId,
+                        Cantidad = 1,
+                        PeluqueroId = peluqueroId
+                    }
+                },
+                Pagos = new List<PagoRequestDto>
+                {
+                    new() { MedioPagoId = 1, Importe = 20000.00m }
+                }
+            });
+            venta1Res.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            var generarDto = new GenerarLiquidacionDto
+            {
+                PeluqueroId = peluqueroId,
+                FechaDesde = DateTime.UtcNow.Date.AddDays(-1),
+                FechaHasta = DateTime.UtcNow.Date,
+                Bonificaciones = 0m,
+                Descuentos = 0m,
+                Observaciones = "Liquidación #1 Tarea 8.3"
+            };
+
+            // 3. Emitir primera liquidación -> 201 Created ($10.000)
+            var liq1Res = await adminClient.PostAsJsonAsync("/api/liquidaciones/generar", generarDto);
+            liq1Res.StatusCode.Should().Be(HttpStatusCode.Created);
+            var liq1 = (await liq1Res.Content.ReadFromJsonAsync<ApiResponse<LiquidacionResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!;
+
+            liq1.TotalServicios.Should().Be(10000.00m);
+            liq1.TotalPagar.Should().Be(10000.00m);
+            liq1.Estado.Should().Be(EstadoLiquidacionEnum.Pendiente.ToString());
+            liq1.CantidadItemsLiquidados.Should().Be(1);
+
+            // 4. Reintentar misma liquidación sin nuevas ventas -> 400 Bad Request (cero duplicados)
+            var retryPendienteRes = await adminClient.PostAsJsonAsync("/api/liquidaciones/generar", generarDto);
+            retryPendienteRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var retryPendienteBody = await retryPendienteRes.Content.ReadFromJsonAsync<ApiResponse<LiquidacionResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions);
+            retryPendienteBody!.Success.Should().BeFalse();
+            retryPendienteBody.Message.Should().Be("No existen ventas pendientes de liquidar para este profesional en el período seleccionado.");
+
+            // 5. Pagar liquidación #1 SIN imputación en caja -> 200 OK y marca Estado = Pagado + FechaPago != null
+            var pagarSinCajaRes = await adminClient.PostAsync($"/api/liquidaciones/{liq1.Id}/pagar", null);
+            pagarSinCajaRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var pagarSinCajaBody = await pagarSinCajaRes.Content.ReadFromJsonAsync<ApiResponse<bool>>(
+                CustomWebApplicationFactory.JsonOptions);
+            pagarSinCajaBody!.Success.Should().BeTrue();
+
+            var liq1PostPago = (await (await adminClient.GetAsync($"/api/liquidaciones/{liq1.Id}"))
+                .Content.ReadFromJsonAsync<ApiResponse<LiquidacionResponseDto>>(CustomWebApplicationFactory.JsonOptions))!.Data!;
+            liq1PostPago.Estado.Should().Be(EstadoLiquidacionEnum.Pagado.ToString());
+            liq1PostPago.FechaPago.Should().NotBeNull();
+
+            // Reintentar liquidación cuando la previa ya está Pagada -> sigue retornando 400 Bad Request (cero duplicados)
+            var retryPagadaRes = await adminClient.PostAsJsonAsync("/api/liquidaciones/generar", generarDto);
+            retryPagadaRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            var listCheck = (await (await adminClient.GetAsync($"/api/liquidaciones?peluqueroId={peluqueroId}"))
+                .Content.ReadFromJsonAsync<ApiResponse<PagedResult<LiquidacionResponseDto>>>(CustomWebApplicationFactory.JsonOptions))!.Data!;
+            listCheck.TotalRecords.Should().Be(1, "no deben generarse liquidaciones duplicadas");
+
+            // 6. Nueva venta en el mismo período -> liquida SOLO el renglón nuevo y permite pagar CON imputación en caja abierta
+            var venta2Res = await adminClient.PostAsJsonAsync("/api/ventas", new CrearVentaDto
+            {
+                SesionCajaId = sesionCajaId,
+                ClienteId = 1,
+                IdempotencyKey = $"t83-v2-{Guid.NewGuid():N}"[..36],
+                Detalles = new List<DetalleVentaRequestDto>
+                {
+                    new()
+                    {
+                        TipoItem = TipoItemVentaEnum.Servicio,
+                        ItemId = servicioId,
+                        Cantidad = 1,
+                        PeluqueroId = peluqueroId
+                    }
+                },
+                Pagos = new List<PagoRequestDto>
+                {
+                    new() { MedioPagoId = 1, Importe = 20000.00m }
+                }
+            });
+            venta2Res.StatusCode.Should().Be(HttpStatusCode.Created);
+
+            var liq2Res = await adminClient.PostAsJsonAsync("/api/liquidaciones/generar", generarDto);
+            liq2Res.StatusCode.Should().Be(HttpStatusCode.Created);
+            var liq2 = (await liq2Res.Content.ReadFromJsonAsync<ApiResponse<LiquidacionResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!;
+
+            liq2.CantidadItemsLiquidados.Should().Be(1, "solo debe incluir el nuevo DetalleVenta sin reliquidar el anterior");
+            liq2.TotalPagar.Should().Be(10000.00m);
+
+            var pagarConCajaRes = await adminClient.PostAsync($"/api/liquidaciones/{liq2.Id}/pagar?sesionCajaId={sesionCajaId}", null);
+            pagarConCajaRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var estadoCajaPostPago = (await (await adminClient.GetAsync("/api/caja/estado-actual"))
+                .Content.ReadFromJsonAsync<ApiResponse<SesionCajaResponseDto>>(CustomWebApplicationFactory.JsonOptions))!.Data!;
+
+            // MontoInicial (10.000) + VentasEfectivo (40.000) - EgresoLiquidacion #2 (10.000) = 40.000
+            estadoCajaPostPago.TotalEgresosManuales.Should().Be(10000.00m);
+            estadoCajaPostPago.MontoFinalEsperado.Should().Be(40000.00m);
+
+            await CerrarCajaSiEstaAbiertaAsync(adminClient);
+        }
+
+        // =========================================================================
+        // TAREA 8.3 - TEST 2: GET /api/comisiones retorna PeluqueroNombre == "Carlos Gómez"
+        // =========================================================================
+        [Fact]
+        public async Task Tarea83_Comisiones_GetAll_Y_PorPeluquero_RetornanPeluqueroNombre_CarlosGomez()
+        {
+            using var adminClient = _factory.CreateAuthenticatedClient();
+
+            var allRes = await adminClient.GetAsync("/api/comisiones");
+            allRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var allBody = await allRes.Content.ReadFromJsonAsync<ApiResponse<List<ComisionConfigDto>>>(
+                CustomWebApplicationFactory.JsonOptions);
+
+            allBody.Should().NotBeNull();
+            allBody!.Success.Should().BeTrue();
+            allBody.Data.Should().NotBeNullOrEmpty();
+
+            var carlosConfig = allBody.Data!.FirstOrDefault(c => c.PeluqueroId == 1 && c.ServicioId == null);
+            carlosConfig.Should().NotBeNull("debe existir el esquema general semilla del Peluquero #1");
+            carlosConfig!.PeluqueroNombre.Should().Be("Carlos Gómez");
+            carlosConfig.NombrePeluquero.Should().Be("Carlos Gómez");
+            carlosConfig.ServicioNombre.Should().NotBeNullOrWhiteSpace();
+            carlosConfig.PorcentajeServicio.Should().Be(50.00m);
+            carlosConfig.PorcentajeVentaProducto.Should().Be(10.00m);
+
+            var byPelRes = await adminClient.GetAsync("/api/comisiones?peluqueroId=1");
+            byPelRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var byPelBody = await byPelRes.Content.ReadFromJsonAsync<ApiResponse<List<ComisionConfigDto>>>(
+                CustomWebApplicationFactory.JsonOptions);
+
+            byPelBody!.Success.Should().BeTrue();
+            byPelBody.Data.Should().Contain(c =>
+                c.PeluqueroId == 1 &&
+                c.PeluqueroNombre == "Carlos Gómez" &&
+                c.PorcentajeServicio == 50.00m &&
+                c.PorcentajeVentaProducto == 10.00m);
+        }
+
+        // =========================================================================
+        // TAREA 8.3 - TEST 3: Separación Real SuperAdminSaaS (RolId = 6) en SuscripcionesController
+        // =========================================================================
+        [Fact]
+        public async Task Tarea83_Suscripciones_CambiarPlan_403ParaAdministrador_Y_200ParaSuperAdminSaaS()
+        {
+            // 1. Administrador de salón (admin@tesis.com): puede leer su suscripción (200), pero recibe 403 al intentar cambiar plan
+            using var adminClient = _factory.CreateAuthenticatedClient(
+                userId: 1,
+                username: "admin",
+                email: "admin@tesis.com",
+                role: "Administrador",
+                tenantId: 1,
+                sucursalId: 1);
+
+            var miSubRes = await adminClient.GetAsync("/api/suscripciones/mi-suscripcion");
+            miSubRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var forbiddenRes = await adminClient.PostAsJsonAsync("/api/suscripciones/cambiar-plan", new CambiarPlanSuscripcionDto
+            {
+                NuevoPlanSuscripcionId = 3
+            });
+            forbiddenRes.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+            // 2. Autenticación real contra BD del usuario semilla superadmin@mipeluqueria.com / SuperAdmin123! (RolId = 6)
+            using var isolatedAuthFactory = _factory.WithWebHostBuilder(_ => { });
+            using var superAdminClient = isolatedAuthFactory.CreateClient();
+            superAdminClient.DefaultRequestHeaders.Add("X-Tenant-Id", "1");
+            superAdminClient.DefaultRequestHeaders.Add("X-Sucursal-Id", "1");
+
+            var loginRes = await superAdminClient.PostAsJsonAsync("/api/auth/login", new LoginRequestDto
+            {
+                UsernameOrEmail = "superadmin@mipeluqueria.com",
+                Password = "SuperAdmin123!"
+            });
+            loginRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var loginBody = (await loginRes.Content.ReadFromJsonAsync<ApiResponse<AuthResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!;
+
+            loginBody.Rol.Should().Be("SuperAdminSaaS");
+            loginBody.Token.Should().NotBeNullOrWhiteSpace();
+
+            // 3. SuperAdminSaaS ejecuta POST /api/suscripciones/cambiar-plan -> 200 OK
+            superAdminClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginBody.Token);
+
+            var okEnterpriseRes = await superAdminClient.PostAsJsonAsync("/api/suscripciones/cambiar-plan", new CambiarPlanSuscripcionDto
+            {
+                NuevoPlanSuscripcionId = 3
+            });
+            okEnterpriseRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            var enterpriseBody = (await okEnterpriseRes.Content.ReadFromJsonAsync<ApiResponse<SuscripcionEstadoResponseDto>>(
+                CustomWebApplicationFactory.JsonOptions))!.Data!;
+            enterpriseBody.PlanActual.Should().Be("Enterprise");
+
+            // Restaurar Plan Professional (Id = 2) para mantener el estado semilla limpio
+            var restoreRes = await superAdminClient.PostAsJsonAsync("/api/suscripciones/cambiar-plan", new CambiarPlanSuscripcionDto
+            {
+                NuevoPlanSuscripcionId = 2
+            });
+            restoreRes.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
         // =========================================================================

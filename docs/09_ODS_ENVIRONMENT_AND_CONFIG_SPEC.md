@@ -165,7 +165,7 @@ Al llegar a la Tarea 1.4 (Hard Gate 1), dado que las 35 tablas operativas pasan 
 4.1 Regla Técnica Innegociable para HasData en ApplicationDbContext.cs
 Prohibición de Valores Dinámicos en HasData: Como AuditableEntity inicializa CreatedAt = DateTime.UtcNow, toda entidad insertada mediante .HasData(...) en el Seeding DEBE especificar explícitamente una constante estática fija:CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) e IsDeleted = false.
 
-Prohibición de BCrypt.HashPassword Dinámico en OnModelCreating: Como BCrypt.HashPassword genera un salt aleatorio en cada compilación, ensucia el ModelSnapshot de EF Core. El usuario semilla admin@tesis.com debe declararse en HasData con un hash BCrypt precalculado fijo válido para la contraseña "Admin123!" (o inicializarse de forma idempotente en el arranque).
+Prohibición de BCrypt.HashPassword Dinámico en OnModelCreating: Como BCrypt.HashPassword genera un salt aleatorio en cada compilación, ensucia el ModelSnapshot de EF Core. Los usuarios semilla `admin@tesis.com` (`"Admin123!"`, `RolId = 1`) y `superadmin@mipeluqueria.com` (`"SuperAdmin123!"`, `RolId = 6`) deben declararse en `HasData` con hashes BCrypt precalculados fijos verificados y fecha estática `2026-01-01T00:00:00Z`.
 
 4.2 Procedimiento Exacto de Reconstrucción de Base de Datos (Gate 1)
 Una vez otorgada la autorización humana en el Hard Gate 1:
@@ -190,3 +190,5 @@ Tenant #1: Id = 1, NombreComercial = "Mi Peluquería Central", SubdominioSlug = 
 Sucursal #1: Id = 1, TenantId = 1, Nombre = "Sucursal Casa Matriz (Córdoba)", TimeZoneId = "America/Argentina/Cordoba", MonedaIso = "ARS", Activa = true.
 
 Usuario Administrador #1: Id = 1, TenantId = 1, SucursalId = 1, Username = "admin", Email = "admin@tesis.com", Password = "Admin123!", RolId = 1 (Administrador), EmailVerificado = true, Activo = true.
+
+Usuario SuperAdminSaaS #2: Id = 2, TenantId = 1, SucursalId = 1, Username = "superadmin", Email = "superadmin@mipeluqueria.com", Password = "SuperAdmin123!", RolId = 6 (SuperAdminSaaS), EmailVerificado = true, Activo = true.

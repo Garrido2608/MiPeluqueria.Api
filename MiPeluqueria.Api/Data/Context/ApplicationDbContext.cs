@@ -168,7 +168,8 @@ namespace MiPeluqueria.Api.Data.Context
                 new Rol { Id = 2, Nombre = "Recepcionista", CreatedAt = seedDate, IsDeleted = false },
                 new Rol { Id = 3, Nombre = "Peluquero", CreatedAt = seedDate, IsDeleted = false },
                 new Rol { Id = 4, Nombre = "Cliente", CreatedAt = seedDate, IsDeleted = false },
-                new Rol { Id = 5, Nombre = "Cajero", CreatedAt = seedDate, IsDeleted = false }
+                new Rol { Id = 5, Nombre = "Cajero", CreatedAt = seedDate, IsDeleted = false },
+                new Rol { Id = 6, Nombre = "SuperAdminSaaS", CreatedAt = seedDate, IsDeleted = false }
             );
 
             modelBuilder.Entity<EstadoTurno>().HasData(
@@ -306,6 +307,25 @@ namespace MiPeluqueria.Api.Data.Context
                     // Hash BCrypt estático verificado para "Admin123!"
                     PasswordHash = "$2a$11$r4llG6xDC0cihMfzpC0/sOKZSMe1jQTVy01fKSfCkcq70nhWJHVhK",
                     Email = "admin@tesis.com",
+                    EmailVerificado = true,
+                    AceptaTerminos = true,
+                    FechaAceptacionTerminos = seedDate,
+                    IntentosFallidos = 0,
+                    Activo = true,
+                    CreatedAt = seedDate,
+                    IsDeleted = false,
+                    RowVersion = null!
+                },
+                new Usuario
+                {
+                    Id = 2,
+                    TenantId = 1,
+                    SucursalId = 1,
+                    RolId = 6,
+                    Username = "superadmin",
+                    // Hash BCrypt estático verificado para "SuperAdmin123!"
+                    PasswordHash = "$2a$11$RUjOXUvzS0DfSxGuKhXROOQUTgq1oYzrZ2hbQLYDlSgKiV65v8Tbi",
+                    Email = "superadmin@mipeluqueria.com",
                     EmailVerificado = true,
                     AceptaTerminos = true,
                     FechaAceptacionTerminos = seedDate,

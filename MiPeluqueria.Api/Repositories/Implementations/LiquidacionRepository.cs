@@ -56,10 +56,20 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 query = query.Where(l => l.Estado == estado.Value);
 
             if (filter.FechaDesde.HasValue)
-                query = query.Where(l => l.FechaDesde >= filter.FechaDesde.Value);
+            {
+                var inicioRango = filter.FechaDesde.Value.TimeOfDay == TimeSpan.Zero
+                    ? filter.FechaDesde.Value.Date
+                    : filter.FechaDesde.Value;
+                query = query.Where(l => l.FechaDesde >= inicioRango);
+            }
 
             if (filter.FechaHasta.HasValue)
-                query = query.Where(l => l.FechaHasta <= filter.FechaHasta.Value);
+            {
+                var finRango = filter.FechaHasta.Value.TimeOfDay == TimeSpan.Zero
+                    ? filter.FechaHasta.Value.Date.AddDays(1).AddTicks(-1)
+                    : filter.FechaHasta.Value;
+                query = query.Where(l => l.FechaHasta <= finRango);
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
@@ -114,6 +124,16 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             DateTime fechaHasta,
             CancellationToken ct = default)
         {
+            DateTime inicioRango = fechaDesde.TimeOfDay == TimeSpan.Zero
+                ? fechaDesde.Date
+                : fechaDesde;
+
+            DateTime finRango = fechaHasta.TimeOfDay == TimeSpan.Zero
+                ? fechaHasta.Date.AddDays(1).AddTicks(-1)
+                : fechaHasta;
+
+            int tenantId = _context.CurrentTenantId;
+
             return await _context.DetallesVenta
                 .AsNoTracking()
                 .Include(d => d.Venta)
@@ -121,15 +141,20 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .Where(d => !d.IsDeleted
                          && d.Venta != null
                          && !d.Venta.IsDeleted
-                         && d.Venta.Fecha >= fechaDesde
-                         && d.Venta.Fecha <= fechaHasta
+                         && d.Venta.Fecha >= inicioRango
+                         && d.Venta.Fecha <= finRango
                          && (d.PeluqueroId == peluqueroId || (d.PeluqueroId == null && d.Venta.Turno != null && d.Venta.Turno.PeluqueroId == peluqueroId))
-                         && !_context.DetallesLiquidacion.Any(dl =>
-                                dl.DetalleVentaId == d.Id
-                                && !dl.IsDeleted
-                                && dl.Liquidacion != null
-                                && !dl.Liquidacion.IsDeleted
-                                && dl.Liquidacion.Estado != EstadoLiquidacionEnum.Anulada))
+                         && !_context.DetallesLiquidacion
+                                .IgnoreQueryFilters()
+                                .Any(dl =>
+                                    dl.TenantId == tenantId
+                                    && !dl.IsDeleted
+                                    && (dl.DetalleVentaId == d.Id || (dl.DetalleVentaId == null && dl.TurnoId != null && d.Venta.TurnoId == dl.TurnoId))
+                                    && dl.Liquidacion != null
+                                    && !dl.Liquidacion.IsDeleted
+                                    && dl.Liquidacion.Estado != EstadoLiquidacionEnum.Anulada))
+                .OrderBy(d => d.Venta!.Fecha)
+                .ThenBy(d => d.Id)
                 .ToListAsync(ct);
         }
 

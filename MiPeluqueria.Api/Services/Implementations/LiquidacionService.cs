@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MiPeluqueria.Api.DTOs.Common;
 using MiPeluqueria.Api.DTOs.Ventas;
-using MiPeluqueria.Api.Exceptions;
 using MiPeluqueria.Api.Models.Stock;
 using MiPeluqueria.Api.Models.Turnos;
 using MiPeluqueria.Api.Models.Ventas;
@@ -39,109 +38,118 @@ namespace MiPeluqueria.Api.Services.Implementations
             if (dto.Bonificaciones < 0m || dto.Descuentos < 0m)
                 return ApiResponse<LiquidacionResponseDto>.Falla("Las bonificaciones y descuentos no pueden ser valores negativos.");
 
+            DateTime fechaDesdeNormalizada = dto.FechaDesde.TimeOfDay == TimeSpan.Zero
+                ? dto.FechaDesde.Date
+                : dto.FechaDesde;
+
             DateTime fechaHastaInclusiva = dto.FechaHasta.TimeOfDay == TimeSpan.Zero
                 ? dto.FechaHasta.Date.AddDays(1).AddTicks(-1)
                 : dto.FechaHasta;
 
             int liquidacionCreadaId = 0;
+            string? errorNegocio = null;
 
-            try
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                var configs = await _unitOfWork.ComisionesConfig.GetByPeluqueroIdWithDetailsAsync(dto.PeluqueroId, token);
+                var configGeneral = configs.FirstOrDefault(c => c.ServicioId == null);
+
+                // Jerarquía de Comisiones (Sección 4.4):
+                // 1°) Específica (PeluqueroId, ServicioId)
+                // 2°) General (PeluqueroId, ServicioId == null)
+                // 3°) Default 50% servicio / 10% producto
+                decimal pctServicioDefault = configGeneral?.PorcentajeServicio ?? 50.0m;
+                decimal pctProductoDefault = configGeneral?.PorcentajeVentaProducto ?? 10.0m;
+
+                var itemsPendientesRaw = await _unitOfWork.Liquidaciones.GetDetallesVentaPendientesLiquidacionAsync(
+                    dto.PeluqueroId,
+                    fechaDesdeNormalizada,
+                    fechaHastaInclusiva,
+                    token);
+
+                var itemsPendientes = itemsPendientesRaw
+                    .DistinctBy(i => i.Id)
+                    .ToList();
+
+                if (itemsPendientes.Count == 0)
                 {
-                    var configs = await _unitOfWork.ComisionesConfig.GetByPeluqueroIdWithDetailsAsync(dto.PeluqueroId, token);
-                    var configGeneral = configs.FirstOrDefault(c => c.ServicioId == null);
+                    errorNegocio = "No existen ventas pendientes de liquidar para este profesional en el período seleccionado.";
+                    return;
+                }
 
-                    // Jerarquía de Comisiones (Sección 4.4):
-                    // 1°) Específica (PeluqueroId, ServicioId)
-                    // 2°) General (PeluqueroId, ServicioId == null)
-                    // 3°) Default 50% servicio / 10% producto
-                    decimal pctServicioDefault = configGeneral?.PorcentajeServicio ?? 50.0m;
-                    decimal pctProductoDefault = configGeneral?.PorcentajeVentaProducto ?? 10.0m;
+                var ahora = DateTime.UtcNow;
+                decimal comisionAcumuladaServicios = 0m;
+                decimal comisionAcumuladaProductos = 0m;
 
-                    var itemsPendientes = await _unitOfWork.Liquidaciones.GetDetallesVentaPendientesLiquidacionAsync(
-                        dto.PeluqueroId,
-                        dto.FechaDesde,
-                        fechaHastaInclusiva,
-                        token);
+                var DetallesConstruidos = new List<DetalleLiquidacion>(itemsPendientes.Count);
 
-                    if (itemsPendientes.Count == 0)
+                foreach (var item in itemsPendientes)
+                {
+                    decimal montoComisionRenglon = 0m;
+
+                    if (item.TipoItem == TipoItemVentaEnum.Servicio)
                     {
-                        throw new BusinessRuleException(
-                            "No existen servicios ni productos pendientes de liquidar para este profesional en el período seleccionado.");
+                        var configEspecifica = configs.FirstOrDefault(c => c.ServicioId == item.ItemId);
+                        decimal pctAplicar = configEspecifica?.PorcentajeServicio ?? pctServicioDefault;
+                        montoComisionRenglon = Math.Round(item.Subtotal * (pctAplicar / 100m), 2);
+                        comisionAcumuladaServicios += montoComisionRenglon;
+                    }
+                    else if (item.TipoItem == TipoItemVentaEnum.Producto)
+                    {
+                        montoComisionRenglon = Math.Round(item.Subtotal * (pctProductoDefault / 100m), 2);
+                        comisionAcumuladaProductos += montoComisionRenglon;
                     }
 
-                    var ahora = DateTime.UtcNow;
-                    decimal comisionAcumuladaServicios = 0m;
-                    decimal comisionAcumuladaProductos = 0m;
-
-                    var liquidacion = new Liquidacion
+                    DetallesConstruidos.Add(new DetalleLiquidacion
                     {
-                        PeluqueroId = dto.PeluqueroId,
-                        FechaEmision = ahora,
-                        FechaDesde = dto.FechaDesde,
-                        FechaHasta = fechaHastaInclusiva,
-                        FechaVencimiento = ahora.AddDays(7),
-                        Bonificaciones = dto.Bonificaciones,
-                        Descuentos = dto.Descuentos,
-                        Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones)
-                            ? null
-                            : Truncar(dto.Observaciones.Trim(), 500),
-                        Estado = EstadoLiquidacionEnum.Pendiente,
-                        UsuarioLiquidacionId = usuarioLiquidacionId,
-                        CreatedByUserId = usuarioLiquidacionId,
-                        DetallesLiquidacion = new List<DetalleLiquidacion>()
-                    };
+                        DetalleVentaId = item.Id,
+                        TurnoId = item.Venta?.TurnoId,
+                        MontoComisionCalculado = montoComisionRenglon,
+                        CreatedByUserId = usuarioLiquidacionId
+                    });
+                }
 
-                    foreach (var item in itemsPendientes)
-                    {
-                        decimal montoComisionRenglon = 0m;
+                decimal totalPagar = comisionAcumuladaServicios + comisionAcumuladaProductos + dto.Bonificaciones - dto.Descuentos;
+                if (totalPagar < 0m)
+                {
+                    errorNegocio = "El total neto a pagar de la liquidación no puede ser negativo.";
+                    return;
+                }
 
-                        if (item.TipoItem == TipoItemVentaEnum.Servicio)
-                        {
-                            var configEspecifica = configs.FirstOrDefault(c => c.ServicioId == item.ItemId);
-                            decimal pctAplicar = configEspecifica?.PorcentajeServicio ?? pctServicioDefault;
-                            montoComisionRenglon = Math.Round(item.Subtotal * (pctAplicar / 100m), 2);
-                            comisionAcumuladaServicios += montoComisionRenglon;
-                        }
-                        else if (item.TipoItem == TipoItemVentaEnum.Producto)
-                        {
-                            montoComisionRenglon = Math.Round(item.Subtotal * (pctProductoDefault / 100m), 2);
-                            comisionAcumuladaProductos += montoComisionRenglon;
-                        }
+                var liquidacion = new Liquidacion
+                {
+                    PeluqueroId = dto.PeluqueroId,
+                    FechaEmision = ahora,
+                    FechaDesde = fechaDesdeNormalizada,
+                    FechaHasta = fechaHastaInclusiva,
+                    FechaVencimiento = ahora.AddDays(7),
+                    TotalServicios = comisionAcumuladaServicios,
+                    TotalProductos = comisionAcumuladaProductos,
+                    Bonificaciones = dto.Bonificaciones,
+                    Descuentos = dto.Descuentos,
+                    TotalPagar = totalPagar,
+                    Observaciones = string.IsNullOrWhiteSpace(dto.Observaciones)
+                        ? null
+                        : Truncar(dto.Observaciones.Trim(), 500),
+                    Estado = EstadoLiquidacionEnum.Pendiente,
+                    UsuarioLiquidacionId = usuarioLiquidacionId,
+                    CreatedByUserId = usuarioLiquidacionId,
+                    DetallesLiquidacion = DetallesConstruidos
+                };
 
-                        liquidacion.DetallesLiquidacion.Add(new DetalleLiquidacion
-                        {
-                            DetalleVentaId = item.Id,
-                            TurnoId = item.Venta?.TurnoId,
-                            MontoComisionCalculado = montoComisionRenglon,
-                            CreatedByUserId = usuarioLiquidacionId
-                        });
-                    }
+                await _unitOfWork.Liquidaciones.AddAsync(liquidacion, token);
+                await _unitOfWork.SaveChangesAsync(token);
 
-                    decimal totalPagar = comisionAcumuladaServicios + comisionAcumuladaProductos + dto.Bonificaciones - dto.Descuentos;
-                    if (totalPagar < 0m)
-                        throw new BusinessRuleException("El total neto a pagar de la liquidación no puede ser negativo.");
+                liquidacionCreadaId = liquidacion.Id;
+            }, IsolationLevel.Serializable, ct);
 
-                    liquidacion.TotalServicios = comisionAcumuladaServicios;
-                    liquidacion.TotalProductos = comisionAcumuladaProductos;
-                    liquidacion.TotalPagar = totalPagar;
+            if (errorNegocio != null)
+                return ApiResponse<LiquidacionResponseDto>.Falla(errorNegocio);
 
-                    await _unitOfWork.Liquidaciones.AddAsync(liquidacion, token);
-                    await _unitOfWork.SaveChangesAsync(token);
-
-                    liquidacionCreadaId = liquidacion.Id;
-                }, IsolationLevel.ReadCommitted, ct);
-
-                var creadaRes = await ObtenerPorIdAsync(liquidacionCreadaId, ct);
-                return ApiResponse<LiquidacionResponseDto>.Exito(
-                    creadaRes.Data!,
-                    "Liquidación calculada y renglones bloqueados exitosamente.");
-            }
-            catch (BusinessRuleException ex)
-            {
-                return ApiResponse<LiquidacionResponseDto>.Falla(ex.Message);
-            }
+            var creadaRes = await ObtenerPorIdAsync(liquidacionCreadaId, ct);
+            return ApiResponse<LiquidacionResponseDto>.Exito(
+                creadaRes.Data!,
+                "Liquidación calculada y renglones bloqueados exitosamente.");
         }
 
         public async Task<ApiResponse<bool>> RegistrarPagoLiquidacionAsync(
@@ -150,37 +158,54 @@ namespace MiPeluqueria.Api.Services.Implementations
             int? usuarioId = null,
             CancellationToken ct = default)
         {
-            try
+            string? errorNegocio = null;
+
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                var liq = await _unitOfWork.Liquidaciones.GetByIdWithDetallesAsync(liquidacionId, tracking: true, token);
+                if (liq == null)
                 {
-                    var liq = await _unitOfWork.Liquidaciones.GetByIdWithDetallesAsync(liquidacionId, tracking: true, token)
-                        ?? throw new BusinessRuleException("La liquidación indicada no existe.");
+                    errorNegocio = "La liquidación indicada no existe.";
+                    return;
+                }
 
-                    if (liq.Estado == EstadoLiquidacionEnum.Pagado)
-                        throw new BusinessRuleException("Esta liquidación ya fue abonada anteriormente.");
+                if (liq.Estado == EstadoLiquidacionEnum.Pagado)
+                {
+                    errorNegocio = "Esta liquidación ya fue abonada anteriormente.";
+                    return;
+                }
 
-                    if (liq.Estado == EstadoLiquidacionEnum.Anulada)
-                        throw new BusinessRuleException("No se puede registrar el pago de una liquidación que se encuentra anulada.");
+                if (liq.Estado == EstadoLiquidacionEnum.Anulada)
+                {
+                    errorNegocio = "No se puede registrar el pago de una liquidación que se encuentra anulada.";
+                    return;
+                }
 
-                    var ahora = DateTime.UtcNow;
-                    liq.Estado = EstadoLiquidacionEnum.Pagado;
-                    liq.FechaPago = ahora;
-                    liq.UpdatedAt = ahora;
-                    liq.UpdatedByUserId = usuarioId;
+                var ahora = DateTime.UtcNow;
 
-                    if (sesionCajaId.HasValue && sesionCajaId.Value > 0)
+                if (sesionCajaId.HasValue && sesionCajaId.Value > 0)
+                {
+                    var cajaAbierta = await _unitOfWork.SesionesCaja.GetCajaAbiertaActualAsync(token);
+                    if (cajaAbierta == null)
                     {
-                        var cajaAbierta = await _unitOfWork.SesionesCaja.GetCajaAbiertaActualAsync(token)
-                            ?? throw new BusinessRuleException("No hay una sesión de caja abierta para imputar el egreso de la liquidación.");
+                        errorNegocio = "No hay una sesión de caja abierta para imputar el egreso de la liquidación.";
+                        return;
+                    }
 
-                        if (cajaAbierta.Id != sesionCajaId.Value)
-                            throw new BusinessRuleException($"La sesión de caja indicada (#{sesionCajaId.Value}) no coincide con la sesión de caja abierta actual (#{cajaAbierta.Id}).");
+                    if (cajaAbierta.Id != sesionCajaId.Value)
+                    {
+                        errorNegocio = $"La sesión de caja indicada (#{sesionCajaId.Value}) no coincide con la sesión de caja abierta actual (#{cajaAbierta.Id}).";
+                        return;
+                    }
 
-                        string nombreProfesional = liq.Peluquero != null
-                            ? $"{liq.Peluquero.Nombre} {liq.Peluquero.Apellido}".Trim()
-                            : $"ID #{liq.PeluqueroId}";
+                    var (ventasEfectivo, ventasDigital, ingresosPrevios, egresosPrevios) = CalcularTotalesSesionCaja(cajaAbierta);
 
+                    string nombreProfesional = liq.Peluquero != null
+                        ? $"{liq.Peluquero.Nombre} {liq.Peluquero.Apellido}".Trim()
+                        : $"ID #{liq.PeluqueroId}";
+
+                    if (liq.TotalPagar > 0m)
+                    {
                         await _unitOfWork.SesionesCaja.RegistrarMovimientoCajaAsync(new MovimientoCaja
                         {
                             SesionCajaId = cajaAbierta.Id,
@@ -190,26 +215,32 @@ namespace MiPeluqueria.Api.Services.Implementations
                             Fecha = ahora,
                             CreatedByUserId = usuarioId
                         }, token);
-
-                        cajaAbierta.TotalEgresosManuales += liq.TotalPagar;
-                        cajaAbierta.MontoFinalEsperado = cajaAbierta.MontoInicial
-                            + cajaAbierta.TotalVentasEfectivo
-                            + cajaAbierta.TotalIngresosManuales
-                            - cajaAbierta.TotalEgresosManuales;
-                        cajaAbierta.UpdatedByUserId = usuarioId;
-                        _unitOfWork.SesionesCaja.ActualizarSesionCaja(cajaAbierta);
                     }
 
-                    _unitOfWork.Liquidaciones.Update(liq);
-                    await _unitOfWork.SaveChangesAsync(token);
-                }, IsolationLevel.ReadCommitted, ct);
+                    cajaAbierta.TotalVentasEfectivo = ventasEfectivo;
+                    cajaAbierta.TotalVentasDigital = ventasDigital;
+                    cajaAbierta.TotalIngresosManuales = ingresosPrevios;
+                    cajaAbierta.TotalEgresosManuales = egresosPrevios + liq.TotalPagar;
+                    cajaAbierta.MontoFinalEsperado = cajaAbierta.MontoInicial
+                        + ventasEfectivo
+                        + ingresosPrevios
+                        - cajaAbierta.TotalEgresosManuales;
+                    cajaAbierta.UpdatedAt = ahora;
+                    cajaAbierta.UpdatedByUserId = usuarioId;
+                }
 
-                return ApiResponse<bool>.Exito(true, "Pago de liquidación asentado correctamente.");
-            }
-            catch (BusinessRuleException ex)
-            {
-                return ApiResponse<bool>.Falla(ex.Message);
-            }
+                liq.Estado = EstadoLiquidacionEnum.Pagado;
+                liq.FechaPago = ahora;
+                liq.UpdatedAt = ahora;
+                liq.UpdatedByUserId = usuarioId;
+
+                await _unitOfWork.SaveChangesAsync(token);
+            }, IsolationLevel.ReadCommitted, ct);
+
+            if (errorNegocio != null)
+                return ApiResponse<bool>.Falla(errorNegocio);
+
+            return ApiResponse<bool>.Exito(true, "Pago de liquidación asentado correctamente.");
         }
 
         public async Task<ApiResponse<LiquidacionResponseDto>> AnularLiquidacionAsync(
@@ -229,76 +260,76 @@ namespace MiPeluqueria.Api.Services.Implementations
             }
 
             LiquidacionResponseDto? resultadoDto = null;
+            string? errorNegocio = null;
 
-            try
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                var liq = await _unitOfWork.Liquidaciones.GetByIdWithDetallesAsync(liquidacionId, tracking: true, token);
+                if (liq == null)
                 {
-                    var liq = await _unitOfWork.Liquidaciones.GetByIdWithDetallesAsync(liquidacionId, tracking: true, token)
-                        ?? throw new BusinessRuleException("La liquidación solicitada no existe.");
+                    errorNegocio = "La liquidación solicitada no existe.";
+                    return;
+                }
 
-                    if (liq.Estado != EstadoLiquidacionEnum.Pendiente)
-                    {
-                        throw new BusinessRuleException(
-                            $"Solo se permite anular liquidaciones en estado Pendiente. Estado actual: {liq.Estado}.");
-                    }
+                if (liq.Estado != EstadoLiquidacionEnum.Pendiente)
+                {
+                    errorNegocio = $"Solo se permite anular liquidaciones en estado Pendiente. Estado actual: {liq.Estado}.";
+                    return;
+                }
 
-                    var ahora = DateTime.UtcNow;
-                    liq.Estado = EstadoLiquidacionEnum.Anulada;
-                    liq.UpdatedAt = ahora;
-                    liq.UpdatedByUserId = usuarioId;
+                var ahora = DateTime.UtcNow;
+                liq.Estado = EstadoLiquidacionEnum.Anulada;
+                liq.UpdatedAt = ahora;
+                liq.UpdatedByUserId = usuarioId;
 
-                    if (!string.IsNullOrWhiteSpace(motivo))
-                    {
-                        string prefijo = string.IsNullOrWhiteSpace(liq.Observaciones)
-                            ? string.Empty
-                            : $"{liq.Observaciones} | ";
-                        liq.Observaciones = Truncar($"{prefijo}Anulada: {motivo.Trim()}", 500);
-                    }
+                if (!string.IsNullOrWhiteSpace(motivo))
+                {
+                    string prefijo = string.IsNullOrWhiteSpace(liq.Observaciones)
+                        ? string.Empty
+                        : $"{liq.Observaciones} | ";
+                    liq.Observaciones = Truncar($"{prefijo}Anulada: {motivo.Trim()}", 500);
+                }
 
-                    foreach (var det in liq.DetallesLiquidacion)
-                    {
-                        det.DeletedByUserId = usuarioId;
-                        det.UpdatedByUserId = usuarioId;
-                    }
+                foreach (var det in liq.DetallesLiquidacion)
+                {
+                    det.DeletedByUserId = usuarioId;
+                    det.UpdatedByUserId = usuarioId;
+                }
 
-                    _unitOfWork.Liquidaciones.AnularDetallesLiquidacion(liq.DetallesLiquidacion);
-                    _unitOfWork.Liquidaciones.Update(liq);
+                _unitOfWork.Liquidaciones.AnularDetallesLiquidacion(liq.DetallesLiquidacion);
 
-                    await _unitOfWork.SaveChangesAsync(token);
+                await _unitOfWork.SaveChangesAsync(token);
 
-                    resultadoDto = new LiquidacionResponseDto
-                    {
-                        Id = liq.Id,
-                        PeluqueroId = liq.PeluqueroId,
-                        PeluqueroNombre = liq.Peluquero != null
-                            ? $"{liq.Peluquero.Nombre} {liq.Peluquero.Apellido}".Trim()
-                            : string.Empty,
-                        FechaEmision = liq.FechaEmision,
-                        FechaDesde = liq.FechaDesde,
-                        FechaHasta = liq.FechaHasta,
-                        FechaVencimiento = liq.FechaVencimiento,
-                        FechaPago = liq.FechaPago,
-                        TotalServicios = liq.TotalServicios,
-                        TotalProductos = liq.TotalProductos,
-                        Bonificaciones = liq.Bonificaciones,
-                        Descuentos = liq.Descuentos,
-                        TotalPagar = liq.TotalPagar,
-                        CantidadItemsLiquidados = 0,
-                        Estado = liq.Estado.ToString(),
-                        Observaciones = liq.Observaciones,
-                        Detalles = new List<DetalleLiquidacionItemDto>()
-                    };
-                }, IsolationLevel.ReadCommitted, ct);
+                resultadoDto = new LiquidacionResponseDto
+                {
+                    Id = liq.Id,
+                    PeluqueroId = liq.PeluqueroId,
+                    PeluqueroNombre = liq.Peluquero != null
+                        ? $"{liq.Peluquero.Nombre} {liq.Peluquero.Apellido}".Trim()
+                        : string.Empty,
+                    FechaEmision = liq.FechaEmision,
+                    FechaDesde = liq.FechaDesde,
+                    FechaHasta = liq.FechaHasta,
+                    FechaVencimiento = liq.FechaVencimiento,
+                    FechaPago = liq.FechaPago,
+                    TotalServicios = liq.TotalServicios,
+                    TotalProductos = liq.TotalProductos,
+                    Bonificaciones = liq.Bonificaciones,
+                    Descuentos = liq.Descuentos,
+                    TotalPagar = liq.TotalPagar,
+                    CantidadItemsLiquidados = 0,
+                    Estado = liq.Estado.ToString(),
+                    Observaciones = liq.Observaciones,
+                    Detalles = new List<DetalleLiquidacionItemDto>()
+                };
+            }, IsolationLevel.ReadCommitted, ct);
 
-                return ApiResponse<LiquidacionResponseDto>.Exito(
-                    resultadoDto!,
-                    "Liquidación anulada y renglones liberados correctamente.");
-            }
-            catch (BusinessRuleException ex)
-            {
-                return ApiResponse<LiquidacionResponseDto>.Falla(ex.Message);
-            }
+            if (errorNegocio != null)
+                return ApiResponse<LiquidacionResponseDto>.Falla(errorNegocio);
+
+            return ApiResponse<LiquidacionResponseDto>.Exito(
+                resultadoDto!,
+                "Liquidación anulada y renglones liberados correctamente.");
         }
 
         public async Task<ApiResponse<IReadOnlyList<LiquidacionResponseDto>>> ObtenerPorPeluqueroAsync(
@@ -453,6 +484,37 @@ namespace MiPeluqueria.Api.Services.Implementations
                 Estado = l.Estado.ToString(),
                 Observaciones = l.Observaciones
             };
+        }
+
+        private static (decimal VentasEfectivo, decimal VentasDigital, decimal IngresosManuales, decimal EgresosManuales) CalcularTotalesSesionCaja(SesionCaja caja)
+        {
+            var pagosActivos = caja.Ventas
+                .Where(v => !v.IsDeleted)
+                .SelectMany(v => v.Pagos)
+                .Where(p => !p.IsDeleted)
+                .ToList();
+
+            decimal ventasEfectivo = pagosActivos
+                .Where(p => p.MedioPago != null && p.MedioPago.EsEfectivoFisico)
+                .Sum(p => p.Importe);
+
+            decimal ventasDigital = pagosActivos
+                .Where(p => p.MedioPago == null || !p.MedioPago.EsEfectivoFisico)
+                .Sum(p => p.Importe);
+
+            var movimientosActivos = caja.MovimientosCaja
+                .Where(m => !m.IsDeleted)
+                .ToList();
+
+            decimal ingresosManuales = movimientosActivos
+                .Where(m => !string.IsNullOrWhiteSpace(m.Tipo) && m.Tipo.Trim().StartsWith("Ingreso", StringComparison.OrdinalIgnoreCase))
+                .Sum(m => m.Monto);
+
+            decimal egresosManuales = movimientosActivos
+                .Where(m => string.IsNullOrWhiteSpace(m.Tipo) || !m.Tipo.Trim().StartsWith("Ingreso", StringComparison.OrdinalIgnoreCase))
+                .Sum(m => m.Monto);
+
+            return (ventasEfectivo, ventasDigital, ingresosManuales, egresosManuales);
         }
 
         private static string Truncar(string valor, int maxLength)

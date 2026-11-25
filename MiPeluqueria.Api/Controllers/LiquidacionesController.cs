@@ -80,7 +80,11 @@ namespace MiPeluqueria.Api.Controllers
             [FromQuery] int? sesionCajaId = null,
             CancellationToken ct = default)
         {
-            var res = await _liquidacionService.RegistrarPagoLiquidacionAsync(id, sesionCajaId, GetCurrentUserId(), ct);
+            int? sesionCajaNormalizada = (sesionCajaId.HasValue && sesionCajaId.Value > 0)
+                ? sesionCajaId.Value
+                : null;
+
+            var res = await _liquidacionService.RegistrarPagoLiquidacionAsync(id, sesionCajaNormalizada, GetCurrentUserId(), ct);
             return res.Success ? Ok(res) : BadRequest(res);
         }
 

@@ -23,18 +23,35 @@ namespace MiPeluqueria.Api.Services.Implementations
         public async Task<ApiResponse<IReadOnlyList<ComisionConfigDto>>> ObtenerTodasAsync(CancellationToken ct = default)
         {
             var configs = await _unitOfWork.ComisionesConfig.GetAllWithDetailsAsync(ct);
-            var lista = configs.Select(c => MapToDto(c, c.Peluquero, c.Servicio)).ToList();
+            var peluquerosFaltantesIds = configs
+                .Where(c => c.Peluquero == null && c.PeluqueroId > 0)
+                .Select(c => c.PeluqueroId)
+                .Distinct()
+                .ToList();
+
+            var peluquerosDict = peluquerosFaltantesIds.Count > 0
+                ? await _unitOfWork.Peluqueros.GetByIdsDictionaryAsync(peluquerosFaltantesIds, tracking: false, ct)
+                : new Dictionary<int, Peluquero>();
+
+            var lista = configs
+                .Select(c =>
+                {
+                    var pel = c.Peluquero ?? (peluquerosDict.TryGetValue(c.PeluqueroId, out var p) ? p : null);
+                    return MapToDto(c, pel, c.Servicio);
+                })
+                .ToList();
+
             return ApiResponse<IReadOnlyList<ComisionConfigDto>>.Ok(lista);
         }
 
         public async Task<ApiResponse<IReadOnlyList<ComisionConfigDto>>> ObtenerPorPeluqueroAsync(int peluqueroId, CancellationToken ct = default)
         {
-            bool existePeluquero = await _unitOfWork.Peluqueros.ExistsAsync(p => p.Id == peluqueroId, ct);
-            if (!existePeluquero)
+            var peluquero = await _unitOfWork.Peluqueros.GetByIdAsync(peluqueroId, ct);
+            if (peluquero == null)
                 return ApiResponse<IReadOnlyList<ComisionConfigDto>>.Fail("El peluquero especificado no existe.");
 
             var configs = await _unitOfWork.ComisionesConfig.GetByPeluqueroIdWithDetailsAsync(peluqueroId, ct);
-            var lista = configs.Select(c => MapToDto(c, c.Peluquero, c.Servicio)).ToList();
+            var lista = configs.Select(c => MapToDto(c, c.Peluquero ?? peluquero, c.Servicio)).ToList();
             return ApiResponse<IReadOnlyList<ComisionConfigDto>>.Ok(lista);
         }
 
@@ -166,17 +183,23 @@ namespace MiPeluqueria.Api.Services.Implementations
 
         private static ComisionConfigDto MapToDto(ComisionesConfig c, Peluquero? peluquero, Servicio? servicio)
         {
+            string nombrePeluquero = peluquero != null
+                ? $"{peluquero.Nombre} {peluquero.Apellido}".Trim()
+                : string.Empty;
+
+            string nombreServicio = servicio != null
+                ? servicio.Nombre
+                : "Esquema General (Todos los servicios)";
+
             return new ComisionConfigDto
             {
                 Id = c.Id,
                 PeluqueroId = c.PeluqueroId,
-                NombrePeluquero = peluquero != null
-                    ? $"{peluquero.Nombre} {peluquero.Apellido}".Trim()
-                    : string.Empty,
+                NombrePeluquero = nombrePeluquero,
+                PeluqueroNombre = nombrePeluquero,
                 ServicioId = c.ServicioId,
-                NombreServicio = servicio != null
-                    ? servicio.Nombre
-                    : "Esquema General (Todos los servicios)",
+                NombreServicio = nombreServicio,
+                ServicioNombre = nombreServicio,
                 PorcentajeServicio = c.PorcentajeServicio,
                 PorcentajeVentaProducto = c.PorcentajeVentaProducto
             };

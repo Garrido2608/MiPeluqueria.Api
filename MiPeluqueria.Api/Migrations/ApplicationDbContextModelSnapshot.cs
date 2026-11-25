@@ -1218,6 +1218,13 @@ namespace MiPeluqueria.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsDeleted = false,
                             Nombre = "Cajero"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsDeleted = false,
+                            Nombre = "SuperAdminSaaS"
                         });
                 });
 
@@ -1348,6 +1355,23 @@ namespace MiPeluqueria.Api.Migrations
                             SucursalId = 1,
                             TenantId = 1,
                             Username = "admin"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            AceptaTerminos = true,
+                            Activo = true,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "superadmin@mipeluqueria.com",
+                            EmailVerificado = true,
+                            FechaAceptacionTerminos = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IntentosFallidos = 0,
+                            IsDeleted = false,
+                            PasswordHash = "$2a$11$RUjOXUvzS0DfSxGuKhXROOQUTgq1oYzrZ2hbQLYDlSgKiV65v8Tbi",
+                            RolId = 6,
+                            SucursalId = 1,
+                            TenantId = 1,
+                            Username = "superadmin"
                         });
                 });
 

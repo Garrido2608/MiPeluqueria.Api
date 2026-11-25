@@ -42,8 +42,10 @@ namespace MiPeluqueria.Api.Controllers
         }
 
         [HttpPost("cambiar-plan")]
+        [Authorize(Roles = "SuperAdminSaaS")]
         [ProducesResponseType(typeof(ApiResponse<SuscripcionEstadoResponseDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<SuscripcionEstadoResponseDto>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> CambiarPlan([FromBody] CambiarPlanSuscripcionDto dto, CancellationToken ct = default)
         {
             var res = await _saasService.CambiarPlanAsync(dto, ct);

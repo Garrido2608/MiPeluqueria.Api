@@ -107,12 +107,24 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 var finDia = inicioDia.AddDays(1).AddTicks(-1);
                 baseQuery = baseQuery.Where(t => t.FechaHoraInicio >= inicioDia && t.FechaHoraInicio <= finDia);
             }
+            else
+            {
+                if (filter.FechaDesde.HasValue)
+                {
+                    var inicioRango = filter.FechaDesde.Value.TimeOfDay == TimeSpan.Zero
+                        ? filter.FechaDesde.Value.Date
+                        : filter.FechaDesde.Value;
+                    baseQuery = baseQuery.Where(t => t.FechaHoraInicio >= inicioRango);
+                }
 
-            if (filter.FechaDesde.HasValue)
-                baseQuery = baseQuery.Where(t => t.FechaHoraInicio >= filter.FechaDesde.Value);
-
-            if (filter.FechaHasta.HasValue)
-                baseQuery = baseQuery.Where(t => t.FechaHoraInicio <= filter.FechaHasta.Value);
+                if (filter.FechaHasta.HasValue)
+                {
+                    var finRango = filter.FechaHasta.Value.TimeOfDay == TimeSpan.Zero
+                        ? filter.FechaHasta.Value.Date.AddDays(1).AddTicks(-1)
+                        : filter.FechaHasta.Value;
+                    baseQuery = baseQuery.Where(t => t.FechaHoraInicio <= finRango);
+                }
+            }
 
             if (peluqueroId.HasValue)
                 baseQuery = baseQuery.Where(t => t.PeluqueroId == peluqueroId.Value);

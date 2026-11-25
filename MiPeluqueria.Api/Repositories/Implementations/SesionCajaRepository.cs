@@ -47,13 +47,29 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .Where(s => !s.IsDeleted);
 
             if (desde.HasValue)
-                query = query.Where(s => s.FechaApertura >= desde.Value);
+            {
+                var inicioRango = desde.Value.TimeOfDay == TimeSpan.Zero
+                    ? desde.Value.Date
+                    : desde.Value;
+                query = query.Where(s => s.FechaApertura >= inicioRango);
+            }
 
             if (hasta.HasValue)
-                query = query.Where(s => s.FechaApertura <= hasta.Value);
+            {
+                var finRango = hasta.Value.TimeOfDay == TimeSpan.Zero
+                    ? hasta.Value.Date.AddDays(1).AddTicks(-1)
+                    : hasta.Value;
+                query = query.Where(s => s.FechaApertura <= finRango);
+            }
 
             return await query
+                .AsSplitQuery()
+                .Include(s => s.MovimientosCaja)
+                .Include(s => s.Ventas)
+                    .ThenInclude(v => v.Pagos)
+                        .ThenInclude(p => p.MedioPago)
                 .OrderByDescending(s => s.FechaApertura)
+                .ThenByDescending(s => s.Id)
                 .ToListAsync(cancellationToken);
         }
 
@@ -66,10 +82,20 @@ namespace MiPeluqueria.Api.Repositories.Implementations
                 .Where(s => !s.IsDeleted);
 
             if (filter.FechaDesde.HasValue)
-                query = query.Where(s => s.FechaApertura >= filter.FechaDesde.Value);
+            {
+                var inicioRango = filter.FechaDesde.Value.TimeOfDay == TimeSpan.Zero
+                    ? filter.FechaDesde.Value.Date
+                    : filter.FechaDesde.Value;
+                query = query.Where(s => s.FechaApertura >= inicioRango);
+            }
 
             if (filter.FechaHasta.HasValue)
-                query = query.Where(s => s.FechaApertura <= filter.FechaHasta.Value);
+            {
+                var finRango = filter.FechaHasta.Value.TimeOfDay == TimeSpan.Zero
+                    ? filter.FechaHasta.Value.Date.AddDays(1).AddTicks(-1)
+                    : filter.FechaHasta.Value;
+                query = query.Where(s => s.FechaApertura <= finRango);
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
@@ -80,6 +106,11 @@ namespace MiPeluqueria.Api.Repositories.Implementations
             int totalRecords = await query.CountAsync(ct);
 
             var items = await query
+                .AsSplitQuery()
+                .Include(s => s.MovimientosCaja)
+                .Include(s => s.Ventas)
+                    .ThenInclude(v => v.Pagos)
+                        .ThenInclude(p => p.MedioPago)
                 .OrderByDescending(s => s.FechaApertura)
                 .ThenByDescending(s => s.Id)
                 .Skip((filter.PageNumber - 1) * filter.PageSize)

@@ -7,10 +7,10 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8A: CIMIENTOS DESIGN SYSTEM DUAL COMPLETADOS)`
-* **Última Tarea Completada:** `TAREA 8.1 - SPEC-SYNC + Tokens Studio Clean (Claro/Oscuro) + Tipografía + Kit UI Base`
-* **Tarea Actual en Curso:** `PRÓXIMA: TAREA 8.2 - Fixes Críticos Backend #1 (Cálculo HistorialCajas Abierta + Rango Semanal de Turnos) + Tests xUnit`
-* **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 35/35 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad, 0 FAIL, 0 SKIP en 17.92 s)`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8A: CIMIENTOS DESIGN SYSTEM DUAL + FIXES BACKEND #1 COMPLETADOS)`
+* **Última Tarea Completada:** `TAREA 8.2 - Fixes Críticos Backend #1 (Cálculo de HistorialCajas Abierta + Rango Semanal de Turnos) + Tests xUnit`
+* **Tarea Actual en Curso:** `PRÓXIMA: TAREA 8.3 - Fixes Críticos Backend #2 (Liquidaciones Duplicadas, Pagar, PeluqueroNombre en Comisiones) + Rol Real SuperAdminSaaS (RolId = 6)`
+* **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 37/37 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 2 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB y MiPeluqueriaDB_Tests (aislada) migradas y validadas con 20261124003822_MultiTenantFinal (AUTO_CLOSE OFF + min/max server memory 128/512 MB).`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
 
@@ -1187,5 +1187,23 @@
   2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**/*.{ts,tsx}` -> **`0` coincidencias (`AUDIT_ANY_COUNT=0`)**.
   3. Auditoría de frontera agnóstica en `mipeluqueria-saas-web/src/components/ui/*.{ts,tsx}` (`services/|useDomainQueries|\.types`) -> **`0` coincidencias (`AUDIT_UI_DOMAIN_IMPORTS=0`)**.
   4. `npm --prefix mipeluqueria-saas-web run build` -> **`0` errores (`24/24` rutas compiladas con `Plus Jakarta Sans` + `JetBrains Mono`)**.
+
+### [TAREA 8.2] - Fixes Críticos Backend #1 (Cálculo de `HistorialCajas` Abierta + Rango Semanal de Turnos) + Tests xUnit
+- **Estado:** COMPLETADA
+- **Archivos Creados:**
+  - `MiPeluqueria.Api.Tests/Etapa8BackendFixesTests.cs`
+- **Archivos Modificados:**
+  - `MiPeluqueria.Api/Repositories/Implementations/SesionCajaRepository.cs` (`GetHistorialCajasPagedAsync` y `GetHistorialCajasAsync` incorporan `.AsSplitQuery()` con carga de `MovimientosCaja` y `Ventas -> Pagos -> MedioPago` solo sobre la página solicitada y normalización de borde final `23:59:59.9999999` cuando `FechaHasta` tiene `TimeOfDay == TimeSpan.Zero`)
+  - `MiPeluqueria.Api/Services/Implementations/CajaService.cs` (`ObtenerHistorialCajasAsync` recalcula `TotalVentasEfectivo`, `TotalVentasDigital`, `TotalIngresosManuales`, `TotalEgresosManuales` y `MontoFinalEsperado` mediante `CalcularTotalesColecciones` para sesiones abiertas o con movimientos/ventas activas, garantizando coincidencia exacta al centavo con `GET /api/caja/estado-actual` y `GET /api/caja/{id}`)
+  - `MiPeluqueria.Api/Repositories/Implementations/TurnoRepository.cs` (`GetPagedAsync` aplica filtro por `FechaDesde` y `FechaHasta` cuando no se envía `fecha` puntual, expandiendo `FechaHasta` con `TimeOfDay == TimeSpan.Zero` hasta `Date.AddDays(1).AddTicks(-1)` para incluir íntegramente el último día de la semana y preservando el 100% del comportamiento cuando se envía `fecha`)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - **Cero Ruptura de Contratos API:** Se mantuvieron intactos todos los nombres de propiedades de `SesionCajaResponseDto`, `TurnoResponseDto`, `PaginationFilterDto` y las rutas HTTP vigentes.
+  - **Causa Raíz Resuelta en Historial de Cajas:** En `ObtenerHistorialCajasAsync`, la lectura previa con `recalcularDesdeColecciones: false` exponía acumuladores desfasados en sesiones abiertas cuando concurrían cobros POS y egresos de órdenes de compra. Al cargar las colecciones de la página con `.AsSplitQuery()` y aplicar `CalcularTotalesColecciones`, los 3 endpoints (`GET /api/caja/estado-actual`, `GET /api/caja/{id}` y `GET /api/caja/historial`) ejecutan exactamente la misma fórmula de la Regla 4.1 (`05_BUSINESS_RULES.md`).
+- **Sensores Determinísticos Ejecutados:**
+  1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --warnaserror -m:1 -p:UseSharedCompilation=false` -> **`0 Errores / 0 Advertencias` (`11.25 s`)**.
+  2. `dotnet test MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj --no-build --verbosity normal` -> **`37/37 PASS` (`35` previos + `2` nuevos en `Etapa8BackendFixesTests`, `0 FAIL`, `0 SKIP` en `49.66 s`)**.
+
 
 

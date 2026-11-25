@@ -70,7 +70,11 @@ namespace MiPeluqueria.Api.Services.Implementations
             var usuariosDict = await CargarUsuariosSesionAsync(items, ct);
 
             var data = items
-                .Select(c => MapToResponseDto(c, usuariosDict, incluirMovimientos: false, recalcularDesdeColecciones: false))
+                .Select(c => MapToResponseDto(
+                    c,
+                    usuariosDict,
+                    incluirMovimientos: false,
+                    recalcularDesdeColecciones: c.EstadoAbierta || c.Ventas.Count > 0 || c.MovimientosCaja.Count > 0))
                 .ToList();
 
             var pagedResult = new PagedResult<SesionCajaResponseDto>

@@ -7,9 +7,9 @@
 
 ## 1. ESTADO ACTUAL DEL PROYECTO (PUNTERO DE EJECUCIÓN)
 
-* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8A COMPLETADA -> DETENIDO EN HARD GATE 6A)`
-* **Última Tarea Completada:** `TAREA 8.3 - Fixes Críticos Backend #2 (Liquidaciones Duplicadas, Pagar, PeluqueroNombre en Comisiones) + Rol Real SuperAdminSaaS (RolId = 6)`
-* **Tarea Actual en Curso:** `PENDIENTE APROBACIÓN HARD GATE 6A -> PRÓXIMA: TAREA 8.4 - App Shell Compacto (1280x720 / 1366x768): Sidebar Agrupado, Topbar, Switch Claro/Oscuro y Caja con Fecha`
+* **Estado Global de Ingeniería:** `ETAPA 8 EN CURSO (v1.1.0 — FASE 8B EN PROGRESO)`
+* **Última Tarea Completada:** `TAREA 8.4 - App Shell Compacto (1280x720 / 1366x768): Sidebar Agrupado, Topbar, Switch Claro/Oscuro y Caja con Fecha`
+* **Tarea Actual en Curso:** `TAREA 8.5 - Mi Puesto Profesional (/peluquero) + Calendario Master (/recepcion/calendario)`
 * **Estado de Compilación, Sonda y Testing Backend (`dotnet build --warnaserror` + `probe-api-22.mjs` + `dotnet test`):** `0 Errores / 0 Advertencias — Sonda Runtime 22/22 200 OK (27 ms prom. en caliente, máx. 75 ms) — Health Checks /health/live y /health/ready 200 Healthy — Serilog JSON Zero-PII activo (0 errores) — xUnit 40/40 Tests PASS (10 BDD + 22 Contratos + 3 Observabilidad + 5 Etapa 8 Fixes, 0 FAIL, 0 SKIP)`
 * **Estado de Migración SQL Server:** `MiPeluqueriaDB_Tests migrada y validada (Up + Down) con 20261125014902_AddSuperAdminSaaSRole; comando exacto documentado para aplicar sobre MiPeluqueriaDB al liberar conexiones locales.`
 * **Estado de Compilación, Frontera UI, E2E y CI/CD (`tsc --noEmit` + `next build` + Playwright E2E + GitHub Actions):** `0 Errores de TypeScript / 0 Errores de Build Producción (24/24 páginas con Plus Jakarta Sans + JetBrains Mono y Design System Dual) / 0 imports de dominio en src/components/ui / 0 ocurrencias de any / Playwright E2E 5/5 PASS (v1.0.0) / Pipeline .github/workflows/ci.yml validado`
@@ -1234,6 +1234,22 @@
   1. `dotnet build MiPeluqueria.Api/MiPeluqueria.Api.sln --no-restore --warnaserror -m:1 -p:UseSharedCompilation=false` -> **`0 Errores / 0 Advertencias` (`10.30 s`)**.
   2. Verificación de migración `Down` + `Up` (`20261125014902_AddSuperAdminSaaSRole`) sobre `MiPeluqueriaDB_Tests` -> **`EXIT 0` (`Done.`)**.
   3. `dotnet test MiPeluqueria.Api.Tests/MiPeluqueria.Api.Tests.csproj --no-build --verbosity normal` -> **`40/40 PASS` (`35` previos + `2` Tarea 8.2 + `3` Tarea 8.3, `0 FAIL`, `0 SKIP`)**.
+
+### [TAREA 8.4] - App Shell Compacto (`1280x720` / `1366x768`): Sidebar Agrupado, Topbar, Switch Claro/Oscuro y Caja con Fecha
+- **Estado:** COMPLETADA (FASE 8B iniciada tras aprobación de HARD GATE 6A)
+- **Archivos Creados:** Ninguno
+- **Archivos Modificados:**
+  - `mipeluqueria-saas-web/src/app/(dashboard)/layout.tsx` (rediseño integral del App Shell sobre Design System Dual *Studio Clean* / *Obsidian & Indigo*: Sidebar compacto `w-56` / `224px` en desktop con drawer colapsable en `< lg`, `<BrandLogo />` con placa clara para logo negro y badge discreto de Rol sin `TENANT #1` ni prefijos numéricos `1..10`, navegación agrupada con íconos `lucide-react` 16px en *Mi Espacio*, *Operación*, *Gestión* y *Plataforma* exclusivo `SuperAdminSaaS`, footer con indicador semántico `Caja #N • DD/MM` / `Caja Cerrada` con fecha real `fechaApertura`, Topbar fino `h-14` con breadcrumb de sección, fecha del día del salón en español `Mar, 24 Nov 2026`, selector compacto de sucursal y `<ThemeToggle />`, área principal `min-w-0 flex-1 overflow-x-hidden px-4 py-4 lg:px-6 lg:py-5` garantizando `~1056px` libres y `0px` de desborde horizontal a `1280x720`, y modal de cambio de contraseña con copywriting humano libre de jerga técnica)
+  - `docs/07_EXECUTION_LEDGER_AND_CHANGELOG.md`
+- **Archivos Eliminados:** Ninguno
+- **Decisiones Especiales:**
+  - El formateo de fecha del salón en el Topbar se ejecuta en cliente (`useEffect`) con `Intl.DateTimeFormat('es-AR')` y fallback seguro ante identificadores Windows de zona horaria (`TimeZoneId`), evitando desajustes de hidratación SSR y excepciones `RangeError`.
+  - No se requirieron cambios en `DesignSystem.tsx`, preservando compatibilidad 100% con las vistas existentes y manteniendo la frontera agnóstica intacta.
+- **Sensores Determinísticos Ejecutados:**
+  1. `npm --prefix mipeluqueria-saas-web run typecheck` (`tsc --noEmit`) -> **`0` errores (`EXIT 0`)**.
+  2. Auditoría `\bany\b` en `mipeluqueria-saas-web/src/**` -> **`ANY_MATCHES=0`**.
+  3. Auditoría frontera agnóstica (`services/|useDomainQueries|\.types`) en `mipeluqueria-saas-web/src/components/ui/*.tsx` -> **`UI_DOMAIN_IMPORTS=0`**.
+  4. `npm --prefix mipeluqueria-saas-web run build` (`next build`) -> **`0` errores (`24/24` páginas estáticas generadas, Middleware `26.8 kB`, `EXIT 0`)**.
 
 
 
